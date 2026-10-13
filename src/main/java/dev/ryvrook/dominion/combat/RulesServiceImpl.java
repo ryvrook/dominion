@@ -1,0 +1,281 @@
+package dev.ryvrook.dominion.combat;
+
+import dev.ryvrook.dominion.DominionContext;
+import dev.ryvrook.dominion.api.Result;
+import dev.ryvrook.dominion.config.Settings;
+import dev.ryvrook.dominion.model.ClaimEntry;
+import dev.ryvrook.dominion.model.Faction;
+import dev.ryvrook.dominion.model.FactionAction;
+import dev.ryvrook.dominion.model.FactionType;
+import dev.ryvrook.dominion.model.Member;
+import dev.ryvrook.dominion.model.Rank;
+import dev.ryvrook.dominion.model.Relation;
+import dev.ryvrook.dominion.model.Zone;
+import dev.ryvrook.dominion.service.ClaimService;
+import dev.ryvrook.dominion.service.FactionService;
+import dev.ryvrook.dominion.service.RelationService;
+import dev.ryvrook.dominion.service.RulesService;
+import dev.ryvrook.dominion.service.SiegeService;
+import dev.ryvrook.dominion.util.Keys;
+import dev.ryvrook.dominion.util.Time;
+
+import java.util.EnumSet;
+import java.util.Locale;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
+
+/** The single decision function for protection and PvP. Safe to call from any thread. */
+public final class RulesServiceImpl implements RulesService {
+    private static final EnumSet<FactionAction> HOLD_LIMITED =
+            EnumSet.of(FactionAction.CLAIM, FactionAction.UNCLAIM, FactionAction.WITHDRAW, FactionAction.VAULT);
+
+    private final DominionContext ctx;
+    private final Set<UUID> bypass = ConcurrentHashMap.newKeySet();
+
+    RulesServiceImpl(DominionContext ctx) {
+        this.ctx = ctx;
+    }
+
+    // ---- protection -------------------------------------------------------
+
+    @Override
+    public Result canAct(UUID player, FactionAction action, String world, int blockX, int blockY, int blockZ) {
+        return canAct(player, action, world, Keys.chunkAtBlock(blockX, blockZ));
+    }
+
+    @Override
+    public Result canAct(UUID player, FactionAction action, String world, long chunkIndex) {
+        if (player == null || action == null || bypassing(player) || world == null) {
+            return Result.pass();
+        }
+        Faction owner = ctx.repo().ownerAt(world, chunkIndex);
+        if (owner == null) {
+            return Result.pass();
+        }
+        if (owner.type() == FactionType.SAFEZONE) {
+            if (action == FactionAction.BUILD || action == FactionAction.CONTAINER || action == FactionAction.DAMAGE_ENTITY) {
+                return Result.fail("You cannot " + verb(action) + " in the SafeZone " + owner.name() + ".");
+            }
+            return Result.pass();
+        }
+        if (owner.type() == FactionType.WARZONE) {
+            if (action == FactionAction.BUILD || action == FactionAction.CONTAINER) {
+                return Result.fail("You cannot " + verb(action) + " in the WarZone " + owner.name() + ".");
+            }
+            return Result.pass();
+        }
+        Faction mine = factionOf(player);
+        if (mine != null && mine.id().equals(owner.id())) {
+            Rank rank = owner.rankOf(player);
+            if (rank == null) {
+                return Result.fail("You are not on the roster of " + owner.tag() + " yet.");
+            }
+            Member m = owner.member(player);
+            if (rank != Rank.LEADER && m != null && m.onHold(Time.now()) && HOLD_LIMITED.contains(action)) {
+                rank = Rank.RECRUIT;
+            }
+            Zone zone = zoneAt(owner, world, chunkIndex);
+            Boolean zoned = zone == null || rank == Rank.LEADER ? null : zone.rankCan(rank, action);
+            boolean allowed = zoned != null ? zoned : owner.rankCan(rank, action);
+            if (allowed) {
+                return Result.pass();
+            }
+            if (zoned != null) {
+                return Result.fail("Your rank cannot " + verb(action) + " in the zone " + zone.name() + ".");
+            }
+            return Result.fail("Your rank in " + owner.tag() + " cannot " + verb(action) + " here.");
+        }
+        Relation relation = relation(player, owner);
+        if (relation == Relation.ENEMY) {
+            ClaimService claims = ctx.serviceOrNull(ClaimService.class);
+            if (claims != null && mine != null) {
+                if (claims.breached(world, chunkIndex, mine.id())) {
+                    return Result.pass();
+                }
+                if (action == FactionAction.BUILD && claims.raidableBy(mine, owner, world, chunkIndex).success()) {
+                    return Result.pass();
+                }
+            }
+            return Result.fail(owner.tag() + " is your enemy and you cannot " + verb(action) + " in its land.");
+        }
+        Zone zone = zoneAt(owner, world, chunkIndex);
+        Boolean zoned = zone == null ? null : zone.relationCan(relation, action);
+        if (zoned != null) {
+            return zoned ? Result.pass()
+                    : Result.fail(owner.tag() + " does not let you " + verb(action) + " in its zone " + zone.name() + ".");
+        }
+        if (relation == Relation.ALLY && action == FactionAction.BUILD
+                && !owner.setting("allyBuild", ctx.settings().bool("relation.allyBuildDefault"))) {
+            return Result.fail(owner.tag() + " does not let allies build in its land.");
+        }
+        if (relation == Relation.TRUCE && action == FactionAction.INTERACT
+                && !owner.setting("truceInteract", ctx.settings().bool("relation.truceInteractDefault"))) {
+            return Result.fail(owner.tag() + " does not let truces use things in its land.");
+        }
+        if (owner.relationCan(relation, action)) {
+            return Result.pass();
+        }
+        return Result.fail(owner.tag() + " does not let you " + verb(action) + " in its land.");
+    }
+
+    /** The zone a claimed chunk belongs to, or null when it has none or the zone was deleted. */
+    private Zone zoneAt(Faction owner, String world, long chunkIndex) {
+        ClaimEntry entry = ctx.repo().claimAt(world, chunkIndex);
+        if (entry == null || entry.zoneId() == null || !owner.id().equals(entry.factionId())) {
+            return null;
+        }
+        return owner.zone(entry.zoneId());
+    }
+
+    private static String verb(FactionAction action) {
+        return switch (action) {
+            case BUILD -> "build";
+            case CONTAINER -> "open containers";
+            case INTERACT -> "use that";
+            case DAMAGE_ENTITY -> "hurt creatures";
+            default -> action.description().toLowerCase(Locale.ROOT);
+        };
+    }
+
+    /**
+     * Called after an allowed build or container action. When the chunk is breached for the
+     * actor's faction the siege module records it. Does nothing when no siege module is loaded.
+     */
+    void reportBreach(UUID player, FactionAction action, String world, long chunkIndex) {
+        if (player == null || world == null || (action != FactionAction.BUILD && action != FactionAction.CONTAINER)) {
+            return;
+        }
+        // Most allowed actions happen in the wild or at home. Only claimed land can be breached.
+        Faction owner = ctx.repo().ownerAt(world, chunkIndex);
+        if (owner == null || owner.isSystem()) {
+            return;
+        }
+        SiegeService siege = ctx.serviceOrNull(SiegeService.class);
+        ClaimService claims = ctx.serviceOrNull(ClaimService.class);
+        if (siege == null || claims == null) {
+            return;
+        }
+        Faction mine = factionOf(player);
+        if (mine == null || mine.id().equals(owner.id()) || !claims.breached(world, chunkIndex, mine.id())) {
+            return;
+        }
+        try {
+            siege.onBreachAction(player, world, chunkIndex, action == FactionAction.CONTAINER);
+        } catch (RuntimeException e) {
+            ctx.logger().at(Level.WARNING).withCause(e).log("Dominion siege breach hook failed");
+        }
+    }
+
+    // ---- pvp --------------------------------------------------------------
+
+    @Override
+    public boolean canPvp(UUID attacker, UUID victim, String world, long victimChunk) {
+        return pvp(attacker, victim, world, victimChunk).success();
+    }
+
+    /** PvP decision that also stops attackers hitting out of a SafeZone. */
+    Result pvp(UUID attacker, UUID victim, String world, long victimChunk, long attackerChunk) {
+        if (world != null && attackerChunk != Long.MIN_VALUE && attacker != null && !attacker.equals(victim)) {
+            Faction from = ctx.repo().ownerAt(world, attackerChunk);
+            if (from != null && from.type() == FactionType.SAFEZONE) {
+                return Result.fail("You cannot fight from inside the SafeZone.");
+            }
+        }
+        return pvp(attacker, victim, world, victimChunk);
+    }
+
+    /** PvP decision with a reason for the attacker. Grace does not block PvP. */
+    Result pvp(UUID attacker, UUID victim, String world, long victimChunk) {
+        if (attacker == null || victim == null || attacker.equals(victim)) {
+            return Result.pass();
+        }
+        Settings s = ctx.settings();
+        Faction zone = world == null ? null : ctx.repo().ownerAt(world, victimChunk);
+        if (zone != null && zone.type() == FactionType.SAFEZONE) {
+            return Result.fail("You cannot fight in the SafeZone.");
+        }
+        Faction a = factionOf(attacker);
+        Faction v = factionOf(victim);
+        if (zone != null && zone.type() == FactionType.WARZONE) {
+            // WarZones always allow fighting, except between members of the same faction.
+            if (a != null && v != null && a.id().equals(v.id())) {
+                return Result.fail("You cannot hurt your own faction in a WarZone.");
+            }
+            return Result.pass();
+        }
+        if (a == null || v == null) {
+            return s.bool("combat.pvpFactionless") ? Result.pass()
+                    : Result.fail("Fighting players without a faction is turned off.");
+        }
+        if (a.id().equals(v.id())) {
+            return a.setting("friendlyFire", s.bool("combat.friendlyFireDefault")) ? Result.pass()
+                    : Result.fail("Friendly fire is off in your faction.");
+        }
+        Relation r = between(a, v);
+        return switch (r) {
+            case ALLY -> s.bool("combat.allyFire") ? Result.pass() : Result.fail("You cannot hurt your allies.");
+            case TRUCE -> s.bool("combat.truceFire") ? Result.pass() : Result.fail("You cannot hurt factions you have a truce with.");
+            case NEUTRAL -> s.bool("combat.pvpNeutral") ? Result.pass() : Result.fail("Fighting neutral factions is turned off.");
+            case ENEMY, OWN -> Result.pass();
+        };
+    }
+
+    // ---- toggles ----------------------------------------------------------
+
+    @Override
+    public boolean bypassing(UUID player) {
+        return player != null && bypass.contains(player);
+    }
+
+    @Override
+    public void setBypass(UUID player, boolean on) {
+        if (player == null) {
+            return;
+        }
+        if (on) {
+            bypass.add(player);
+        } else {
+            bypass.remove(player);
+        }
+    }
+
+    @Override
+    public boolean graceActive() {
+        if (!ctx.settings().bool("grace.active")) {
+            return false;
+        }
+        long ends = ctx.settings().longValue("grace.endsAt");
+        return ends <= 0 || Time.now() < ends;
+    }
+
+    @Override
+    public boolean eotwActive() {
+        return ctx.settings().bool("eotw.active");
+    }
+
+    // ---- lookups ----------------------------------------------------------
+
+    Faction factionOf(UUID player) {
+        FactionService fs = ctx.serviceOrNull(FactionService.class);
+        if (fs != null) {
+            return fs.factionOf(player);
+        }
+        return ctx.repo().faction(ctx.player(player).factionId());
+    }
+
+    private Relation relation(UUID player, Faction owner) {
+        RelationService rs = ctx.serviceOrNull(RelationService.class);
+        if (rs != null) {
+            return rs.playerToFaction(player, owner);
+        }
+        Faction mine = factionOf(player);
+        return mine == null ? Relation.NEUTRAL : mine.relationTo(owner.id());
+    }
+
+    private Relation between(Faction a, Faction b) {
+        RelationService rs = ctx.serviceOrNull(RelationService.class);
+        return rs != null ? rs.between(a, b) : a.relationTo(b.id());
+    }
+}

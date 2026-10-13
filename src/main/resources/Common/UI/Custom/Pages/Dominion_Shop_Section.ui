@@ -1,0 +1,9 @@
+Group {
+  Anchor: (Height: 30, Top: 8, Bottom: 4);
+  LayoutMode: Left;
+
+  Label #Text {
+    Style: (FontSize: 14, TextColor: #E8A93B, RenderUppercase: true, RenderBold: true, LetterSpacing: 0.5, VerticalAlignment: End);
+    FlexWeight: 1;
+  }
+}

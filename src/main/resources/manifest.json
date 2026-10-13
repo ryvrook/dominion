@@ -1,0 +1,19 @@
+{
+  "Group": "Ryvrook",
+  "Name": "Dominion",
+  "Version": "0.1.0",
+  "Description": "Factions for Hytale. Members, ranks, permissions, chunk claims, power, relations, homes, chat, map, HUD and more. Open the panel with /f.",
+  "Main": "dev.ryvrook.dominion.DominionPlugin",
+  "Authors": [
+    {
+      "Name": "ryvrook"
+    }
+  ],
+  "Website": "https://github.com/ryvrook/dominion",
+  "ServerVersion": ">=0.6.8",
+  "Dependencies": {},
+  "OptionalDependencies": {},
+  "LoadBefore": {},
+  "DisabledByDefault": false,
+  "IncludesAssetPack": true
+}

@@ -1,0 +1,118 @@
+$C = "../Common.ui";
+
+@HeaderStyle = LabelStyle(FontSize: 13, TextColor: #96a9be, RenderUppercase: true, RenderBold: true, LetterSpacing: 0.5, VerticalAlignment: Center);
+@TagStyle = LabelStyle(FontSize: 24, TextColor: #7fd6ff, RenderBold: true, FontName: "Secondary", VerticalAlignment: Center);
+@NameStyle = LabelStyle(FontSize: 18, TextColor: #d3d6db, RenderBold: true, VerticalAlignment: Center);
+@MutedStyle = LabelStyle(FontSize: 13, TextColor: #878e9c, VerticalAlignment: Center);
+
+$C.@PageOverlay {}
+
+$C.@Container {
+  Anchor: (Width: 1120, Height: 740);
+
+  #Title {
+    Group {
+      $C.@Title {
+        @Text = "Dominion";
+      }
+    }
+  }
+
+  #Content {
+    LayoutMode: Top;
+
+    Group #Header {
+      LayoutMode: Left;
+      Anchor: (Height: 56, Bottom: 10);
+      Padding: (Horizontal: 12);
+      Background: (TexturePath: "../Common/ContainerBackgroundSecondary.png", Border: 23);
+
+      Label #HeaderTag {
+        Style: @TagStyle;
+        Anchor: (Right: 12);
+      }
+
+      Label #HeaderName {
+        Style: @NameStyle;
+        FlexWeight: 1;
+      }
+
+      Group {
+        LayoutMode: Top;
+        Anchor: (Width: 220, Top: 8);
+
+        Label #HeaderPowerLabel {
+          Style: @HeaderStyle;
+          Text: "Faction power";
+          Anchor: (Height: 16);
+        }
+
+        Label #HeaderPower {
+          Style: (...@NameStyle, FontSize: 16);
+          Anchor: (Height: 22);
+        }
+      }
+
+      Group {
+        LayoutMode: Top;
+        Anchor: (Width: 160, Top: 8);
+
+        Label #HeaderRankLabel {
+          Style: @HeaderStyle;
+          Text: "Your rank";
+          Anchor: (Height: 16);
+        }
+
+        Label #HeaderRank {
+          Style: (...@NameStyle, FontSize: 16);
+          Anchor: (Height: 22);
+        }
+      }
+    }
+
+    Group #Main {
+      FlexWeight: 1;
+      LayoutMode: Left;
+
+      Group #Sidebar {
+        Anchor: (Width: 210, Right: 12);
+        LayoutMode: Top;
+
+        Group #Tabs {
+          LayoutMode: TopScrolling;
+          ScrollbarStyle: $C.@TranslucentScrollbarStyle;
+          FlexWeight: 1;
+        }
+      }
+
+      Group #Right {
+        FlexWeight: 1;
+        LayoutMode: Top;
+
+        Group #BodyHeader {
+          LayoutMode: Left;
+          Anchor: (Height: 26, Bottom: 6);
+
+          Label #TabTitle {
+            Style: (FontSize: 17, TextColor: #d3d6db, RenderBold: true, RenderUppercase: true, VerticalAlignment: Center);
+            FlexWeight: 1;
+          }
+
+          Label #TabHint {
+            Style: (...@MutedStyle, HorizontalAlignment: End);
+            Anchor: (Width: 340);
+          }
+        }
+
+        Group #Body {
+          FlexWeight: 1;
+          LayoutMode: TopScrolling;
+          ScrollbarStyle: $C.@DefaultScrollbarStyle;
+          Padding: (Right: 8);
+        }
+      }
+    }
+  }
+}
+
+$C.@BackButton {}

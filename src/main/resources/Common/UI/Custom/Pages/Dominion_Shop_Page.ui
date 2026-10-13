@@ -1,0 +1,88 @@
+$C = "../Common.ui";
+
+@MutedStyle = LabelStyle(FontSize: 13, TextColor: #878e9c, VerticalAlignment: Center);
+
+$C.@PageOverlay {}
+
+$C.@Container {
+  Anchor: (Width: 1040, Height: 720);
+
+  #Title {
+    Group {
+      $C.@Title #PageTitle {
+        @Text = "Shop";
+      }
+    }
+  }
+
+  #Content {
+    LayoutMode: Top;
+
+    Group {
+      LayoutMode: Left;
+      Anchor: (Height: 48, Bottom: 8);
+      Padding: (Horizontal: 12);
+      Background: (TexturePath: "../Common/ContainerBackgroundSecondary.png", Border: 23);
+
+      Label #Heading {
+        Style: (FontSize: 20, TextColor: #d3d6db, RenderBold: true, FontName: "Secondary", VerticalAlignment: Center);
+        FlexWeight: 1;
+      }
+
+      Label #Subheading {
+        Style: (...@MutedStyle, HorizontalAlignment: End);
+        Anchor: (Width: 420);
+      }
+    }
+
+    Group {
+      FlexWeight: 1;
+      LayoutMode: Left;
+
+      Group #Sidebar {
+        Anchor: (Width: 210, Right: 12);
+        LayoutMode: Top;
+
+        Group #Tabs {
+          LayoutMode: TopScrolling;
+          ScrollbarStyle: $C.@TranslucentScrollbarStyle;
+          FlexWeight: 1;
+        }
+      }
+
+      Group #Body {
+        FlexWeight: 1;
+        LayoutMode: TopScrolling;
+        ScrollbarStyle: $C.@DefaultScrollbarStyle;
+        Padding: (Right: 8);
+      }
+    }
+
+    Group {
+      LayoutMode: Right;
+      Anchor: (Height: 40, Top: 8);
+
+      $C.@SmallSecondaryTextButton #F3 {
+        @Anchor = (Width: 160, Left: 6);
+        Visible: false;
+      }
+
+      $C.@SmallSecondaryTextButton #F2 {
+        @Anchor = (Width: 160, Left: 6);
+        Visible: false;
+      }
+
+      $C.@SmallSecondaryTextButton #F1 {
+        @Anchor = (Width: 160, Left: 6);
+        Visible: false;
+      }
+
+      Label #Footer {
+        Style: @MutedStyle;
+        FlexWeight: 1;
+      }
+    }
+  }
+}
+
+$C.@BackButton {}

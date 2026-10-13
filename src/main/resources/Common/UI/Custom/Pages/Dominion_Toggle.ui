@@ -1,0 +1,28 @@
+$C = "../Common.ui";
+
+Group {
+  Anchor: (Height: 40, Bottom: 3);
+  Padding: (Horizontal: 10);
+  Background: #000000(0.18);
+  LayoutMode: Left;
+
+  Label #Label {
+    Style: (FontSize: 14, TextColor: #d3d6db, VerticalAlignment: Center);
+    FlexWeight: 1;
+  }
+
+  Label #Key {
+    Style: (FontSize: 12, TextColor: #878e9c, VerticalAlignment: Center);
+    Anchor: (Width: 220);
+  }
+
+  Label #State {
+    Style: (FontSize: 14, TextColor: #878e9c, RenderBold: true, RenderUppercase: true, VerticalAlignment: Center, HorizontalAlignment: End);
+    Anchor: (Width: 70, Right: 10);
+  }
+
+  $C.@SmallSecondaryTextButton #Button {
+    @Anchor = (Width: 104, Top: 4);
+    Padding: (Horizontal: 6);
+  }
+}

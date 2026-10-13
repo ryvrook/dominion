@@ -1,0 +1,65 @@
+$C = "../Common.ui";
+
+$C.@PageOverlay {}
+
+$C.@Container {
+  Anchor: (Width: 900, Height: 680);
+
+  #Title {
+    Group {
+      $C.@Title #PageTitle {
+        @Text = "Dominion";
+      }
+    }
+  }
+
+  #Content {
+    LayoutMode: Top;
+
+    Group {
+      LayoutMode: Left;
+      Anchor: (Height: 44, Bottom: 8);
+      Padding: (Horizontal: 12);
+      Background: (TexturePath: "../Common/ContainerBackgroundSecondary.png", Border: 23);
+
+      Label #Heading {
+        Style: (FontSize: 20, TextColor: #d3d6db, RenderBold: true, FontName: "Secondary", VerticalAlignment: Center);
+        FlexWeight: 1;
+      }
+
+      Label #Subheading {
+        Style: (FontSize: 13, TextColor: #878e9c, VerticalAlignment: Center, HorizontalAlignment: End);
+        Anchor: (Width: 360);
+      }
+    }
+
+    Group #Body {
+      FlexWeight: 1;
+      LayoutMode: TopScrolling;
+      ScrollbarStyle: $C.@DefaultScrollbarStyle;
+      Padding: (Right: 8);
+    }
+
+    Group {
+      LayoutMode: Right;
+      Anchor: (Height: 40, Top: 8);
+
+      $C.@SmallSecondaryTextButton #F3 {
+        @Anchor = (Width: 150, Left: 6);
+        Visible: false;
+      }
+
+      $C.@SmallSecondaryTextButton #F2 {
+        @Anchor = (Width: 150, Left: 6);
+        Visible: false;
+      }
+
+      $C.@SmallSecondaryTextButton #F1 {
+        @Anchor = (Width: 150, Left: 6);
+        Visible: false;
+      }
+    }
+  }
+}
+
+$C.@BackButton {}

@@ -1,0 +1,43 @@
+$C = "../Common.ui";
+
+Group {
+  Anchor: (Height: 40, Bottom: 4);
+  LayoutMode: Left;
+
+  $C.@SmallSecondaryTextButton #B0 {
+    @Anchor = (Width: 132, Right: 6, Top: 4);
+    Padding: (Horizontal: 6);
+    Visible: false;
+  }
+
+  $C.@SmallSecondaryTextButton #B1 {
+    @Anchor = (Width: 132, Right: 6, Top: 4);
+    Padding: (Horizontal: 6);
+    Visible: false;
+  }
+
+  $C.@SmallSecondaryTextButton #B2 {
+    @Anchor = (Width: 132, Right: 6, Top: 4);
+    Padding: (Horizontal: 6);
+    Visible: false;
+  }
+
+  $C.@SmallSecondaryTextButton #B3 {
+    @Anchor = (Width: 132, Right: 6, Top: 4);
+    Padding: (Horizontal: 6);
+    Visible: false;
+  }
+
+  $C.@SmallSecondaryTextButton #B4 {
+    @Anchor = (Width: 132, Right: 6, Top: 4);
+    Padding: (Horizontal: 6);
+    Visible: false;
+  }
+
+  $C.@SmallSecondaryTextButton #B5 {
+    @Anchor = (Width: 132, Right: 6, Top: 4);
+    Padding: (Horizontal: 6);
+    Visible: false;
+  }
+
+}

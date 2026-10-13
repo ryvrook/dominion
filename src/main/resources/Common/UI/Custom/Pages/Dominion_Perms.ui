@@ -1,0 +1,55 @@
+$C = "../Common.ui";
+
+$C.@PageOverlay {}
+
+$C.@Container {
+  Anchor: (Width: 1060, Height: 720);
+
+  #Title {
+    Group {
+      $C.@Title {
+        @Text = "Faction permissions";
+      }
+    }
+  }
+
+  #Content {
+    LayoutMode: Top;
+
+    Group {
+      LayoutMode: Left;
+      Anchor: (Height: 34, Bottom: 6);
+
+      Label #Subtitle {
+        Style: (FontSize: 14, TextColor: #96a9be, VerticalAlignment: Center);
+        FlexWeight: 1;
+      }
+
+      $C.@SmallSecondaryTextButton #Back {
+        @Anchor = (Width: 170, Left: 6);
+        @Text = "Back to panel";
+        Padding: (Horizontal: 6);
+      }
+
+      $C.@SmallSecondaryTextButton #Reset {
+        @Anchor = (Width: 170, Left: 6);
+        @Text = "Reset to defaults";
+        Padding: (Horizontal: 6);
+      }
+    }
+
+    Group #Head {
+      LayoutMode: Top;
+      Anchor: (Height: 31);
+    }
+
+    Group #List {
+      FlexWeight: 1;
+      LayoutMode: TopScrolling;
+      ScrollbarStyle: $C.@DefaultScrollbarStyle;
+      Padding: (Right: 8);
+    }
+  }
+}
+
+$C.@BackButton {}

@@ -1,0 +1,33 @@
+@LabelStyle = LabelStyle(FontSize: 14, TextColor: #96a9be, RenderUppercase: true, RenderBold: true, HorizontalAlignment: Start, VerticalAlignment: Center, LetterSpacing: 0.5);
+@SelectedLabelStyle = LabelStyle(...@LabelStyle, TextColor: #E8A93B);
+
+Group {
+  Anchor: (Height: 36, Bottom: 4);
+  LayoutMode: Left;
+
+  TextButton #Button {
+    FlexWeight: 1;
+    Padding: (Horizontal: 10);
+    Style: (
+      Default: (LabelStyle: @LabelStyle),
+      Hovered: (LabelStyle: (...@LabelStyle, TextColor: #d3d6db), Background: #000000(0.25)),
+      Pressed: (LabelStyle: (...@LabelStyle, TextColor: #d3d6db), Background: #000000(0.35))
+    );
+  }
+
+  TextButton #Selected {
+    Visible: false;
+    FlexWeight: 1;
+    Padding: (Horizontal: 10);
+    Style: (
+      Default: (LabelStyle: @SelectedLabelStyle, Background: #000000(0.35)),
+      Hovered: (LabelStyle: @SelectedLabelStyle, Background: #000000(0.35)),
+      Pressed: (LabelStyle: @SelectedLabelStyle, Background: #000000(0.35))
+    );
+  }
+
+  Label #Count {
+    Style: (FontSize: 12, TextColor: #878e9c, VerticalAlignment: Center, HorizontalAlignment: End);
+    Anchor: (Width: 48, Right: 8);
+  }
+}

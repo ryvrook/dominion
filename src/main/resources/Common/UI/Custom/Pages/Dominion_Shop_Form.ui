@@ -1,0 +1,56 @@
+$C = "../Common.ui";
+
+@LabelStyle = LabelStyle(FontSize: 13, TextColor: #96a9be, VerticalAlignment: Center, HorizontalAlignment: End);
+
+Group {
+  Anchor: (Height: 44, Bottom: 4);
+  Padding: (Horizontal: 8);
+  Background: #000000(0.18);
+  LayoutMode: Left;
+
+  Label #L1 {
+    Style: @LabelStyle;
+    Anchor: (Width: 70, Right: 6);
+  }
+
+  $C.@TextField #I1 {
+    @Anchor = (Top: 3);
+    FlexWeight: 1;
+  }
+
+  Label #L2 {
+    Style: @LabelStyle;
+    Anchor: (Width: 70, Right: 6);
+    Visible: false;
+  }
+
+  $C.@TextField #I2 {
+    @Anchor = (Top: 3);
+    FlexWeight: 1;
+    Visible: false;
+  }
+
+  Label #L3 {
+    Style: @LabelStyle;
+    Anchor: (Width: 70, Right: 6);
+    Visible: false;
+  }
+
+  $C.@TextField #I3 {
+    @Anchor = (Top: 3);
+    FlexWeight: 1;
+    Visible: false;
+  }
+
+  $C.@SmallSecondaryTextButton #G1 {
+    @Anchor = (Width: 100, Left: 6, Top: 6);
+    Padding: (Horizontal: 6);
+    Visible: false;
+  }
+
+  $C.@SmallSecondaryTextButton #G2 {
+    @Anchor = (Width: 100, Left: 6, Top: 6);
+    Padding: (Horizontal: 6);
+    Visible: false;
+  }
+}

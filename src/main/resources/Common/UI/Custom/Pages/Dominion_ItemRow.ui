@@ -1,0 +1,51 @@
+$C = "../Common.ui";
+
+@CellStyle = LabelStyle(FontSize: 13, TextColor: #96a9be, VerticalAlignment: Center);
+
+Group {
+  Anchor: (Height: 44, Bottom: 3);
+  Padding: (Horizontal: 8);
+  Background: #000000(0.22);
+  LayoutMode: Left;
+
+  ItemIcon #Icon {
+    Anchor: (Width: 32, Height: 32, Top: 6, Right: 8);
+  }
+
+  Label #Name {
+    Style: (FontSize: 14, TextColor: #d3d6db, RenderBold: true, VerticalAlignment: Center);
+    FlexWeight: 1;
+  }
+
+  Label #Col1 {
+    Style: @CellStyle;
+    Anchor: (Width: 70);
+  }
+
+  Label #Col2 {
+    Style: @CellStyle;
+    Anchor: (Width: 96);
+  }
+
+  Label #Col3 {
+    Style: @CellStyle;
+    Anchor: (Width: 96);
+  }
+
+  $C.@TextField #Qty {
+    @Anchor = (Width: 72, Top: 3);
+    Visible: false;
+  }
+
+  $C.@SmallSecondaryTextButton #B1 {
+    @Anchor = (Width: 90, Left: 4, Top: 6);
+    Padding: (Horizontal: 6);
+    Visible: false;
+  }
+
+  $C.@SmallSecondaryTextButton #B2 {
+    @Anchor = (Width: 90, Left: 4, Top: 6);
+    Padding: (Horizontal: 6);
+    Visible: false;
+  }
+}

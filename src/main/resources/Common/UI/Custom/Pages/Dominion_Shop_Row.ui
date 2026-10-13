@@ -1,0 +1,65 @@
+$C = "../Common.ui";
+
+// Sized for a body about 764 px wide. Fixed parts take 634 px with every field and button shown
+// (padding 12, icon 34, columns 208, two fields 128, three buttons 252), leaving about 130 px for the name.
+
+@CellStyle = LabelStyle(FontSize: 13, TextColor: #96a9be, VerticalAlignment: Center);
+
+Group {
+  Anchor: (Height: 44, Bottom: 3);
+  Padding: (Horizontal: 6);
+  Background: #000000(0.22);
+  LayoutMode: Left;
+
+  ItemIcon #Icon {
+    Anchor: (Width: 28, Height: 28, Top: 8, Right: 6);
+  }
+
+  Label #Name {
+    Style: (FontSize: 14, TextColor: #d3d6db, RenderBold: true, VerticalAlignment: Center);
+    FlexWeight: 1;
+  }
+
+  Label #Col1 {
+    Style: @CellStyle;
+    Anchor: (Width: 72);
+  }
+
+  Label #Col2 {
+    Style: @CellStyle;
+    Anchor: (Width: 72);
+  }
+
+  Label #Col3 {
+    Style: @CellStyle;
+    Anchor: (Width: 64);
+  }
+
+  $C.@TextField #P1 {
+    @Anchor = (Width: 60, Top: 3, Left: 4);
+    Visible: false;
+  }
+
+  $C.@TextField #P2 {
+    @Anchor = (Width: 60, Top: 3, Left: 4);
+    Visible: false;
+  }
+
+  $C.@SmallSecondaryTextButton #B1 {
+    @Anchor = (Width: 80, Left: 4, Top: 6);
+    Padding: (Horizontal: 4);
+    Visible: false;
+  }
+
+  $C.@SmallSecondaryTextButton #B2 {
+    @Anchor = (Width: 80, Left: 4, Top: 6);
+    Padding: (Horizontal: 4);
+    Visible: false;
+  }
+
+  $C.@SmallSecondaryTextButton #B3 {
+    @Anchor = (Width: 80, Left: 4, Top: 6);
+    Padding: (Horizontal: 4);
+    Visible: false;
+  }
+}

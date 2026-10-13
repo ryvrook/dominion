@@ -1,0 +1,51 @@
+$C = "../Common.ui";
+
+// A label takes 118 px and each button 138 px, so a label with four buttons uses 670 px of a body
+// about 764 px wide. Without a label five buttons fit. B4 and B5 are spare slots the Java does not use yet.
+
+Group {
+  Anchor: (Height: 40, Bottom: 4);
+  LayoutMode: Left;
+
+  Label #Label {
+    Style: (FontSize: 13, TextColor: #96a9be, VerticalAlignment: Center);
+    Anchor: (Width: 110, Left: 8);
+    Visible: false;
+  }
+
+  $C.@SmallSecondaryTextButton #B0 {
+    @Anchor = (Width: 132, Right: 6, Top: 4);
+    Padding: (Horizontal: 6);
+    Visible: false;
+  }
+
+  $C.@SmallSecondaryTextButton #B1 {
+    @Anchor = (Width: 132, Right: 6, Top: 4);
+    Padding: (Horizontal: 6);
+    Visible: false;
+  }
+
+  $C.@SmallSecondaryTextButton #B2 {
+    @Anchor = (Width: 132, Right: 6, Top: 4);
+    Padding: (Horizontal: 6);
+    Visible: false;
+  }
+
+  $C.@SmallSecondaryTextButton #B3 {
+    @Anchor = (Width: 132, Right: 6, Top: 4);
+    Padding: (Horizontal: 6);
+    Visible: false;
+  }
+
+  $C.@SmallSecondaryTextButton #B4 {
+    @Anchor = (Width: 132, Right: 6, Top: 4);
+    Padding: (Horizontal: 6);
+    Visible: false;
+  }
+
+  $C.@SmallSecondaryTextButton #B5 {
+    @Anchor = (Width: 132, Right: 6, Top: 4);
+    Padding: (Horizontal: 6);
+    Visible: false;
+  }
+}

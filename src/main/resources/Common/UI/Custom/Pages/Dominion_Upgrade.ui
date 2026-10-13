@@ -1,0 +1,159 @@
+$C = "../Common.ui";
+
+Group {
+  Anchor: (Height: 52, Bottom: 3);
+  Padding: (Horizontal: 8);
+  Background: #000000(0.22);
+  LayoutMode: Left;
+
+  Group {
+    LayoutMode: Top;
+    FlexWeight: 1;
+
+    Label #Name {
+      Anchor: (Height: 24, Top: 2);
+      Style: (FontSize: 15, TextColor: #d3d6db, RenderBold: true, VerticalAlignment: Center);
+    }
+
+    Label #Desc {
+      Anchor: (Height: 20);
+      Style: (FontSize: 12, TextColor: #96a9be, VerticalAlignment: Center);
+    }
+  }
+
+  Group #Dots {
+    LayoutMode: Left;
+    Anchor: (Width: 150);
+
+    Group #On0 {
+      Visible: false;
+      Anchor: (Width: 10, Height: 10, Top: 17, Right: 4);
+      Background: (Color: #E8A93B);
+    }
+
+    Group #Off0 {
+      Visible: false;
+      Anchor: (Width: 10, Height: 10, Top: 17, Right: 4);
+      Background: (Color: #4a5260);
+    }
+
+    Group #On1 {
+      Visible: false;
+      Anchor: (Width: 10, Height: 10, Top: 17, Right: 4);
+      Background: (Color: #E8A93B);
+    }
+
+    Group #Off1 {
+      Visible: false;
+      Anchor: (Width: 10, Height: 10, Top: 17, Right: 4);
+      Background: (Color: #4a5260);
+    }
+
+    Group #On2 {
+      Visible: false;
+      Anchor: (Width: 10, Height: 10, Top: 17, Right: 4);
+      Background: (Color: #E8A93B);
+    }
+
+    Group #Off2 {
+      Visible: false;
+      Anchor: (Width: 10, Height: 10, Top: 17, Right: 4);
+      Background: (Color: #4a5260);
+    }
+
+    Group #On3 {
+      Visible: false;
+      Anchor: (Width: 10, Height: 10, Top: 17, Right: 4);
+      Background: (Color: #E8A93B);
+    }
+
+    Group #Off3 {
+      Visible: false;
+      Anchor: (Width: 10, Height: 10, Top: 17, Right: 4);
+      Background: (Color: #4a5260);
+    }
+
+    Group #On4 {
+      Visible: false;
+      Anchor: (Width: 10, Height: 10, Top: 17, Right: 4);
+      Background: (Color: #E8A93B);
+    }
+
+    Group #Off4 {
+      Visible: false;
+      Anchor: (Width: 10, Height: 10, Top: 17, Right: 4);
+      Background: (Color: #4a5260);
+    }
+
+    Group #On5 {
+      Visible: false;
+      Anchor: (Width: 10, Height: 10, Top: 17, Right: 4);
+      Background: (Color: #E8A93B);
+    }
+
+    Group #Off5 {
+      Visible: false;
+      Anchor: (Width: 10, Height: 10, Top: 17, Right: 4);
+      Background: (Color: #4a5260);
+    }
+
+    Group #On6 {
+      Visible: false;
+      Anchor: (Width: 10, Height: 10, Top: 17, Right: 4);
+      Background: (Color: #E8A93B);
+    }
+
+    Group #Off6 {
+      Visible: false;
+      Anchor: (Width: 10, Height: 10, Top: 17, Right: 4);
+      Background: (Color: #4a5260);
+    }
+
+    Group #On7 {
+      Visible: false;
+      Anchor: (Width: 10, Height: 10, Top: 17, Right: 4);
+      Background: (Color: #E8A93B);
+    }
+
+    Group #Off7 {
+      Visible: false;
+      Anchor: (Width: 10, Height: 10, Top: 17, Right: 4);
+      Background: (Color: #4a5260);
+    }
+
+    Group #On8 {
+      Visible: false;
+      Anchor: (Width: 10, Height: 10, Top: 17, Right: 4);
+      Background: (Color: #E8A93B);
+    }
+
+    Group #Off8 {
+      Visible: false;
+      Anchor: (Width: 10, Height: 10, Top: 17, Right: 4);
+      Background: (Color: #4a5260);
+    }
+
+    Group #On9 {
+      Visible: false;
+      Anchor: (Width: 10, Height: 10, Top: 17, Right: 4);
+      Background: (Color: #E8A93B);
+    }
+
+    Group #Off9 {
+      Visible: false;
+      Anchor: (Width: 10, Height: 10, Top: 17, Right: 4);
+      Background: (Color: #4a5260);
+    }
+  }
+
+  Label #Cost {
+    Style: (FontSize: 13, TextColor: #E8A93B, VerticalAlignment: Center, HorizontalAlignment: End);
+    Anchor: (Width: 110, Right: 8);
+  }
+
+  $C.@SmallSecondaryTextButton #Buy {
+    @Anchor = (Width: 90, Top: 10);
+    Padding: (Horizontal: 6);
+    Visible: false;
+  }
+}

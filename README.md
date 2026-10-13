@@ -1,0 +1,300 @@
+# Dominion
+
+Dominion is a factions plugin for Hytale servers. Players found factions, claim chunks, protect
+them with the combined power of their members, make allies and enemies, join nations, trade on a
+player market and lay siege to each other's land. Almost everything runs from an in game panel
+opened with `/f`, a sidebar keeps the important numbers on screen and the world map shows who owns
+what. Server owners get a live settings page, four presets, a full admin command tree and an
+importer for land from other claim and faction mods. Dominion is a single jar with no required
+dependencies and is released under the MIT License.
+
+| | |
+| --- | --- |
+| Version | 0.1.0 |
+| Hytale server | 0.7.0 (Chapter 1) and 0.6.8 |
+| Java | 25 |
+| Build | Gradle |
+| License | MIT |
+
+## Features
+
+### Factions and ranks
+
+- Found a faction with a short tag and an optional display name, then set a description, a message of the day and a colour.
+- Four ranks (recruit, member, officer and leader). Each faction can rename any rank.
+- Invites, join requests, open or invite only joining, kicks, bans, promotions, demotions, member titles and leadership transfer.
+- A permission grid per rank and per relation covering building, containers, doors, homes, warps, the bank, the vault, relations, sieges and more.
+- A faction audit log, faction statistics and player profiles.
+- Optional cleanup of inactive members and factions, and optional roster rotation when a faction is full.
+
+### Claims and zones
+
+- Claim the chunk you stand in, a square around you, a line in the direction you face, or turn on auto claim.
+- Claims can be required to touch, kept a buffer away from other factions and kept away from spawn. Claiming can be limited to chosen worlds.
+- Optional claim costs that grow with each claim, and refunds when land is released.
+- Zones split faction land into named areas with their own permission grid.
+- Server SafeZones and WarZones created by admins.
+- A chat map, territory banners at borders and land decay for abandoned factions.
+
+### Power and raiding modes
+
+- Every player has power that regenerates while online and drops on death. Faction power sets how much land a faction can hold.
+- An alternative deaths pool mode in the classic DTR style.
+- Raiding modes that switch on and off one by one (overextended, dominance by a stronger enemy, sieges, low power ratio and unpaid upkeep). Any one mode or all of them together can be required.
+- Minimum defenders online, attacker cooldowns and protection of the home chunk until it is the last one left.
+
+### Relations and nations
+
+- Ally, truce, neutral and enemy. Alliances and truces need both sides to agree, with limits on allies and truces, request expiry and PvP rules by relation with friendly fire, ally fire and truce fire switches.
+- A combat tag and an optional bank reward for kills.
+- Allied factions can form a nation under one tag with a leading faction, with invites, kicks, leadership transfer and a nation chat channel.
+
+### Homes and warps
+
+- A faction home with a warmup, a cooldown, an enemy nearby check and an option to respawn at home.
+- Ally homes that allies can open to each other.
+- Named warps with optional passwords, and `/f stuck` to escape to the nearest wilderness.
+
+### Economy, bank, shops, market and auctions
+
+- A built in coin ledger, an item currency that uses a chosen item, or an optional bridge to VaultUnlocked.
+- A faction bank with deposits, withdrawals, payments to other factions and a daily withdraw limit for officers.
+- Optional daily upkeep per claim, member dues, playtime stipends and bank interest.
+- A server shop with categories and an in game editor for admins, plus faction shops stocked by officers from the hand or from the faction vault, with sales paid into the faction bank.
+- A player market with listings, buy orders, auctions with a buyout price and anti snipe extensions, a faction storefront and a mailbox for earnings and returned items.
+
+### Vault
+
+- A shared faction vault with pages that open as a chest window. Extra pages come from the vault upgrade, and the vault is sealed while faction land is breached by a siege.
+
+### Chat
+
+- Public, faction, ally, officer and nation channels, faction tags in chat, announcements and login alerts. Switch with `/f chat` or send one line with a prefix (`!` faction, `@` ally and `#` nation by default).
+
+### Sieges, shields and grace
+
+- Plant a siege banner on enemy land next to you and hold it until the capture timer runs out to breach the chunk for a while. Defenders near the banner hold up the capture, and a siege fails when the attackers leave.
+- Raid history with raid points, immunity after a successful defence and a daily shield window chosen by each faction that protects the core land around its home.
+- A server grace period and an end of the world mode for the close of a season.
+
+### Upgrades and missions
+
+- Seven upgrades (members, regen, maxpower, warps, vault, shield and immunity) paid from the bank or with faction points.
+- Daily and weekly missions such as mining, chopping, farming, fishing, market trades, claiming and winning sieges.
+- A faction value leaderboard built from land, members, power, kills, sieges, bank and outpost time, and admin strikes that lower a faction's value.
+
+### Events
+
+- **KOTH.** Hills open on demand or on a schedule, and the holding faction wins coins and faction points.
+- **Outposts.** Controlled outposts grant an xp, missions, tax or sell boost. The xp boost is offered to other mods through the API.
+- **Envoys.** Loot chests dropped in WarZones on demand or on a timer.
+- **Bounties.** Any player can put money on another player's head.
+- **Season clock.** Season start and end, an end of the world finale, a frozen leaderboard and payout commands for the top factions.
+
+### Interface and admin
+
+- A faction panel with tabs for every enabled feature, a permission grid page, zone permissions, faction info pages, a top factions page, a tutorial and confirmation pages before anything destructive.
+- A sidebar HUD and world map markers for claims, homes, sieges, hills, outposts and envoys.
+- An admin settings page with every setting grouped by topic. Changes save at once and apply live.
+- Classic, hardcore, peaceful and singleplayer presets. Singleplayer worlds get the singleplayer preset automatically on first run, which turns off raiding, sieges, shields, events and power loss.
+- An importer for Simple Claims, HyFactions, HyperFactions and Ultimate Factions data, with a required preview.
+
+## Requirements
+
+- A Hytale server on 0.7.0 or 0.6.8, dedicated or a singleplayer world.
+- No other mods. VaultUnlocked is optional.
+- JDK 25 only if you build from source.
+
+## Install
+
+1. Get `Dominion-0.1.0.jar` from a release or build it from source and drop it into the Mods folder.
+
+| Setup | Mods folder |
+| --- | --- |
+| Windows client | `%APPDATA%\Hytale\UserData\Mods` |
+| macOS client | `~/Library/Application Support/Hytale/UserData/Mods` |
+| Dedicated server | the server's `mods` directory |
+
+2. Start the server once. Dominion writes `config.json` with every setting at its default.
+3. Look for `Dominion started with 22 modules` in the server log.
+
+## Quick start
+
+### Players
+
+1. Type `/f` to open the panel, or `/f create <tag> [name]` to found a faction.
+2. Stand in a chunk and run `/f claim`.
+3. Bring friends in with `/f invite <player>`. They join with `/f join <tag>`.
+4. Set a home with `/f sethome` and return with `/f home`.
+5. Run `/f help` for every command, or `/f help <topic>` for one area.
+
+### Admins
+
+1. Grant the `dominion.admin` permission to staff. Players need no permission for `/f`.
+2. Pick a profile with `/fa preset classic|hardcore|peaceful|singleplayer`.
+3. Open `/fa settings` to adjust individual rules.
+4. Create a spawn SafeZone with `/fa zone safe <name>` and WarZones with `/fa zone war <name>`. Run `/fa` alone for the full admin command list.
+
+## Commands
+
+| Command | Description |
+| --- | --- |
+| `/f` | Open the faction panel. Aliases `/faction` and `/factions` |
+| `/f create <tag> [name]` | Found a faction |
+| `/f invite <player>`, `/f join <tag>`, `/f leave` | Manage membership |
+| `/f promote`, `/f demote`, `/f kick`, `/f ban <player>` | Manage members |
+| `/f perms`, `/f rankname` | Edit the permission grid and rename ranks |
+| `/f claim`, `/f claim radius <r>`, `/f claim line <n>`, `/f claim auto` | Claim land |
+| `/f unclaim`, `/f unclaim radius <r>`, `/f unclaim all` | Release land |
+| `/f zone create <name>`, `/f zone assign <name>` | Manage zones |
+| `/f map`, `/f power [player]`, `/f who [tag]` | Show land, power and faction info |
+| `/f ally`, `/f truce`, `/f neutral`, `/f enemy <tag>` | Set relations. Answer with `/f accept` or `/f decline` |
+| `/f home`, `/f sethome`, `/f warp <name> [password]`, `/f stuck` | Homes and warps |
+| `/f bank`, `/f deposit <amount>`, `/f withdraw <amount>` | Faction bank |
+| `/f market`, `/f market sell <price> [amount]` | Player market |
+| `/f auction sell <start> [buyout] [hours]` | Auction the stack in your hand |
+| `/f vault [page]`, `/f upgrades`, `/f missions`, `/f top` | Vault and progression |
+| `/f siege`, `/f shield set <hour>`, `/f raids` | Sieges and shields |
+| `/f nation create <tag> [name]`, `/f nation invite <tag>` | Nations |
+| `/f chat [channel]`, `/f hud`, `/f tutorial` | Chat channel, sidebar and tutorial |
+| `/balance [player]`, `/pay <player> <amount>`, `/baltop` | Personal money |
+| `/shop`, `/fshop [tag]`, `/fshop manage` | Server shop and faction shops |
+| `/fe`, `/fe panel`, `/fe bounty place <player> <amount>` | Events |
+| `/fa` | Admin tools. Requires `dominion.admin` |
+| `/fa settings`, `/fa set <key> <value>`, `/fa get <key>` | Settings |
+| `/fa preset <name>`, `/fa reload` | Presets and reloading the file |
+| `/fa claim <tag> [radius]`, `/fa unclaim [radius]`, `/fa bypass` | Land overrides |
+| `/fa force join\|kick\|leader\|disband\|rename` | Membership overrides |
+| `/fa grace on <duration>`, `/fa eotw on\|off` | Grace and end of the world |
+| `/fa import preview <source>`, `/fa import <source>` | Import from another mod |
+| `/fa backup`, `/fa diag`, `/fa export` | Backups, diagnostics and a manual snapshot |
+| `/fashop edit` | Server shop editor. Requires `dominion.admin` |
+| `/fe koth`, `/fe outpost`, `/fe envoy`, `/fe season`, `/fe payouts` | Event management. Admin sub commands require `dominion.admin` |
+
+## Configuration
+
+Settings live in `config.json` inside the plugin data folder. There are 156 keys grouped into
+Factions, Power, Land, Raiding, Relations, Combat, Homes, Chat, Economy, Market, Sieges, Shields,
+Events, Progression, Map and Storage. Defaults are defined in
+`src/main/java/dev/ryvrook/dominion/config/Defaults.java`.
+
+Admins rarely need to touch the file.
+
+- `/fa settings` opens the settings page. Each group is a tab, and changes save and apply live.
+- `/fa set <key> <value>` and `/fa get <key>` work from chat or the server console.
+- `/fa reload` reads the file again after a manual edit.
+- `/fa preset <name>` applies a preset. A preset only changes the keys it names.
+
+A few keys worth knowing
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `faction.maxMembers` | `20` | Members per faction |
+| `power.max` | `20.0` | Maximum power per player |
+| `power.lossPerDeath` | `4.0` | Power lost per death |
+| `power.dtrMode` | `false` | Use the deaths pool mode instead of power |
+| `land.claimsPerPower` | `1.0` | Claims allowed per point of faction power |
+| `land.bufferChunks` | `1` | Empty chunks required between factions |
+| `raid.enabled` | `true` | Raiding enabled at all |
+| `raid.combineAny` | `true` | Any raid mode makes a faction raidable, otherwise all |
+| `eco.provider` | `internal` | `internal`, `vaultunlocked` or `item` |
+| `market.taxPercent` | `5.0` | Faction tax on market sales |
+| `siege.captureMinutes` | `15` | Siege capture time |
+| `events.enabled` | `true` | Events layer enabled |
+| `export.enabled` | `true` | Write the web map snapshot file |
+| `misc.singleplayerAutoPreset` | `true` | Apply the singleplayer preset automatically |
+
+## Web map export
+
+Dominion writes `export/snapshot.json` in its data folder every few seconds while something
+changes (`export.intervalSeconds`, default 2). The snapshot holds factions with their claims and
+homes, nations, sieges, the grace and end of the world state, events, an activity feed and recent
+public chat. Private channels are never written.
+
+The snapshot is meant for **Atlas**, a separate live web map plugin that reads the file and shows
+the server's factions on a map. Dominion does not serve the map itself. Other tools can read the
+file too. The format carries a `version` field, currently `1`. Turn the export off with
+`/fa set export.enabled false`.
+
+## Data layout
+
+Everything lives in the plugin data folder as JSON.
+
+```text
+config.json              settings
+factions/<id>.json       one file per faction
+players/<uuid>.json      one file per player
+claims/<world>.json      claims per world
+market/                  listings, history and mailboxes
+vault/  shops/  progress/  economy/  imports/
+nations.json  sieges.json  events.json  bounties.json  strikes.json
+export/snapshot.json     web map snapshot
+backups/                 daily zipped backups (storage.backupKeep, default 7)
+```
+
+Data autosaves every 30 seconds by default (`storage.autosaveSeconds`).
+
+## Building from source
+
+Requires JDK 25. The build compiles against the Hytale server artifact from Hytale's Maven
+repository. The channel and version come from `gradle.properties` and can be overridden on the
+command line.
+
+```bash
+git clone https://github.com/ryvrook/dominion.git
+cd dominion
+./gradlew build
+./gradlew build -Phytale_channel=release -Phytale_version=0.6.8
+```
+
+The jar lands in `build/libs/Dominion-0.1.0.jar`. To copy it straight into your local Mods folder
+run the `installMod` task, optionally with `-PmodsDir=<path>`.
+
+```bash
+./gradlew installMod
+```
+
+## Project layout
+
+```text
+src/main/java/dev/ryvrook/dominion/
+  DominionPlugin, DominionContext, Wiring   plugin entry and module loading
+  model, storage, config, service, util, text   shared skeleton
+  api/                                      public API for other mods
+  economy, faction, power, relation, land, combat, chat, home, shield, siege,
+  market, vault, progress, nation, shop, events, importer, ui, map,
+  command, admin, export                    one package per feature module
+src/main/resources/                         manifest, UI markup and assets
+docs/                                      DEVELOPMENT.md conventions and STATUS.md
+```
+
+- Each feature module implements `DominionModule` and is loaded by class name from `Wiring.MODULES`. A missing module is logged and skipped.
+- Modules register services with the context and look up other services lazily. Mutations go through services and return a `Result` with a readable reason.
+- The `api` package is the read API for other mods. Call `DominionApi.get()` after Dominion has started to query factions, claims, relations, power, raidable state, permission checks, outpost boosts and the event bus.
+- `docs/DEVELOPMENT.md` is the conventions doc. Read it before opening a pull request.
+
+## Status
+
+Dominion 0.1.0 is code complete for everything that can be built without a game client. It builds
+on 0.7.0 and 0.6.8 and boots headless with all 22 modules on both. **It has not been played in a
+game client yet.** The following are unverified until someone does.
+
+- Rendering of the panel, every page, the HUD sidebar, shop rows and vault stocking, item icons and the hour and quantity pickers.
+- Map marker images and tints, vault chest windows, container change events and windows closing on disconnect or breach.
+- Cross world teleports, home respawn, warmup cancellation and command parsing with apostrophes, multiword zone names and custom rank names.
+- Item currency counting, VaultUnlocked class names, owed item delivery, envoy chest placement on 0.7.0 and console command payouts.
+- Nation chat delivery and importer results against real data from the other mods.
+- The tutorial on first join, the first daily backup, truce door refusal and public chat reaching Atlas.
+
+Tab list integration is not possible server side and is out of scope. See the Status section below for the
+full list.
+
+## Contributing
+
+Bug reports and pull requests are welcome. Please test in a client if you can and say which server
+version you used. Keep changes inside the module you are touching, follow `docs/DEVELOPMENT.md`, and
+make sure `./gradlew build` passes on both 0.7.0 and 0.6.8. For larger changes open an issue first.
+
+## License
+
+Dominion is released under the MIT License. Copyright (c) 2026 ryvrook. See [LICENSE](LICENSE).

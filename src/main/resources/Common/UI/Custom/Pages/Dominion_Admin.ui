@@ -1,0 +1,59 @@
+$C = "../Common.ui";
+
+$C.@PageOverlay {}
+
+$C.@Container {
+  Anchor: (Width: 1120, Height: 740);
+
+  #Title {
+    Group {
+      $C.@Title {
+        @Text = "Dominion settings";
+      }
+    }
+  }
+
+  #Content {
+    LayoutMode: Left;
+
+    Group #Sidebar {
+      Anchor: (Width: 210, Right: 12);
+      LayoutMode: Top;
+
+      Group #Tabs {
+        LayoutMode: TopScrolling;
+        ScrollbarStyle: $C.@TranslucentScrollbarStyle;
+        FlexWeight: 1;
+      }
+    }
+
+    Group #Right {
+      FlexWeight: 1;
+      LayoutMode: Top;
+
+      Group {
+        LayoutMode: Left;
+        Anchor: (Height: 26, Bottom: 6);
+
+        Label #TabTitle {
+          Style: (FontSize: 17, TextColor: #d3d6db, RenderBold: true, RenderUppercase: true, VerticalAlignment: Center);
+          FlexWeight: 1;
+        }
+
+        Label #TabHint {
+          Style: (FontSize: 13, TextColor: #878e9c, VerticalAlignment: Center, HorizontalAlignment: End);
+          Anchor: (Width: 380);
+        }
+      }
+
+      Group #Body {
+        FlexWeight: 1;
+        LayoutMode: TopScrolling;
+        ScrollbarStyle: $C.@DefaultScrollbarStyle;
+        Padding: (Right: 8);
+      }
+    }
+  }
+}
+
+$C.@BackButton {}

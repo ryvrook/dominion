@@ -1,0 +1,56 @@
+@Head = LabelStyle(FontSize: 12, TextColor: #96a9be, RenderBold: true, RenderUppercase: true, HorizontalAlignment: Center, VerticalAlignment: Center);
+
+Group {
+  Anchor: (Height: 28, Bottom: 3);
+  Padding: (Horizontal: 8);
+  LayoutMode: Left;
+
+  Label {
+    Style: (...@Head, HorizontalAlignment: Start);
+    FlexWeight: 1;
+    Text: "Action";
+  }
+
+  Label #R0 {
+    Style: @Head;
+    Anchor: (Width: 78, Left: 4);
+    Text: "Recruit";
+  }
+
+  Label #R1 {
+    Style: @Head;
+    Anchor: (Width: 78, Left: 4);
+    Text: "Member";
+  }
+
+  Label #R2 {
+    Style: @Head;
+    Anchor: (Width: 78, Left: 4);
+    Text: "Officer";
+  }
+
+  Label {
+    Style: @Head;
+    Anchor: (Width: 78, Left: 4);
+    Text: "Ally";
+  }
+
+  Label {
+    Style: @Head;
+    Anchor: (Width: 78, Left: 4);
+    Text: "Truce";
+  }
+
+  Label {
+    Style: @Head;
+    Anchor: (Width: 78, Left: 4);
+    Text: "Neutral";
+  }
+
+  Label {
+    Style: @Head;
+    Anchor: (Width: 78, Left: 4);
+    Text: "Enemy";
+  }
+
+}

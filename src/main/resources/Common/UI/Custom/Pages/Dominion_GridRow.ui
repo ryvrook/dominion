@@ -1,0 +1,82 @@
+@Cell = LabelStyle(FontSize: 15, TextColor: #4a5260, RenderBold: true, HorizontalAlignment: Center, VerticalAlignment: Center);
+
+Group {
+  Anchor: (Height: 22);
+  LayoutMode: Center;
+
+  Label #C0 {
+    Style: @Cell;
+    Anchor: (Width: 26);
+  }
+
+  Label #C1 {
+    Style: @Cell;
+    Anchor: (Width: 26);
+  }
+
+  Label #C2 {
+    Style: @Cell;
+    Anchor: (Width: 26);
+  }
+
+  Label #C3 {
+    Style: @Cell;
+    Anchor: (Width: 26);
+  }
+
+  Label #C4 {
+    Style: @Cell;
+    Anchor: (Width: 26);
+  }
+
+  Label #C5 {
+    Style: @Cell;
+    Anchor: (Width: 26);
+  }
+
+  Label #C6 {
+    Style: @Cell;
+    Anchor: (Width: 26);
+  }
+
+  Label #C7 {
+    Style: @Cell;
+    Anchor: (Width: 26);
+  }
+
+  Label #C8 {
+    Style: @Cell;
+    Anchor: (Width: 26);
+  }
+
+  Label #C9 {
+    Style: @Cell;
+    Anchor: (Width: 26);
+  }
+
+  Label #C10 {
+    Style: @Cell;
+    Anchor: (Width: 26);
+  }
+
+  Label #C11 {
+    Style: @Cell;
+    Anchor: (Width: 26);
+  }
+
+  Label #C12 {
+    Style: @Cell;
+    Anchor: (Width: 26);
+  }
+
+  Label #C13 {
+    Style: @Cell;
+    Anchor: (Width: 26);
+  }
+
+  Label #C14 {
+    Style: @Cell;
+    Anchor: (Width: 26);
+  }
+
+}

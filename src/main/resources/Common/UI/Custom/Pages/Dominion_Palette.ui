@@ -1,0 +1,77 @@
+Group {
+  Anchor: (Height: 40, Bottom: 4);
+  Padding: (Horizontal: 10);
+  Background: #000000(0.18);
+  LayoutMode: Left;
+
+  Label #Label {
+    Style: (FontSize: 14, TextColor: #96a9be, VerticalAlignment: Center);
+    Anchor: (Width: 160);
+    Text: "Colour";
+  }
+
+  Button #S0 {
+    Anchor: (Width: 28, Height: 28, Top: 6, Right: 8);
+    Style: (Default: (Background: #e74c3c), Hovered: (Background: #e74c3c(0.75)), Pressed: (Background: #e74c3c(0.55)));
+  }
+
+  Button #S1 {
+    Anchor: (Width: 28, Height: 28, Top: 6, Right: 8);
+    Style: (Default: (Background: #ff8c42), Hovered: (Background: #ff8c42(0.75)), Pressed: (Background: #ff8c42(0.55)));
+  }
+
+  Button #S2 {
+    Anchor: (Width: 28, Height: 28, Top: 6, Right: 8);
+    Style: (Default: (Background: #f1c40f), Hovered: (Background: #f1c40f(0.75)), Pressed: (Background: #f1c40f(0.55)));
+  }
+
+  Button #S3 {
+    Anchor: (Width: 28, Height: 28, Top: 6, Right: 8);
+    Style: (Default: (Background: #a3d65c), Hovered: (Background: #a3d65c(0.75)), Pressed: (Background: #a3d65c(0.55)));
+  }
+
+  Button #S4 {
+    Anchor: (Width: 28, Height: 28, Top: 6, Right: 8);
+    Style: (Default: (Background: #2ecc71), Hovered: (Background: #2ecc71(0.75)), Pressed: (Background: #2ecc71(0.55)));
+  }
+
+  Button #S5 {
+    Anchor: (Width: 28, Height: 28, Top: 6, Right: 8);
+    Style: (Default: (Background: #1abc9c), Hovered: (Background: #1abc9c(0.75)), Pressed: (Background: #1abc9c(0.55)));
+  }
+
+  Button #S6 {
+    Anchor: (Width: 28, Height: 28, Top: 6, Right: 8);
+    Style: (Default: (Background: #7fd6ff), Hovered: (Background: #7fd6ff(0.75)), Pressed: (Background: #7fd6ff(0.55)));
+  }
+
+  Button #S7 {
+    Anchor: (Width: 28, Height: 28, Top: 6, Right: 8);
+    Style: (Default: (Background: #3498db), Hovered: (Background: #3498db(0.75)), Pressed: (Background: #3498db(0.55)));
+  }
+
+  Button #S8 {
+    Anchor: (Width: 28, Height: 28, Top: 6, Right: 8);
+    Style: (Default: (Background: #6c5ce7), Hovered: (Background: #6c5ce7(0.75)), Pressed: (Background: #6c5ce7(0.55)));
+  }
+
+  Button #S9 {
+    Anchor: (Width: 28, Height: 28, Top: 6, Right: 8);
+    Style: (Default: (Background: #d99cff), Hovered: (Background: #d99cff(0.75)), Pressed: (Background: #d99cff(0.55)));
+  }
+
+  Button #S10 {
+    Anchor: (Width: 28, Height: 28, Top: 6, Right: 8);
+    Style: (Default: (Background: #ff6fae), Hovered: (Background: #ff6fae(0.75)), Pressed: (Background: #ff6fae(0.55)));
+  }
+
+  Button #S11 {
+    Anchor: (Width: 28, Height: 28, Top: 6, Right: 8);
+    Style: (Default: (Background: #d3d6db), Hovered: (Background: #d3d6db(0.75)), Pressed: (Background: #d3d6db(0.55)));
+  }
+
+  Label #Current {
+    Style: (FontSize: 13, TextColor: #878e9c, VerticalAlignment: Center, HorizontalAlignment: End);
+    FlexWeight: 1;
+  }
+}

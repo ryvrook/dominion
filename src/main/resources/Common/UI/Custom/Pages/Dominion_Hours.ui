@@ -1,0 +1,136 @@
+$C = "../Common.ui";
+
+Group {
+  LayoutMode: Top;
+  Anchor: (Height: 80, Bottom: 4);
+
+  Group {
+    Anchor: (Height: 34, Bottom: 4);
+    LayoutMode: Left;
+
+    $C.@SmallSecondaryTextButton #H0 {
+      @Anchor = (Width: 50, Right: 4);
+      Padding: (Horizontal: 2);
+    }
+
+    $C.@SmallSecondaryTextButton #H1 {
+      @Anchor = (Width: 50, Right: 4);
+      Padding: (Horizontal: 2);
+    }
+
+    $C.@SmallSecondaryTextButton #H2 {
+      @Anchor = (Width: 50, Right: 4);
+      Padding: (Horizontal: 2);
+    }
+
+    $C.@SmallSecondaryTextButton #H3 {
+      @Anchor = (Width: 50, Right: 4);
+      Padding: (Horizontal: 2);
+    }
+
+    $C.@SmallSecondaryTextButton #H4 {
+      @Anchor = (Width: 50, Right: 4);
+      Padding: (Horizontal: 2);
+    }
+
+    $C.@SmallSecondaryTextButton #H5 {
+      @Anchor = (Width: 50, Right: 4);
+      Padding: (Horizontal: 2);
+    }
+
+    $C.@SmallSecondaryTextButton #H6 {
+      @Anchor = (Width: 50, Right: 4);
+      Padding: (Horizontal: 2);
+    }
+
+    $C.@SmallSecondaryTextButton #H7 {
+      @Anchor = (Width: 50, Right: 4);
+      Padding: (Horizontal: 2);
+    }
+
+    $C.@SmallSecondaryTextButton #H8 {
+      @Anchor = (Width: 50, Right: 4);
+      Padding: (Horizontal: 2);
+    }
+
+    $C.@SmallSecondaryTextButton #H9 {
+      @Anchor = (Width: 50, Right: 4);
+      Padding: (Horizontal: 2);
+    }
+
+    $C.@SmallSecondaryTextButton #H10 {
+      @Anchor = (Width: 50, Right: 4);
+      Padding: (Horizontal: 2);
+    }
+
+    $C.@SmallSecondaryTextButton #H11 {
+      @Anchor = (Width: 50, Right: 4);
+      Padding: (Horizontal: 2);
+    }
+  }
+
+  Group {
+    Anchor: (Height: 34, Bottom: 4);
+    LayoutMode: Left;
+
+    $C.@SmallSecondaryTextButton #H12 {
+      @Anchor = (Width: 50, Right: 4);
+      Padding: (Horizontal: 2);
+    }
+
+    $C.@SmallSecondaryTextButton #H13 {
+      @Anchor = (Width: 50, Right: 4);
+      Padding: (Horizontal: 2);
+    }
+
+    $C.@SmallSecondaryTextButton #H14 {
+      @Anchor = (Width: 50, Right: 4);
+      Padding: (Horizontal: 2);
+    }
+
+    $C.@SmallSecondaryTextButton #H15 {
+      @Anchor = (Width: 50, Right: 4);
+      Padding: (Horizontal: 2);
+    }
+
+    $C.@SmallSecondaryTextButton #H16 {
+      @Anchor = (Width: 50, Right: 4);
+      Padding: (Horizontal: 2);
+    }
+
+    $C.@SmallSecondaryTextButton #H17 {
+      @Anchor = (Width: 50, Right: 4);
+      Padding: (Horizontal: 2);
+    }
+
+    $C.@SmallSecondaryTextButton #H18 {
+      @Anchor = (Width: 50, Right: 4);
+      Padding: (Horizontal: 2);
+    }
+
+    $C.@SmallSecondaryTextButton #H19 {
+      @Anchor = (Width: 50, Right: 4);
+      Padding: (Horizontal: 2);
+    }
+
+    $C.@SmallSecondaryTextButton #H20 {
+      @Anchor = (Width: 50, Right: 4);
+      Padding: (Horizontal: 2);
+    }
+
+    $C.@SmallSecondaryTextButton #H21 {
+      @Anchor = (Width: 50, Right: 4);
+      Padding: (Horizontal: 2);
+    }
+
+    $C.@SmallSecondaryTextButton #H22 {
+      @Anchor = (Width: 50, Right: 4);
+      Padding: (Horizontal: 2);
+    }
+
+    $C.@SmallSecondaryTextButton #H23 {
+      @Anchor = (Width: 50, Right: 4);
+      Padding: (Horizontal: 2);
+    }
+  }
+}

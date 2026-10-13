@@ -1,0 +1,188 @@
+package dev.ryvrook.dominion.command;
+
+import com.hypixel.hytale.server.core.Message;
+import com.hypixel.hytale.server.core.command.system.arguments.system.RequiredArg;
+import com.hypixel.hytale.server.core.command.system.arguments.types.ArgTypes;
+import dev.ryvrook.dominion.DominionContext;
+import dev.ryvrook.dominion.model.Faction;
+import dev.ryvrook.dominion.model.Mission;
+import dev.ryvrook.dominion.service.EconomyService;
+import dev.ryvrook.dominion.service.ProgressService;
+import dev.ryvrook.dominion.service.VaultService;
+import dev.ryvrook.dominion.text.Msg;
+
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+
+/** Vault pages, upgrades, missions, faction value and the leaderboard. */
+final class ProgressCommands extends Section {
+    private static final int TOP = 10;
+
+    ProgressCommands(DominionContext ctx, Confirmations confirmations, Targets targets) {
+        super(ctx, confirmations, targets);
+    }
+
+    @Override
+    void register(PlayerCmd root) {
+        root.sub(new PlayerCmd("top", "Show the faction leaderboard.")).handler(this::top);
+
+        PlayerCmd vault = root.sub(new PlayerCmd("vault", "Open the faction vault."));
+        vault.handler(c -> openVault(c, 1));
+        PlayerCmd vaultPage = new PlayerCmd("Open one page of the faction vault.");
+        RequiredArg<Integer> page = vaultPage.withRequiredArg("page", "Page number", ArgTypes.INTEGER);
+        vaultPage.handler(c -> openVault(c, c.arg(page)));
+        vault.variant(vaultPage);
+
+        root.sub(new PlayerCmd("upgrades", "List faction upgrades.")).handler(this::showUpgrades);
+
+        PlayerCmd upgrade = root.sub(new PlayerCmd("upgrade", "Buy the next level of an upgrade."));
+        RequiredArg<String> key = upgrade.withRequiredArg("key", "Upgrade name", ArgTypes.STRING);
+        upgrade.handler(c -> {
+            ProgressService p = feature(c, ProgressService.class);
+            if (p == null || requireFaction(c) == null) {
+                return;
+            }
+            String k = c.arg(key).toLowerCase(Locale.ROOT);
+            if (!p.upgradeKeys().contains(k)) {
+                c.bad("There is no upgrade called " + c.arg(key) + ". The upgrades are " + String.join(", ", p.upgradeKeys()) + ".");
+                return;
+            }
+            c.reply(p.buyUpgrade(c.uuid(), k));
+        });
+
+        root.sub(new PlayerCmd("missions", "Show the daily and weekly missions.")).handler(c -> {
+            ProgressService p = feature(c, ProgressService.class);
+            Faction f = p == null ? null : requireFaction(c);
+            if (f != null) {
+                showMissions(c, p, f, false);
+                showMissions(c, p, f, true);
+            }
+        });
+
+        root.sub(new PlayerCmd("value", "Show how your faction's value is worked out.")).handler(c -> {
+            ProgressService p = feature(c, ProgressService.class);
+            Faction f = p == null ? null : requireFaction(c);
+            if (f == null) {
+                return;
+            }
+            c.send(Message.join(Msg.prefix(), Msg.colored(f.tag(), f.color()).bold(true),
+                    Msg.colored("  is worth " + Msg.number(p.value(f)) + " and " + standing(p.rank(f)), Msg.TEXT)));
+            for (Map.Entry<String, Double> e : p.valueBreakdown(f).entrySet()) {
+                c.send(Message.join(Msg.muted(" " + e.getKey() + "  "), Msg.colored(Msg.number(e.getValue()), Msg.GOLD)));
+            }
+        });
+    }
+
+    /** The /f top handler. Prints the value leaderboard when progression is installed. */
+    void top(Call c) {
+        ProgressService p = ctx.serviceOrNull(ProgressService.class);
+        if (p == null) {
+            ui().openTop(c.player());
+            return;
+        }
+        List<Faction> top = p.top(TOP);
+        if (top.isEmpty()) {
+            c.info("No faction has any value yet.");
+            return;
+        }
+        Faction mine = factions().factionOf(c.uuid());
+        c.info("Most valuable factions");
+        int rank = 1;
+        for (Faction f : top) {
+            boolean self = mine != null && mine.id().equals(f.id());
+            c.send(Message.join(Msg.muted(" " + rank + ". "), Msg.colored(f.tag(), self ? Msg.GOLD : f.color()).bold(true),
+                    Msg.muted("  worth " + Msg.number(p.value(f)) + ", level " + p.level(f) + ", " + p.points(f) + " points")));
+            rank++;
+        }
+        if (mine != null && !mine.isSystem() && top.stream().noneMatch(f -> f.id().equals(mine.id()))) {
+            c.send(Msg.muted(" " + mine.tag() + " " + standing(p.rank(mine)) + " and is worth " + Msg.number(p.value(mine)) + "."));
+        }
+        c.send(Msg.muted(" Open the full leaderboard from the faction panel."));
+    }
+
+    private void openVault(Call c, int page) {
+        VaultService v = feature(c, VaultService.class);
+        Faction f = v == null ? null : requireFaction(c);
+        if (f == null) {
+            return;
+        }
+        int pages = v.pages(f);
+        if (page < 1 || page > pages) {
+            c.bad(pages == 1 ? "Your vault has one page." : "Your vault has pages 1 to " + pages + ".");
+            return;
+        }
+        c.reply(v.open(c.uuid(), page));
+    }
+
+    private void showUpgrades(Call c) {
+        ProgressService p = feature(c, ProgressService.class);
+        Faction f = p == null ? null : requireFaction(c);
+        if (f == null) {
+            return;
+        }
+        EconomyService eco = ctx.serviceOrNull(EconomyService.class);
+        c.info("Upgrades for " + f.tag() + ". Buy one with /f upgrade and its name.");
+        for (String key : p.upgradeKeys()) {
+            int level = p.upgradeLevel(f, key);
+            int max = p.upgradeMaxLevel(key);
+            String next;
+            if (level >= max) {
+                next = "fully upgraded";
+            } else {
+                double cost = p.upgradeCost(f, key);
+                if (!ctx.settings().bool("upgrades.useCoins")) {
+                    next = "next level costs " + Msg.number((long) Math.ceil(cost)) + " faction points";
+                } else {
+                    next = "next level costs " + (eco == null ? Msg.number(cost) : eco.format(cost)) + " from the bank";
+                }
+            }
+            c.send(Message.join(Msg.colored(" " + key, Msg.GOLD), Msg.colored("  level " + level + " of " + max, Msg.TEXT),
+                    Msg.muted(", " + next)));
+            String desc = p.upgradeDescription(key, Math.min(max, level + 1));
+            if (desc != null && !desc.isBlank()) {
+                c.send(Msg.muted("   " + desc));
+            }
+        }
+    }
+
+    private void showMissions(Call c, ProgressService p, Faction f, boolean weekly) {
+        List<Mission> missions = p.activeMissions(weekly);
+        c.info(weekly ? "Weekly missions" : "Daily missions");
+        if (missions.isEmpty()) {
+            c.send(Msg.muted(" None right now."));
+            return;
+        }
+        for (Mission m : missions) {
+            boolean done = p.missionDone(f, m);
+            long progress = Math.min(m.target(), p.missionProgress(f, m));
+            String reward = m.rewardPoints() + " points" + (m.rewardCoins() > 0 ? " and " + money(m.rewardCoins()) : "");
+            c.send(Message.join(Msg.colored(" " + m.name(), done ? Msg.GOOD : Msg.TEXT).bold(done),
+                    Msg.muted("  " + (done ? "complete" : Msg.number(progress) + " of " + Msg.number(m.target())) + ", rewards " + reward)));
+            if (m.description() != null && !m.description().isBlank()) {
+                c.send(Msg.muted("   " + m.description()));
+            }
+        }
+    }
+
+    private String money(double amount) {
+        EconomyService eco = ctx.serviceOrNull(EconomyService.class);
+        return eco == null ? Msg.number(amount) : eco.format(amount);
+    }
+
+    /** Ranks 3rd, or is not ranked yet. */
+    static String standing(int n) {
+        return n <= 0 ? "is not ranked yet" : "ranks " + ordinal(n);
+    }
+
+    static String ordinal(int n) {
+        int mod100 = n % 100;
+        String suffix = mod100 >= 11 && mod100 <= 13 ? "th" : switch (n % 10) {
+            case 1 -> "st";
+            case 2 -> "nd";
+            case 3 -> "rd";
+            default -> "th";
+        };
+        return n + suffix;
+    }
+}

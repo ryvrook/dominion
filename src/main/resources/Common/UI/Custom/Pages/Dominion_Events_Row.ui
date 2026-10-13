@@ -1,0 +1,25 @@
+$C = "../Common.ui";
+
+@CellStyle = LabelStyle(FontSize: 13, TextColor: #96a9be, VerticalAlignment: Center);
+
+Group {
+  Anchor: (Height: 36, Bottom: 3);
+  Padding: (Horizontal: 10);
+  Background: #000000(0.22);
+  LayoutMode: Left;
+
+  Label #Name {
+    Style: (FontSize: 15, TextColor: #d3d6db, RenderBold: true, VerticalAlignment: Center);
+    FlexWeight: 1;
+  }
+
+  Label #State {
+    Style: @CellStyle;
+    Anchor: (Width: 260);
+  }
+
+  Label #Timer {
+    Style: (FontSize: 13, TextColor: #E8A93B, VerticalAlignment: Center, HorizontalAlignment: End);
+    Anchor: (Width: 180);
+  }
+}

@@ -1,0 +1,9 @@
+Group {
+  LayoutMode: Top;
+  Anchor: (Bottom: 6);
+  Padding: (Horizontal: 10);
+
+  Label #Text {
+    Style: (FontSize: 14, TextColor: #d3d6db, Wrap: true);
+  }
+}

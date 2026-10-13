@@ -1,0 +1,62 @@
+Group {
+  Anchor: (Height: 96, Bottom: 6);
+  Padding: (Horizontal: 10, Vertical: 6);
+  Background: #000000(0.22);
+  LayoutMode: Top;
+
+  Group {
+    Anchor: (Height: 28);
+    LayoutMode: Left;
+
+    ItemIcon #Icon {
+      Anchor: (Width: 26, Height: 26, Right: 8);
+    }
+
+    Label #Name {
+      Style: (FontSize: 15, TextColor: #d3d6db, RenderBold: true, VerticalAlignment: Center);
+      FlexWeight: 1;
+    }
+
+    Label #Reward {
+      Style: (FontSize: 13, TextColor: #E8A93B, VerticalAlignment: Center, HorizontalAlignment: End);
+      Anchor: (Width: 260);
+    }
+  }
+
+  Label #Desc {
+    Anchor: (Height: 20);
+    Style: (FontSize: 13, TextColor: #96a9be, VerticalAlignment: Center);
+  }
+
+  Group {
+    Anchor: (Height: 20, Top: 4);
+    LayoutMode: Left;
+
+    Group {
+      FlexWeight: 1;
+      LayoutMode: Top;
+      Padding: (Top: 7);
+
+      ProgressBar #Bar {
+        Anchor: (Height: 6);
+        Background: "../Common/ProgressBar.png";
+        BarTexturePath: "../Common/ProgressBarFill.png";
+        EffectTexturePath: "../Common/ProgressBarEffect.png";
+        EffectWidth: 102;
+        EffectHeight: 58;
+        EffectOffset: 74;
+        Value: 0;
+      }
+    }
+
+    Label #Value {
+      Style: (FontSize: 13, TextColor: #d3d6db, VerticalAlignment: Center, HorizontalAlignment: End);
+      Anchor: (Width: 150, Left: 10);
+    }
+
+    Label #Timer {
+      Style: (FontSize: 12, TextColor: #878e9c, VerticalAlignment: Center, HorizontalAlignment: End);
+      Anchor: (Width: 150, Left: 10);
+    }
+  }
+}

@@ -1,0 +1,36 @@
+$C = "../Common.ui";
+
+Group {
+  Anchor: (Height: 44, Bottom: 4);
+  Padding: (Horizontal: 8);
+  Background: #000000(0.18);
+  LayoutMode: Left;
+
+  Label #Label {
+    Style: (FontSize: 14, TextColor: #96a9be, VerticalAlignment: Center);
+    Anchor: (Width: 170);
+  }
+
+  $C.@TextField #Input {
+    @Anchor = (Top: 3);
+    FlexWeight: 1;
+  }
+
+  $C.@SmallSecondaryTextButton #G1 {
+    @Anchor = (Width: 104, Left: 6, Top: 6);
+    Padding: (Horizontal: 6);
+    Visible: false;
+  }
+
+  $C.@SmallSecondaryTextButton #G2 {
+    @Anchor = (Width: 104, Left: 6, Top: 6);
+    Padding: (Horizontal: 6);
+    Visible: false;
+  }
+
+  $C.@SmallSecondaryTextButton #G3 {
+    @Anchor = (Width: 104, Left: 6, Top: 6);
+    Padding: (Horizontal: 6);
+    Visible: false;
+  }
+}

@@ -1,0 +1,16 @@
+Group {
+  Anchor: (Height: 30, Bottom: 2);
+  Padding: (Horizontal: 10);
+  Background: #000000(0.18);
+  LayoutMode: Left;
+
+  Label #Name {
+    Style: (FontSize: 14, TextColor: #96a9be, VerticalAlignment: Center);
+    Anchor: (Width: 220);
+  }
+
+  Label #Value {
+    Style: (FontSize: 15, TextColor: #d3d6db, RenderBold: true, VerticalAlignment: Center);
+    FlexWeight: 1;
+  }
+}

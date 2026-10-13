@@ -1,0 +1,158 @@
+@Allowed = LabelStyle(FontSize: 12, TextColor: #5fd37a, RenderBold: true, RenderUppercase: true, HorizontalAlignment: Center, VerticalAlignment: Center);
+@Denied = LabelStyle(FontSize: 12, TextColor: #6b7280, RenderBold: true, RenderUppercase: true, HorizontalAlignment: Center, VerticalAlignment: Center);
+
+Group {
+  Anchor: (Height: 40, Bottom: 3);
+  Padding: (Horizontal: 8);
+  Background: #000000(0.22);
+  LayoutMode: Left;
+
+  Group {
+    FlexWeight: 1;
+    LayoutMode: Top;
+
+    Label #Name {
+      Style: (FontSize: 14, TextColor: #d3d6db, RenderBold: true, VerticalAlignment: Center);
+      Anchor: (Height: 20, Top: 2);
+    }
+
+    Label #Desc {
+      Style: (FontSize: 11, TextColor: #878e9c, VerticalAlignment: Center);
+      Anchor: (Height: 16);
+    }
+  }
+
+  Group #Cell0 {
+    Anchor: (Width: 78, Height: 30, Left: 4, Top: 5);
+    LayoutMode: Left;
+
+    TextButton #Y0 {
+      Visible: false;
+      FlexWeight: 1;
+      Text: "Allowed";
+      Style: (Default: (LabelStyle: @Allowed, Background: #1f3a28(0.8)), Hovered: (LabelStyle: @Allowed, Background: #2a5136(0.9)), Pressed: (LabelStyle: @Allowed, Background: #183020));
+    }
+
+    TextButton #N0 {
+      Visible: false;
+      FlexWeight: 1;
+      Text: "Denied";
+      Style: (Default: (LabelStyle: @Denied, Background: #000000(0.3)), Hovered: (LabelStyle: @Denied, Background: #000000(0.45)), Pressed: (LabelStyle: @Denied, Background: #000000(0.55)));
+    }
+  }
+
+  Group #Cell1 {
+    Anchor: (Width: 78, Height: 30, Left: 4, Top: 5);
+    LayoutMode: Left;
+
+    TextButton #Y1 {
+      Visible: false;
+      FlexWeight: 1;
+      Text: "Allowed";
+      Style: (Default: (LabelStyle: @Allowed, Background: #1f3a28(0.8)), Hovered: (LabelStyle: @Allowed, Background: #2a5136(0.9)), Pressed: (LabelStyle: @Allowed, Background: #183020));
+    }
+
+    TextButton #N1 {
+      Visible: false;
+      FlexWeight: 1;
+      Text: "Denied";
+      Style: (Default: (LabelStyle: @Denied, Background: #000000(0.3)), Hovered: (LabelStyle: @Denied, Background: #000000(0.45)), Pressed: (LabelStyle: @Denied, Background: #000000(0.55)));
+    }
+  }
+
+  Group #Cell2 {
+    Anchor: (Width: 78, Height: 30, Left: 4, Top: 5);
+    LayoutMode: Left;
+
+    TextButton #Y2 {
+      Visible: false;
+      FlexWeight: 1;
+      Text: "Allowed";
+      Style: (Default: (LabelStyle: @Allowed, Background: #1f3a28(0.8)), Hovered: (LabelStyle: @Allowed, Background: #2a5136(0.9)), Pressed: (LabelStyle: @Allowed, Background: #183020));
+    }
+
+    TextButton #N2 {
+      Visible: false;
+      FlexWeight: 1;
+      Text: "Denied";
+      Style: (Default: (LabelStyle: @Denied, Background: #000000(0.3)), Hovered: (LabelStyle: @Denied, Background: #000000(0.45)), Pressed: (LabelStyle: @Denied, Background: #000000(0.55)));
+    }
+  }
+
+  Group #Cell3 {
+    Anchor: (Width: 78, Height: 30, Left: 4, Top: 5);
+    LayoutMode: Left;
+
+    TextButton #Y3 {
+      Visible: false;
+      FlexWeight: 1;
+      Text: "Allowed";
+      Style: (Default: (LabelStyle: @Allowed, Background: #1f3a28(0.8)), Hovered: (LabelStyle: @Allowed, Background: #2a5136(0.9)), Pressed: (LabelStyle: @Allowed, Background: #183020));
+    }
+
+    TextButton #N3 {
+      Visible: false;
+      FlexWeight: 1;
+      Text: "Denied";
+      Style: (Default: (LabelStyle: @Denied, Background: #000000(0.3)), Hovered: (LabelStyle: @Denied, Background: #000000(0.45)), Pressed: (LabelStyle: @Denied, Background: #000000(0.55)));
+    }
+  }
+
+  Group #Cell4 {
+    Anchor: (Width: 78, Height: 30, Left: 4, Top: 5);
+    LayoutMode: Left;
+
+    TextButton #Y4 {
+      Visible: false;
+      FlexWeight: 1;
+      Text: "Allowed";
+      Style: (Default: (LabelStyle: @Allowed, Background: #1f3a28(0.8)), Hovered: (LabelStyle: @Allowed, Background: #2a5136(0.9)), Pressed: (LabelStyle: @Allowed, Background: #183020));
+    }
+
+    TextButton #N4 {
+      Visible: false;
+      FlexWeight: 1;
+      Text: "Denied";
+      Style: (Default: (LabelStyle: @Denied, Background: #000000(0.3)), Hovered: (LabelStyle: @Denied, Background: #000000(0.45)), Pressed: (LabelStyle: @Denied, Background: #000000(0.55)));
+    }
+  }
+
+  Group #Cell5 {
+    Anchor: (Width: 78, Height: 30, Left: 4, Top: 5);
+    LayoutMode: Left;
+
+    TextButton #Y5 {
+      Visible: false;
+      FlexWeight: 1;
+      Text: "Allowed";
+      Style: (Default: (LabelStyle: @Allowed, Background: #1f3a28(0.8)), Hovered: (LabelStyle: @Allowed, Background: #2a5136(0.9)), Pressed: (LabelStyle: @Allowed, Background: #183020));
+    }
+
+    TextButton #N5 {
+      Visible: false;
+      FlexWeight: 1;
+      Text: "Denied";
+      Style: (Default: (LabelStyle: @Denied, Background: #000000(0.3)), Hovered: (LabelStyle: @Denied, Background: #000000(0.45)), Pressed: (LabelStyle: @Denied, Background: #000000(0.55)));
+    }
+  }
+
+  Group #Cell6 {
+    Anchor: (Width: 78, Height: 30, Left: 4, Top: 5);
+    LayoutMode: Left;
+
+    TextButton #Y6 {
+      Visible: false;
+      FlexWeight: 1;
+      Text: "Allowed";
+      Style: (Default: (LabelStyle: @Allowed, Background: #1f3a28(0.8)), Hovered: (LabelStyle: @Allowed, Background: #2a5136(0.9)), Pressed: (LabelStyle: @Allowed, Background: #183020));
+    }
+
+    TextButton #N6 {
+      Visible: false;
+      FlexWeight: 1;
+      Text: "Denied";
+      Style: (Default: (LabelStyle: @Denied, Background: #000000(0.3)), Hovered: (LabelStyle: @Denied, Background: #000000(0.45)), Pressed: (LabelStyle: @Denied, Background: #000000(0.55)));
+    }
+  }
+
+}
