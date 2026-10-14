@@ -242,7 +242,7 @@ repository. The channel and version come from `gradle.properties` and can be ove
 command line.
 
 ```bash
-git clone https://github.com/ryvrook/dominion.git
+git clone https://github.com/ryvrook/dominion-factions.git
 cd dominion
 ./gradlew build
 ./gradlew build -Phytale_channel=release -Phytale_version=0.6.8
