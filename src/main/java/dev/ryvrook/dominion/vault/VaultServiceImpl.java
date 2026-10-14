@@ -37,6 +37,8 @@ import java.util.logging.Level;
  * Faction vaults as virtual chest pages. Each page is a SimpleItemContainer kept in memory and
  * shared by everyone who opens it, persisted to vault/factionId.json through ItemStack.CODEC on
  * every window close, once a minute while a page has changed, and on shutdown. Pages are numbered from 1.
+ * A stored item that cannot be read back, for example while its item asset is missing, is kept as
+ * its raw document under the page's Unreadable list, so a save never deletes it.
  */
 public final class VaultServiceImpl implements dev.ryvrook.dominion.service.VaultService {
     private final DominionContext ctx;
@@ -46,6 +48,8 @@ public final class VaultServiceImpl implements dev.ryvrook.dominion.service.Vaul
     private final Map<UUID, Map<UUID, Long>> breaches = new ConcurrentHashMap<>();
     /** Factions whose pages changed since the last save. Filled by container change events. */
     private final Set<UUID> dirty = ConcurrentHashMap.newKeySet();
+    /** Raw documents of stored items that could not be read, per faction and zero based page. */
+    private final Map<UUID, Map<Integer, List<Document>>> unreadable = new ConcurrentHashMap<>();
     /** Vault windows this service opened, per player, so a breach can close them. */
     private final Map<UUID, List<OpenVault>> openWindows = new ConcurrentHashMap<>();
 
@@ -247,6 +251,16 @@ public final class VaultServiceImpl implements dev.ryvrook.dominion.service.Vaul
         vaults.remove(faction.id());
         breaches.remove(faction.id());
         dirty.remove(faction.id());
+        List<Document> raw = new ArrayList<>();
+        Map<Integer, List<Document>> stuck = unreadable.remove(faction.id());
+        if (stuck != null) {
+            stuck.values().forEach(raw::addAll);
+        }
+        if (!raw.isEmpty()) {
+            keepDocuments(faction.id(), raw);
+            ctx.logger().at(Level.WARNING).log("Dominion kept %d unreadable vault items of disbanded faction %s in %s",
+                    raw.size(), faction.tag(), dir.resolve(faction.id() + ".disbanded.json"));
+        }
         if (!stacks.isEmpty()) {
             MarketService market = ctx.serviceOrNull(MarketService.class);
             if (leader != null && market != null) {
@@ -263,7 +277,16 @@ public final class VaultServiceImpl implements dev.ryvrook.dominion.service.Vaul
     }
 
     /** Appends stacks to the disbanded vault file of a faction. */
-    private synchronized void keep(UUID factionId, List<ItemStack> stacks) {
+    private void keep(UUID factionId, List<ItemStack> stacks) {
+        List<Document> docs = new ArrayList<>();
+        for (ItemStack s : stacks) {
+            docs.add(Items.toDocument(s));
+        }
+        keepDocuments(factionId, docs);
+    }
+
+    /** Appends stored stack documents to the disbanded vault file of a faction. */
+    private synchronized void keepDocuments(UUID factionId, List<Document> docs) {
         Path out = dir.resolve(factionId + ".disbanded.json");
         Document d = ctx.files().read(out);
         List<Document> items = new ArrayList<>();
@@ -274,10 +297,10 @@ public final class VaultServiceImpl implements dev.ryvrook.dominion.service.Vaul
                 }
             }
         }
-        for (ItemStack s : stacks) {
-            items.add(Items.toDocument(s));
+        items.addAll(docs);
+        if (!ctx.files().write(out, new Document("Items", items))) {
+            ctx.logger().at(Level.SEVERE).log("Dominion could not write %s with %d vault items", out, docs.size());
         }
-        ctx.files().write(out, new Document("Items", items));
     }
 
     // ---- breach flag ----------------------------------------------------------------
@@ -421,6 +444,7 @@ public final class VaultServiceImpl implements dev.ryvrook.dominion.service.Vaul
             }
             int slots = Math.max(1, ctx.settings().integer("vault.slotsPerPage"));
             for (Object o : list) {
+                int index = pages.size();
                 Document pd = o instanceof Document doc ? doc : new Document();
                 Document items = pd.get("Items") instanceof Document doc ? doc : new Document();
                 int highest = -1;
@@ -432,27 +456,59 @@ public final class VaultServiceImpl implements dev.ryvrook.dominion.service.Vaul
                     }
                 }
                 SimpleItemContainer c = new SimpleItemContainer((short) Math.min(Short.MAX_VALUE, Math.max(slots, highest + 1)));
+                List<Document> raw = new ArrayList<>();
                 for (Map.Entry<String, Object> e : items.entrySet()) {
                     if (!(e.getValue() instanceof Document sd)) {
                         continue;
                     }
                     ItemStack s = Items.fromDocument(sd);
+                    boolean placed = false;
                     try {
                         short slot = Short.parseShort(e.getKey());
                         if (s != null && !ItemStack.isEmpty(s)) {
                             c.setItemStackForSlot(slot, s);
-                        } else {
-                            ctx.logger().at(Level.WARNING).log("Dominion vault %s has an unreadable item in slot %s", id, e.getKey());
+                            placed = true;
                         }
                     } catch (RuntimeException ex) {
                         ctx.logger().at(Level.WARNING).withCause(ex).log("Dominion vault %s slot %s could not be restored", id, e.getKey());
                     }
+                    if (!placed) {
+                        ctx.logger().at(Level.WARNING).log("Dominion vault %s keeps an unreadable item from page %d slot %s", id, index + 1, e.getKey());
+                        raw.add(sd);
+                    }
+                }
+                for (Object u : pd.get("Unreadable") instanceof List<?> l ? l : List.of()) {
+                    if (u instanceof Document sd && !restore(c, sd)) {
+                        raw.add(sd);
+                    }
+                }
+                if (!raw.isEmpty()) {
+                    unreadable.computeIfAbsent(id, k -> new ConcurrentHashMap<>()).put(index, raw);
                 }
                 watch(id, c);
                 pages.add(c);
             }
             return pages;
         });
+    }
+
+    /** Puts a once unreadable item into the first free slot when it can be read now. */
+    private static boolean restore(SimpleItemContainer c, Document sd) {
+        ItemStack s = Items.fromDocument(sd);
+        if (s == null || ItemStack.isEmpty(s)) {
+            return false;
+        }
+        for (short slot = 0; slot < c.getCapacity(); slot++) {
+            if (ItemStack.isEmpty(c.getItemStack(slot))) {
+                try {
+                    c.setItemStackForSlot(slot, s);
+                    return true;
+                } catch (RuntimeException e) {
+                    return false;
+                }
+            }
+        }
+        return false;
     }
 
     /** Marks the faction for the next periodic save whenever a page changes. */
@@ -464,18 +520,24 @@ public final class VaultServiceImpl implements dev.ryvrook.dominion.service.Vaul
     void saveDirty() {
         for (UUID id : List.copyOf(dirty)) {
             dirty.remove(id);
-            save(id);
+            if (!save(id)) {
+                // Tried again next minute rather than waiting for the next change.
+                dirty.add(id);
+            }
         }
     }
 
-    void save(UUID factionId) {
+    /** Writes the vault file. False when it could not be written. */
+    boolean save(UUID factionId) {
         List<SimpleItemContainer> pages = vaults.get(factionId);
         if (pages == null) {
-            return;
+            return true;
         }
+        Map<Integer, List<Document>> raw = unreadable.getOrDefault(factionId, Map.of());
         List<Document> out = new ArrayList<>();
         synchronized (pages) {
-            for (SimpleItemContainer c : pages) {
+            for (int i = 0; i < pages.size(); i++) {
+                SimpleItemContainer c = pages.get(i);
                 Document items = new Document();
                 for (short slot = 0; slot < c.getCapacity(); slot++) {
                     ItemStack s = c.getItemStack(slot);
@@ -483,10 +545,19 @@ public final class VaultServiceImpl implements dev.ryvrook.dominion.service.Vaul
                         items.append(Short.toString(slot), Items.toDocument(s));
                     }
                 }
-                out.add(new Document("Capacity", (int) c.getCapacity()).append("Items", items));
+                Document page = new Document("Capacity", (int) c.getCapacity()).append("Items", items);
+                List<Document> stuck = raw.get(i);
+                if (stuck != null && !stuck.isEmpty()) {
+                    page.append("Unreadable", new ArrayList<>(stuck));
+                }
+                out.add(page);
             }
         }
-        ctx.files().write(file(factionId), new Document("Pages", out));
+        boolean ok = ctx.files().write(file(factionId), new Document("Pages", out));
+        if (!ok) {
+            ctx.logger().at(Level.WARNING).log("Dominion could not save the vault of %s", factionId);
+        }
+        return ok;
     }
 
     void saveAll() {

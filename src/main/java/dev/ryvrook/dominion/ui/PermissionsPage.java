@@ -39,6 +39,7 @@ public final class PermissionsPage extends DominionPage {
             return;
         }
         boolean canEdit = factions().can(uuid(), FactionAction.PERMS);
+        c.set("#Reset.Visible", canEdit);
         c.set("#Subtitle.Text", f.tag() + "  " + f.name() + (canEdit
                 ? "    Click a cell to switch it. The leader can always do everything."
                 : "    You can look but only ranks with the permissions right can change these."));

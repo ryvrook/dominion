@@ -13,19 +13,19 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** Upkeep, dues, interest and the playtime stipend. Mutations run under the ledger lock. */
+/** Upkeep, dues, interest and the playtime stipend. The money moves themselves live in {@link Books}. */
 final class DailyEconomy {
     static final String UPKEEP_UNPAID = "upkeepUnpaidDays";
     static final String LAST_DAY = "eco.lastDailyDay";
 
     private final DominionContext ctx;
-    private final Object lock;
-    /** Stipend fractions not yet paid to an external provider. */
+    private final Books books;
+    /** Stipend fractions not yet paid, kept until they add up to a whole cent or a whole item. */
     private final Map<UUID, Double> stipendCarry = new ConcurrentHashMap<>();
 
-    DailyEconomy(DominionContext ctx, Object lock) {
+    DailyEconomy(DominionContext ctx, Books books) {
         this.ctx = ctx;
-        this.lock = lock;
+        this.books = books;
     }
 
     void run(EconomyServiceImpl svc) {
@@ -50,56 +50,27 @@ final class DailyEconomy {
     }
 
     private void collectDues(EconomyServiceImpl svc, Faction f, double dues) {
-        double total = 0;
-        int missed = 0;
+        int[] missed = {0};
         List<Member> members = f.members();
         BalanceProvider provider = svc.provider();
+        double total;
         if (provider instanceof InternalLedger) {
-            synchronized (lock) {
-                for (Member m : members) {
-                    PlayerData p = ctx.player(m.uuid());
-                    double paid = Math.min(p.balance(), dues);
-                    if (paid + 1e-6 < dues) {
-                        missed++;
-                    }
-                    if (paid > 0) {
-                        p.setBalance(Money.round(p.balance() - paid));
-                        total += paid;
-                    }
-                }
-                if (total > 0) {
-                    synchronized (f) {
-                        f.setBank(Money.round(f.bank() + total));
-                    }
-                }
-            }
-        } else {
-            // External wallets are charged outside the ledger lock, then the bank is credited once.
+            List<UUID> payers = new ArrayList<>();
             for (Member m : members) {
-                double have = provider.balance(m.uuid());
-                double paid = provider.wholeUnits()
-                        ? Math.min(Math.floor(have + 1e-6), Math.ceil(dues - 1e-6))
-                        : Money.round(Math.min(have, dues));
-                if (paid > 0 && provider.withdraw(m.uuid(), paid, "Faction dues").failed()) {
-                    paid = 0;
-                }
-                if (paid + 1e-6 < dues) {
-                    missed++;
-                }
-                total += Math.max(0, paid);
+                payers.add(m.uuid());
             }
-            if (total > 0) {
-                synchronized (lock) {
-                    synchronized (f) {
-                        f.setBank(Money.round(f.bank() + total));
-                    }
-                }
+            total = books.duesInternal(f, payers, dues, missed);
+        } else {
+            List<UUID> ids = new ArrayList<>();
+            for (Member m : members) {
+                ids.add(m.uuid());
             }
+            total = books.duesExternal(provider, f, ids, dues, missed);
         }
-        if (total > 0 || missed > 0) {
+        if (total > 0 || missed[0] > 0) {
             String text = "Collected " + svc.format(total) + " in daily dues";
-            if (missed > 0) {
-                text += " and " + missed + (missed == 1 ? " member" : " members") + " could not pay in full";
+            if (missed[0] > 0) {
+                text += " and " + missed[0] + (missed[0] == 1 ? " member" : " members") + " could not pay in full";
             }
             svc.bankChanged(f, null, text);
         }
@@ -112,22 +83,17 @@ final class DailyEconomy {
             return;
         }
         double cost = Money.round(claims * perClaim);
-        boolean paid;
-        double taken;
-        synchronized (lock) {
-            synchronized (f) {
-                paid = Money.covers(f.bank(), cost);
-                taken = paid ? cost : f.bank();
-                f.setBank(Money.round(f.bank() - taken));
-            }
-        }
-        if (paid) {
+        Books.Upkeep u = books.upkeep(f, cost);
+        if (u.paid()) {
             resetUnpaid(f);
-            svc.bankChanged(f, null, "Paid " + svc.format(cost) + " upkeep for " + claims + " claims");
+            svc.bankChanged(f, null, "Paid " + svc.format(cost) + " upkeep for " + claims + (claims == 1 ? " claim" : " claims"));
         } else {
             long days = f.addStat(UPKEEP_UNPAID, 1);
-            svc.bankChanged(f, null, "Upkeep of " + svc.format(cost) + " was not paid, " + days
-                    + (days == 1 ? " day" : " days") + " behind");
+            String behind = days + (days == 1 ? " day" : " days") + " behind";
+            svc.bankChanged(f, null, u.taken() > 0
+                    ? "Upkeep of " + svc.format(cost) + " was not paid in full. The bank gave the " + svc.format(u.taken())
+                            + " it held and is now " + behind
+                    : "Upkeep of " + svc.format(cost) + " was not paid. The bank is now " + behind);
         }
     }
 
@@ -155,34 +121,21 @@ final class DailyEconomy {
     }
 
     private void payInterest(EconomyServiceImpl svc, Faction f, double percent) {
-        double interest;
-        synchronized (lock) {
-            synchronized (f) {
-                interest = Money.round(f.bank() * percent / 100.0);
-                if (interest <= 0) {
-                    return;
-                }
-                f.setBank(Money.round(f.bank() + interest));
-            }
+        double interest = books.interest(f, percent);
+        if (interest <= 0) {
+            return;
         }
         svc.bankChanged(f, null, "Earned " + svc.format(interest) + " in interest");
     }
 
     /**
-     * Credits one minute of the hourly stipend to every online player. The internal ledger takes
-     * the fraction directly. Other providers get it once a whole cent, or a whole item, has built up.
+     * Credits one minute of the hourly stipend to every online player. The minute's share is kept
+     * aside until a whole cent, or a whole item for an item currency, has built up, so wallets
+     * only ever hold whole cents.
      */
     void stipend(BalanceProvider provider) {
         double perMinute = ctx.settings().decimal("eco.playtimeStipendPerHour") / 60.0;
         if (perMinute <= 0) {
-            return;
-        }
-        if (provider instanceof InternalLedger ledger) {
-            for (PlayerData p : new ArrayList<>(ctx.repo().loadedPlayers())) {
-                if (Players.isOnline(p.uuid())) {
-                    ledger.addRaw(p, perMinute);
-                }
-            }
             return;
         }
         double step = provider.wholeUnits() ? 1.0 : 0.01;
@@ -191,11 +144,16 @@ final class DailyEconomy {
                 continue;
             }
             double owed = stipendCarry.merge(p.uuid(), perMinute, Double::sum);
-            double pay = Math.floor((owed + 1e-9) / step) * step;
-            if (pay > 0 && provider.deposit(p.uuid(), Money.round(pay), "Playtime stipend").success()) {
+            double pay = payable(owed, step);
+            if (pay > 0 && provider.deposit(p.uuid(), pay, "Playtime stipend").success()) {
                 stipendCarry.put(p.uuid(), Math.max(0, owed - pay));
             }
         }
+    }
+
+    /** The part of an owed stipend that can be paid now, in whole steps. */
+    static double payable(double owed, double step) {
+        return Money.round(Math.floor((owed + 1e-9) / step) * step);
     }
 
     /** Drops the stipend fraction kept for a player who left. */

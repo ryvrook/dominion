@@ -161,7 +161,7 @@ final class Raids {
         double margin = s.decimal("raid.dominanceMarginPercent");
         double ap = land.power(attacker);
         double dp = land.power(defender);
-        if (!(ap > dp * (1.0 + margin / 100.0))) {
+        if (!dominates(ap, dp, margin)) {
             return Result.fail("Your faction needs " + Msg.number(margin) + " percent more power than "
                     + defender.tag() + " to take its land.");
         }
@@ -175,6 +175,16 @@ final class Raids {
                     + Time.remaining(last + cooldown - Time.now()) + ".");
         }
         return Result.pass();
+    }
+
+    /**
+     * True when the attacker leads the defender by the margin. The lead is a share of the size of
+     * the defender's power, so a defender below zero still needs a real lead. Multiplying a negative
+     * total by the margin would lower the bar instead.
+     */
+    static boolean dominates(double attacker, double defender, double marginPercent) {
+        double lead = Math.abs(defender) * Math.max(0, marginPercent) / 100.0;
+        return attacker > defender + lead;
     }
 
     private boolean touchesWildOrOwn(String world, long chunk, Faction attacker) {

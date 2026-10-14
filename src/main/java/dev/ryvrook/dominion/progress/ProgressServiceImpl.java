@@ -178,9 +178,29 @@ public final class ProgressServiceImpl implements ProgressService {
 
     @Override
     public double upgradeCost(Faction faction, String key) {
-        int level = upgradeLevel(faction, key);
-        double cost = ctx.settings().decimal("upgrades.baseCost") * Math.pow(ctx.settings().decimal("upgrades.costGrowth"), level);
+        return cost(ctx.settings().decimal("upgrades.baseCost"), ctx.settings().decimal("upgrades.costGrowth"),
+                upgradeLevel(faction, key));
+    }
+
+    /**
+     * Price of the next level when the faction owns level levels, rounded to cents. Each level costs
+     * growth times the one before. A negative setting makes the upgrade free and a broken one makes it unaffordable.
+     */
+    static double cost(double base, double growth, int level) {
+        double cost = base * Math.pow(growth, Math.max(0, level));
+        if (Double.isNaN(cost) || cost == Double.POSITIVE_INFINITY) {
+            // A broken setting makes the upgrade unaffordable rather than free.
+            return Double.MAX_VALUE;
+        }
+        if (cost <= 0) {
+            return 0.0;
+        }
         return Math.round(cost * 100.0) / 100.0;
+    }
+
+    /** Points price of an upgrade, the coin price rounded up. */
+    static int pointsCost(double cost) {
+        return (int) Math.min(Integer.MAX_VALUE, Math.ceil(cost));
     }
 
     @Override
@@ -236,17 +256,20 @@ public final class ProgressServiceImpl implements ProgressService {
             }
             paid = eco.format(cost);
         } else {
-            int pointsCost = (int) Math.ceil(cost);
+            int pointsCost = pointsCost(cost);
             synchronized (upgradeLock) {
-                if (f.upgrade(k) != level) {
-                    return Result.fail("The upgrade changed while you were buying it. Try again.");
+                // Points change under the faction monitor elsewhere, so the check and the spend hold it too.
+                synchronized (f) {
+                    if (f.upgrade(k) != level) {
+                        return Result.fail("The upgrade changed while you were buying it. Try again.");
+                    }
+                    if (f.points() < pointsCost) {
+                        return Result.fail("Your faction needs " + Msg.number(pointsCost) + " points for this upgrade and has "
+                                + Msg.number(f.points()) + ".");
+                    }
+                    f.setPoints(f.points() - pointsCost);
+                    f.setUpgrade(k, level + 1);
                 }
-                if (f.points() < pointsCost) {
-                    return Result.fail("Your faction needs " + Msg.number(pointsCost) + " points for this upgrade and has "
-                            + Msg.number(f.points()) + ".");
-                }
-                f.setPoints(f.points() - pointsCost);
-                f.setUpgrade(k, level + 1);
             }
             paid = Msg.number(pointsCost) + " points";
         }
@@ -317,16 +340,25 @@ public final class ProgressServiceImpl implements ProgressService {
             boolean completed;
             synchronized (f) {
                 long before = f.stat(key);
-                if (before >= m.target()) {
+                long credit = credit(before, amount, m.target());
+                if (credit <= 0) {
                     continue;
                 }
-                long after = f.addStat(key, Math.min(amount, m.target() - before));
+                long after = f.addStat(key, credit);
                 completed = after >= m.target();
             }
             if (completed) {
                 complete(f, m, player);
             }
         }
+    }
+
+    /** How much of amount still counts toward a mission at before of target. Never more than the gap. */
+    static long credit(long before, long amount, long target) {
+        if (amount <= 0 || before >= target) {
+            return 0;
+        }
+        return Math.min(amount, target - before);
     }
 
     private void complete(Faction f, Mission m, UUID player) {
@@ -479,21 +511,30 @@ public final class ProgressServiceImpl implements ProgressService {
         lastDay = day;
         lastWeek = week;
         for (Faction f : ctx.repo().factions()) {
-            for (Map.Entry<String, Long> e : f.stats().entrySet()) {
-                String key = e.getKey();
-                if (!key.startsWith(MISSION_PREFIX)) {
-                    continue;
-                }
-                int dot = key.lastIndexOf('.');
-                String id = dot > MISSION_PREFIX.length() ? key.substring(MISSION_PREFIX.length(), dot) : "";
-                MissionPool.Template t = MissionPool.byId(id);
-                long current = t != null && t.weekly() ? week : day;
-                String suffix = dot < 0 ? "" : key.substring(dot + 1);
-                if (t == null || !suffix.equals(Long.toString(current))) {
+            for (String key : f.stats().keySet()) {
+                if (staleMissionKey(key, day, week)) {
                     f.removeStat(key);
                 }
             }
         }
+    }
+
+    /**
+     * True for a mission counter that belongs to an earlier day or week, or to a mission that no
+     * longer exists. Keys look like mission.id.period. Other stats are never stale.
+     */
+    static boolean staleMissionKey(String key, long day, long week) {
+        if (key == null || !key.startsWith(MISSION_PREFIX)) {
+            return false;
+        }
+        int dot = key.lastIndexOf('.');
+        String id = dot > MISSION_PREFIX.length() ? key.substring(MISSION_PREFIX.length(), dot) : "";
+        MissionPool.Template t = MissionPool.byId(id);
+        if (t == null) {
+            return true;
+        }
+        long current = t.weekly() ? week : day;
+        return !key.substring(dot + 1).equals(Long.toString(current));
     }
 
     private String nameOf(UUID player) {

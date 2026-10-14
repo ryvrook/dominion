@@ -95,7 +95,8 @@ final class SqliteFile {
 
     private void readSchema() throws IOException {
         walk(1, new HashSet<>(), 0, (rowid, v) -> {
-            if (v.size() < 5 || !"table".equals(v.get(0)) || !(v.get(3) instanceof Long root) || !(v.get(4) instanceof String sql)) {
+            if (v.size() < 5 || !"table".equals(v.get(0)) || v.get(2) == null || !(v.get(3) instanceof Long root)
+                    || !(v.get(4) instanceof String sql)) {
                 return;
             }
             if (sql.toUpperCase(Locale.ROOT).replaceAll("\\s+", " ").contains("WITHOUT ROWID")) {
@@ -181,8 +182,11 @@ final class SqliteFile {
             } else {
                 throw new IOException("the database has a page of an unexpected type");
             }
-        } catch (IndexOutOfBoundsException | NegativeArraySizeException e) {
-            throw new IOException("the database file is truncated or damaged");
+        } catch (RuntimeException e) {
+            // Any malformed byte sequence surfaces as an unchecked exception, which the reader turns into a readable reason.
+            throw new IOException("the database file is truncated or damaged", e);
+        } catch (OutOfMemoryError e) {
+            throw new IOException("the database has a record too large to read", e);
         }
     }
 

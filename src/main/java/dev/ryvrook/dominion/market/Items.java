@@ -171,7 +171,7 @@ public final class Items {
         }
         try {
             return ItemStack.CODEC.decode(BsonDocument.parse(doc.toJson()), new ExtraInfo());
-        } catch (RuntimeException e) {
+        } catch (RuntimeException | LinkageError e) {
             return null;
         }
     }
@@ -179,14 +179,62 @@ public final class Items {
     /** A stack from a stored template with a new quantity, falling back to a plain stack of the id. */
     public static ItemStack withQuantity(Document template, String itemId, int quantity) {
         ItemStack base = fromDocument(template);
-        if (base == null || ItemStack.isEmpty(base)) {
-            try {
+        try {
+            if (base == null || ItemStack.isEmpty(base)) {
                 return new ItemStack(itemId, quantity);
-            } catch (RuntimeException e) {
-                return null;
+            }
+            return base.withQuantity(quantity);
+        } catch (RuntimeException | LinkageError e) {
+            return null;
+        }
+    }
+
+    /**
+     * Splits a quantity into stored stack documents no larger than the item's max stack. Unlike
+     * {@link #split} it never drops a part, because a stack that cannot be built right now, for
+     * example while its item asset is missing, is kept as the raw document with its quantity, which
+     * the mailbox holds until it can be collected.
+     */
+    public static List<Document> splitDocuments(Document template, String itemId, int quantity) {
+        List<Document> out = new ArrayList<>();
+        int max = maxStack(itemId);
+        int left = quantity;
+        while (left > 0) {
+            int n = Math.min(left, max);
+            ItemStack s = withQuantity(template, itemId, n);
+            Document d = null;
+            if (s != null && !ItemStack.isEmpty(s)) {
+                try {
+                    d = toDocument(s);
+                } catch (RuntimeException | LinkageError e) {
+                    d = null;
+                }
+            }
+            out.add(d != null ? d : rawDocument(template, itemId, n));
+            left -= n;
+        }
+        return out;
+    }
+
+    /** A stored stack document with the item codec's Id and Quantity keys, keeping any other fields of the template. */
+    static Document rawDocument(Document template, String itemId, int quantity) {
+        Document d = template == null ? new Document() : new Document(template);
+        if (d.get("Id") == null && itemId != null) {
+            d.put("Id", itemId);
+        }
+        d.put("Quantity", quantity);
+        return d;
+    }
+
+    /** Total quantity of a list of stacks. */
+    public static int quantity(List<ItemStack> stacks) {
+        int n = 0;
+        for (ItemStack s : stacks) {
+            if (!ItemStack.isEmpty(s)) {
+                n += s.getQuantity();
             }
         }
-        return base.withQuantity(quantity);
+        return n;
     }
 
     /** Splits a quantity into stacks no larger than the item's max stack. */
@@ -218,7 +266,7 @@ public final class Items {
         }
         try {
             return Item.getAssetMap().getAsset(itemId);
-        } catch (RuntimeException e) {
+        } catch (RuntimeException | LinkageError e) {
             return null;
         }
     }

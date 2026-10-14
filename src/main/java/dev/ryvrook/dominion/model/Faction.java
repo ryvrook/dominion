@@ -35,6 +35,10 @@ public final class Faction {
     private final List<UUID> requests = new ArrayList<>();
     private final List<UUID> bans = new ArrayList<>();
     private final Map<String, Rank> roster = new LinkedHashMap<>();
+    /** Which roster entry each player joined through, so a later rename cannot revive the entry. */
+    private final Map<UUID, String> rosterIds = new HashMap<>();
+    /** When the faction last lost each chunk, keyed world then chunk index, for the claim mission guard. */
+    private final Map<String, Long> released = new HashMap<>();
     private final Map<UUID, Relation> relations = new HashMap<>();
     private final Map<UUID, RelationRequest> relationRequests = new HashMap<>();
     private Location home;
@@ -117,8 +121,57 @@ public final class Faction {
     public synchronized boolean unban(UUID uuid) { boolean r = bans.remove(uuid); if (r) touch(); return r; }
 
     public synchronized Map<String, Rank> roster() { return new LinkedHashMap<>(roster); }
-    public synchronized void rosterPut(String name, Rank rank) { roster.put(name.toLowerCase(), rank); touch(); }
-    public synchronized boolean rosterRemove(String name) { boolean r = roster.remove(name.toLowerCase()) != null; if (r) touch(); return r; }
+    public synchronized void rosterPut(String name, Rank rank) { roster.put(rosterKey(name), rank); touch(); }
+    public synchronized boolean rosterRemove(String name) {
+        String key = rosterKey(name);
+        boolean r = roster.remove(key) != null;
+        rosterIds.values().removeIf(key::equals);
+        if (r) touch();
+        return r;
+    }
+    /** Roster entry for a name, looked up the same way it is stored. */
+    public synchronized Rank rosterRank(String name) { return name == null ? null : roster.get(rosterKey(name)); }
+    /** Records that the player joined through the roster entry for this name. */
+    public synchronized void rosterBind(UUID player, String name) {
+        if (player != null && name != null && roster.containsKey(rosterKey(name))) { rosterIds.put(player, rosterKey(name)); touch(); }
+    }
+    /**
+     * Removes every roster entry that belongs to the player, the one they joined through and any of
+     * the given names. Returns the removed names.
+     */
+    public synchronized List<String> rosterRemovePlayer(UUID player, String... names) {
+        List<String> keys = new ArrayList<>();
+        String bound = player == null ? null : rosterIds.remove(player);
+        if (bound != null) keys.add(bound);
+        for (String n : names) {
+            if (n != null && !n.isBlank() && !keys.contains(rosterKey(n))) keys.add(rosterKey(n));
+        }
+        List<String> removed = new ArrayList<>();
+        for (String k : keys) {
+            if (roster.remove(k) != null) removed.add(k);
+            rosterIds.values().removeIf(k::equals);
+        }
+        if (bound != null || !removed.isEmpty()) touch();
+        return removed;
+    }
+    public synchronized Map<UUID, String> rosterIds() { return new HashMap<>(rosterIds); }
+    static String rosterKey(String name) { return name.toLowerCase(java.util.Locale.ROOT); }
+
+    // ---- released land ---------------------------------------------------
+
+    private static String landKey(String world, long chunk) { return world + "|" + chunk; }
+    /** Notes that the faction lost the chunk now, dropping marks older than the window. */
+    public synchronized void noteReleased(String world, long chunk, long now, long window) {
+        released.values().removeIf(t -> now - t >= window);
+        released.put(landKey(world, chunk), now);
+        touch();
+    }
+    /** True when the faction lost this chunk less than the window ago. */
+    public synchronized boolean releasedWithin(String world, long chunk, long now, long window) {
+        Long at = released.get(landKey(world, chunk));
+        return at != null && now - at < window;
+    }
+    public synchronized Map<String, Long> released() { return new HashMap<>(released); }
 
     // ---- relations -------------------------------------------------------
 
@@ -194,8 +247,13 @@ public final class Faction {
         return set == null ? EnumSet.noneOf(FactionAction.class) : EnumSet.copyOf(set);
     }
     public synchronized void applyDefaultPerms() {
+        defaultRankPerms();
+        defaultRelationPerms();
+        touch();
+    }
+
+    private void defaultRankPerms() {
         rankPerms.clear();
-        relationPerms.clear();
         rankPerms.put(Rank.RECRUIT, EnumSet.of(FactionAction.INTERACT, FactionAction.USE_HOME, FactionAction.USE_WARP, FactionAction.DEPOSIT));
         rankPerms.put(Rank.MEMBER, EnumSet.of(FactionAction.BUILD, FactionAction.CONTAINER, FactionAction.INTERACT,
                 FactionAction.DAMAGE_ENTITY, FactionAction.USE_HOME, FactionAction.USE_WARP, FactionAction.DEPOSIT, FactionAction.VAULT));
@@ -204,9 +262,12 @@ public final class Faction {
                 FactionAction.PROMOTE, FactionAction.SET_HOME, FactionAction.USE_HOME, FactionAction.SET_WARP, FactionAction.USE_WARP,
                 FactionAction.DEPOSIT, FactionAction.WITHDRAW, FactionAction.VAULT, FactionAction.RELATIONS, FactionAction.SIEGE,
                 FactionAction.ANNOUNCE));
+    }
+
+    private void defaultRelationPerms() {
+        relationPerms.clear();
         relationPerms.put(Relation.ALLY, EnumSet.of(FactionAction.INTERACT, FactionAction.USE_HOME));
         relationPerms.put(Relation.TRUCE, EnumSet.of(FactionAction.INTERACT));
-        touch();
     }
 
     // ---- economy, progression, misc --------------------------------------
@@ -286,6 +347,10 @@ public final class Faction {
         Document ros = new Document();
         roster.forEach((k, v) -> ros.append(k, v.name()));
         d.append("Roster", ros);
+        Document rid = new Document();
+        rosterIds.forEach((k, v) -> rid.append(k.toString(), v));
+        d.append("RosterIds", rid);
+        d.append("Released", new Document(new LinkedHashMap<>(released)));
         Document rel = new Document();
         relations.forEach((k, v) -> rel.append(k.toString(), v.name()));
         d.append("Relations", rel);
@@ -327,91 +392,211 @@ public final class Faction {
         return d;
     }
 
+    /**
+     * Reads a faction leniently. A faction that fails to load is skipped and loses its claims at
+     * the next claims save, so only the id is required. Every other field and entry is read on its
+     * own and a damaged one falls back to its default or is skipped alone.
+     */
     @SuppressWarnings("unchecked")
     public static Faction fromDocument(Document d) {
         UUID id = UUID.fromString(d.getString("Id"));
-        String leader = d.getString("Leader");
-        Faction f = new Faction(id, d.getString("Tag"), d.getString("Name"), leader == null ? null : UUID.fromString(leader),
-                d.get("CreatedAt", Number.class).longValue());
-        f.type = FactionType.valueOf(d.getString("Type") == null ? "NORMAL" : d.getString("Type"));
-        f.color = d.getString("Color") == null ? f.color : d.getString("Color");
-        f.description = d.getString("Description") == null ? "" : d.getString("Description");
-        f.motd = d.getString("Motd") == null ? "" : d.getString("Motd");
+        UUID leaderId = uuidOrNull(d.get("Leader"));
+        Faction f = new Faction(id, text(d, "Tag", id.toString().substring(0, 8)), text(d, "Name", null), leaderId,
+                (long) num(d, "CreatedAt"));
+        f.type = FactionType.NORMAL;
+        try {
+            if (d.get("Type") != null) f.type = FactionType.valueOf(String.valueOf(d.get("Type")));
+        } catch (IllegalArgumentException ignored) {
+            // unknown type, kept as a normal faction rather than lost
+        }
+        f.color = text(d, "Color", f.color);
+        f.description = text(d, "Description", "");
+        f.motd = text(d, "Motd", "");
         f.bank = num(d, "Bank");
         f.powerBoost = num(d, "PowerBoost");
         f.points = (int) num(d, "Points");
-        f.shieldStartHour = d.get("ShieldStartHour") == null ? -1 : d.get("ShieldStartHour", Number.class).intValue();
-        for (Document m : d.getList("Members", Document.class, List.of())) {
-            Member mem = new Member(UUID.fromString(m.getString("Uuid")), m.getString("Name"),
-                    Rank.valueOf(m.getString("Rank")), m.get("JoinedAt", Number.class).longValue());
-            mem.setTitle(m.getString("Title"));
-            mem.setLastSeen(m.get("LastSeen", Number.class).longValue());
-            mem.setHoldUntil(m.get("HoldUntil") == null ? 0 : m.get("HoldUntil", Number.class).longValue());
-            mem.setKills((int) num(m, "Kills"));
-            mem.setDeaths((int) num(m, "Deaths"));
-            f.members.put(mem.uuid(), mem);
+        f.shieldStartHour = d.get("ShieldStartHour") instanceof Number n ? n.intValue() : -1;
+        for (Document m : list(d, "Members")) {
+            try {
+                UUID uuid = UUID.fromString(m.getString("Uuid"));
+                Rank rank = parseRank(m.getString("Rank"), uuid.equals(f.leader) ? Rank.LEADER : Rank.RECRUIT);
+                long joined = (long) num(m, "JoinedAt");
+                Member mem = new Member(uuid, text(m, "Name", ""), rank, joined);
+                mem.setTitle(text(m, "Title", ""));
+                mem.setLastSeen(m.get("LastSeen") instanceof Number n ? n.longValue() : joined);
+                mem.setHoldUntil((long) num(m, "HoldUntil"));
+                mem.setKills((int) num(m, "Kills"));
+                mem.setDeaths((int) num(m, "Deaths"));
+                f.members.put(mem.uuid(), mem);
+            } catch (RuntimeException ignored) {
+                // a member entry without a readable id cannot be kept
+            }
         }
-        Document inv = d.get("Invites", Document.class);
-        if (inv != null) inv.forEach((k, v) -> f.invites.put(UUID.fromString(k), ((Number) v).longValue()));
-        for (String s : d.getList("Requests", String.class, List.of())) f.requests.add(UUID.fromString(s));
-        for (String s : d.getList("Bans", String.class, List.of())) f.bans.add(UUID.fromString(s));
-        Document ros = d.get("Roster", Document.class);
-        if (ros != null) ros.forEach((k, v) -> f.roster.put(k, Rank.valueOf(v.toString())));
-        Document rel = d.get("Relations", Document.class);
-        if (rel != null) rel.forEach((k, v) -> f.relations.put(UUID.fromString(k), Relation.valueOf(v.toString())));
-        Document rr = d.get("RelationRequests", Document.class);
-        if (rr != null) rr.forEach((k, v) -> {
-            Document r = (Document) v;
-            f.relationRequests.put(UUID.fromString(k), new RelationRequest(Relation.valueOf(r.getString("Type")),
-                    UUID.fromString(r.getString("From")), r.get("ExpiresAt", Number.class).longValue()));
+        if (f.leader != null && !f.members.containsKey(f.leader)) {
+            // The leader's own entry was damaged. Without it the leader could neither act nor leave.
+            f.members.put(f.leader, new Member(f.leader, "", Rank.LEADER, f.createdAt));
+        }
+        doc(d, "Invites").forEach((k, v) -> {
+            UUID u = uuidOrNull(k);
+            if (u != null && v instanceof Number n) f.invites.put(u, n.longValue());
         });
-        f.home = Location.fromDocument(d.get("Home", Document.class));
-        Document ws = d.get("Warps", Document.class);
-        if (ws != null) ws.forEach((k, v) -> {
-            Document w = (Document) v;
-            f.warps.put(k, new Warp(Location.fromDocument(w.get("Location", Document.class)), w.getString("Password")));
+        for (Object s : rawList(d, "Requests")) {
+            UUID u = uuidOrNull(s);
+            if (u != null && !f.requests.contains(u)) f.requests.add(u);
+        }
+        for (Object s : rawList(d, "Bans")) {
+            // A ban is kept whenever the id reads, losing one would let the player back in.
+            UUID u = uuidOrNull(s);
+            if (u != null && !f.bans.contains(u)) f.bans.add(u);
+        }
+        doc(d, "Roster").forEach((k, v) -> {
+            Rank r = v == null ? null : parseRank(v.toString(), null);
+            if (r != null && r != Rank.LEADER) f.roster.put(rosterKey(k), r);
         });
-        Document rp = d.get("RankPerms", Document.class);
+        doc(d, "RosterIds").forEach((k, v) -> {
+            UUID u = uuidOrNull(k);
+            if (u != null && v instanceof String s && f.roster.containsKey(rosterKey(s))) f.rosterIds.put(u, rosterKey(s));
+        });
+        doc(d, "Released").forEach((k, v) -> {
+            if (v instanceof Number n) f.released.put(k, n.longValue());
+        });
+        doc(d, "Relations").forEach((k, v) -> {
+            try {
+                Relation r = Relation.valueOf(String.valueOf(v));
+                UUID u = UUID.fromString(k);
+                if (r != Relation.NEUTRAL && r != Relation.OWN) f.relations.put(u, r);
+            } catch (IllegalArgumentException ignored) {
+                // unknown relation or id, treated as neutral
+            }
+        });
+        doc(d, "RelationRequests").forEach((k, v) -> {
+            try {
+                Document r = (Document) v;
+                f.relationRequests.put(UUID.fromString(k), new RelationRequest(Relation.valueOf(r.getString("Type")),
+                        UUID.fromString(r.getString("From")), r.get("ExpiresAt", Number.class).longValue()));
+            } catch (RuntimeException ignored) {
+                // a damaged request is dropped, the sender can ask again
+            }
+        });
+        try {
+            f.home = Location.fromDocument(d.get("Home", Document.class));
+        } catch (RuntimeException ignored) {
+            f.home = null;
+        }
+        doc(d, "Warps").forEach((k, v) -> {
+            try {
+                Document w = (Document) v;
+                Location at = Location.fromDocument(w.get("Location", Document.class));
+                if (at != null) f.warps.put(k, new Warp(at, w.getString("Password")));
+            } catch (RuntimeException ignored) {
+                // a damaged warp is dropped, it can be set again
+            }
+        });
+        Document rp = d.get("RankPerms") instanceof Document x ? x : null;
         if (rp != null) {
             f.rankPerms.clear();
-            rp.forEach((k, v) -> f.rankPerms.put(Rank.valueOf(k), toActions((List<String>) v)));
+            rp.forEach((k, v) -> {
+                Rank r = parseRank(k, null);
+                if (r != null && v instanceof List<?> l) f.rankPerms.put(r, toActions(l));
+            });
+            if (f.rankPerms.isEmpty()) {
+                // Nothing usable was stored, so the defaults apply rather than a grid with no permissions.
+                f.defaultRankPerms();
+            }
         }
-        Document lp = d.get("RelationPerms", Document.class);
+        Document lp = d.get("RelationPerms") instanceof Document x ? x : null;
         if (lp != null) {
             f.relationPerms.clear();
-            lp.forEach((k, v) -> f.relationPerms.put(Relation.valueOf(k), toActions((List<String>) v)));
+            lp.forEach((k, v) -> {
+                try {
+                    if (v instanceof List<?> l) f.relationPerms.put(Relation.valueOf(k), toActions(l));
+                } catch (IllegalArgumentException ignored) {
+                    // unknown relation from a newer or older version
+                }
+            });
+            if (f.relationPerms.isEmpty()) {
+                f.defaultRelationPerms();
+            }
         }
-        Document up = d.get("Upgrades", Document.class);
-        if (up != null) up.forEach((k, v) -> f.upgrades.put(k, ((Number) v).intValue()));
-        Document st = d.get("Stats", Document.class);
-        if (st != null) st.forEach((k, v) -> f.stats.put(k, ((Number) v).longValue()));
-        Document se = d.get("Settings", Document.class);
-        if (se != null) se.forEach((k, v) -> f.settings.put(k, Boolean.TRUE.equals(v)));
-        for (Document a : d.getList("Audit", Document.class, List.of())) {
-            f.audit.addLast(AuditEntry.fromDocument(a));
+        doc(d, "Upgrades").forEach((k, v) -> {
+            if (v instanceof Number n) f.upgrades.put(k, n.intValue());
+        });
+        doc(d, "Stats").forEach((k, v) -> {
+            if (v instanceof Number n) f.stats.put(k, n.longValue());
+        });
+        doc(d, "Settings").forEach((k, v) -> f.settings.put(k, Boolean.TRUE.equals(v)));
+        for (Document a : list(d, "Audit")) {
+            try { f.audit.addLast(AuditEntry.fromDocument(a)); } catch (RuntimeException ignored) { }
         }
-        Document rn = d.get("RankNames", Document.class);
-        if (rn != null) rn.forEach((k, v) -> f.rankNames.put(k, v.toString()));
-        for (Document z : d.getList("Zones", Document.class, List.of())) {
-            Zone zone = Zone.fromDocument(z);
-            f.zones.put(zone.id(), zone);
+        doc(d, "RankNames").forEach((k, v) -> {
+            if (v != null && parseRank(k, null) != null) f.rankNames.put(k, v.toString());
+        });
+        for (Document z : list(d, "Zones")) {
+            try {
+                Zone zone = Zone.fromDocument(z);
+                if (zone.id() != null) f.zones.put(zone.id(), zone);
+            } catch (RuntimeException ignored) {
+                // a damaged zone is dropped and its chunks follow the faction grid
+            }
         }
-        String nation = d.getString("Nation");
-        f.nationId = nation == null ? null : UUID.fromString(nation);
+        f.nationId = uuidOrNull(d.get("Nation"));
         f.dirty = false;
         return f;
     }
 
-    private static EnumSet<FactionAction> toActions(List<String> names) {
+    private static String text(Document d, String key, String fallback) {
+        return d.get(key) instanceof String s ? s : fallback;
+    }
+
+    private static UUID uuidOrNull(Object value) {
+        if (!(value instanceof String s)) {
+            return null;
+        }
+        try {
+            return UUID.fromString(s);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    private static Document doc(Document d, String key) {
+        return d.get(key) instanceof Document x ? x : new Document();
+    }
+
+    private static List<?> rawList(Document d, String key) {
+        return d.get(key) instanceof List<?> l ? l : List.of();
+    }
+
+    private static List<Document> list(Document d, String key) {
+        List<Document> out = new ArrayList<>();
+        for (Object o : rawList(d, key)) {
+            if (o instanceof Document x) out.add(x);
+        }
+        return out;
+    }
+
+    private static EnumSet<FactionAction> toActions(List<?> names) {
         EnumSet<FactionAction> set = EnumSet.noneOf(FactionAction.class);
-        for (String n : names) {
+        for (Object n : names) {
             try {
-                set.add(FactionAction.valueOf(n));
+                set.add(FactionAction.valueOf(String.valueOf(n)));
             } catch (IllegalArgumentException ignored) {
                 // unknown action from a newer or older version
             }
         }
         return set;
+    }
+
+    /** Rank by its stored name, or the fallback when the name is missing or unknown. */
+    static Rank parseRank(String name, Rank fallback) {
+        if (name == null) {
+            return fallback;
+        }
+        try {
+            return Rank.valueOf(name);
+        } catch (IllegalArgumentException e) {
+            return fallback;
+        }
     }
 
     private static double num(Document d, String key) {

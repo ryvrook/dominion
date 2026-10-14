@@ -29,44 +29,27 @@ import dev.ryvrook.dominion.util.Players;
 import dev.ryvrook.dominion.util.Time;
 import org.joml.Vector3d;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.regex.Pattern;
 
 /**
- * Teleports wait out a warmup in a pending map that the one second tick advances. Moving more
- * than one block or taking damage cancels them. The teleport itself attaches the Teleport
+ * Teleports wait out a warmup that the one second tick advances. Moving more than one block,
+ * taking damage or becoming combat tagged cancels them, see {@link Warmups}. The teleport itself attaches the Teleport
  * component on the world thread that owns the player entity.
  */
 public final class HomeServiceImpl implements HomeService {
     private static final Pattern WARP_NAME = Pattern.compile("[A-Za-z0-9_-]{1,16}");
     private static final int STUCK_SEARCH_RADIUS = 32;
-    private static final double MOVE_TOLERANCE = 1.0;
 
-    /** A teleport waiting for its warmup. The target is resolved when the warmup ends. */
-    private static final class Pending {
-        final String label;
-        final Supplier<Location> target;
-        final Vector3d start;
-        final String world;
-        final boolean homeCooldown;
-        int secondsLeft;
-
-        Pending(String label, Supplier<Location> target, Vector3d start, String world, int seconds, boolean homeCooldown) {
-            this.label = label;
-            this.target = target;
-            this.start = start;
-            this.world = world;
-            this.secondsLeft = seconds;
-            this.homeCooldown = homeCooldown;
-        }
-    }
+    /** What a warmup teleports to once it ends. The target is resolved then, not when it starts. */
+    private record Target(String label, Supplier<Location> target, boolean homeCooldown) {}
 
     private final DominionContext ctx;
-    private final Map<UUID, Pending> pending = new ConcurrentHashMap<>();
+    private final Warmups<Target> warmups = new Warmups<>();
 
     public HomeServiceImpl(DominionContext ctx) {
         this.ctx = ctx;
@@ -236,10 +219,15 @@ public final class HomeServiceImpl implements HomeService {
         }
         UUID factionId = faction.id();
         String key = name.toLowerCase();
+        String given = password;
         return begin(player, "warp " + key, () -> {
             Faction f = factions().byId(factionId);
             Faction.Warp w = f == null ? null : f.warp(key);
-            return w == null ? null : w.location();
+            // A password set or changed during the warmup applies to this teleport too.
+            if (w == null || (w.password() != null && !w.password().isBlank() && !w.password().equals(given))) {
+                return null;
+            }
+            return w.location();
         }, ctx.settings().integer("home.warmupSeconds"), true);
     }
 
@@ -357,47 +345,58 @@ public final class HomeServiceImpl implements HomeService {
 
     private Result begin(UUID player, String label, Supplier<Location> target, int warmup, boolean homeCooldown) {
         PlayerRef ref = Players.online(player);
-        Vector3d pos = Players.position(ref);
-        String world = Players.worldName(ref);
-        if (ref == null || pos == null || world == null) {
+        Warmups.Pos pos = where(ref);
+        if (ref == null || pos == null) {
             return Result.fail("Your position is not known yet. Try again in a moment.");
         }
-        Pending p = new Pending(label, target, pos, world, Math.max(0, warmup), homeCooldown);
-        if (p.secondsLeft <= 0) {
-            pending.remove(player);
-            return complete(player, ref, p);
+        Target t = new Target(label, target, homeCooldown);
+        int seconds = Math.max(0, warmup);
+        if (seconds <= 0) {
+            warmups.cancel(player);
+            return complete(player, ref, t);
         }
-        pending.put(player, p);
-        return Result.pass("Teleporting to " + label + " in " + p.secondsLeft + " seconds. Do not move.");
+        warmups.start(player, t, pos, seconds);
+        return Result.pass("Teleporting to " + label + " in " + seconds + (seconds == 1 ? " second" : " seconds") + ". Do not move.");
+    }
+
+    private static Warmups.Pos where(PlayerRef ref) {
+        Vector3d pos = Players.position(ref);
+        String world = Players.worldName(ref);
+        return pos == null || world == null ? null : new Warmups.Pos(world, pos.x, pos.y, pos.z);
     }
 
     @Override
     public void tick() {
-        for (Map.Entry<UUID, Pending> e : pending.entrySet()) {
-            UUID uuid = e.getKey();
-            Pending p = e.getValue();
+        if (warmups.isEmpty()) {
+            return;
+        }
+        long now = Time.now();
+        List<Warmups.Step<Target>> steps;
+        try {
+            steps = warmups.tick(id -> where(Players.online(id)), id -> ctx.player(id).combatTagged(now));
+        } catch (RuntimeException ex) {
+            ctx.logger().at(Level.WARNING).withCause(ex).log("Dominion teleport warmup failed");
+            return;
+        }
+        for (Warmups.Step<Target> step : steps) {
             try {
-                PlayerRef ref = Players.online(uuid);
+                PlayerRef ref = Players.online(step.player());
                 if (ref == null) {
-                    pending.remove(uuid, p);
                     continue;
                 }
-                Vector3d pos = Players.position(ref);
-                if (pos == null || !p.world.equals(Players.worldName(ref)) || pos.distance(p.start) > MOVE_TOLERANCE) {
-                    pending.remove(uuid, p);
-                    ref.sendMessage(Msg.bad("Teleport cancelled because you moved."));
-                    continue;
+                switch (step.kind()) {
+                    case MOVED -> ref.sendMessage(Msg.bad("Teleport cancelled because you moved."));
+                    case COMBAT -> ref.sendMessage(Msg.bad("Teleport cancelled because you are in combat."));
+                    case COUNTDOWN -> ref.sendMessage(Msg.info("Teleporting in " + step.secondsLeft() + "."));
+                    case DONE -> {
+                        Result r = complete(step.player(), ref, step.payload());
+                        ref.sendMessage(r.success() ? Msg.good(r.message()) : Msg.bad(r.message()));
+                    }
+                    default -> {
+                        // offline, nothing to tell
+                    }
                 }
-                p.secondsLeft--;
-                if (p.secondsLeft <= 0) {
-                    pending.remove(uuid, p);
-                    Result r = complete(uuid, ref, p);
-                    ref.sendMessage(r.success() ? Msg.good(r.message()) : Msg.bad(r.message()));
-                } else if (p.secondsLeft <= 3) {
-                    ref.sendMessage(Msg.info("Teleporting in " + p.secondsLeft + "."));
-                }
-            } catch (Exception ex) {
-                pending.remove(uuid, p);
+            } catch (RuntimeException ex) {
                 ctx.logger().at(Level.WARNING).withCause(ex).log("Dominion teleport warmup failed");
             }
         }
@@ -405,30 +404,33 @@ public final class HomeServiceImpl implements HomeService {
 
     @Override
     public void onDamaged(UUID player) {
-        Pending p = pending.remove(player);
-        if (p != null) {
+        if (warmups.cancel(player)) {
             Msg.send(Players.online(player), Msg.bad("Teleport cancelled because you took damage."));
         }
     }
 
     /** Cheap check so the damage system can skip the lookup when nobody is warming up. */
     boolean hasPending() {
-        return !pending.isEmpty();
+        return !warmups.isEmpty();
     }
 
     void cancel(UUID player) {
-        pending.remove(player);
+        warmups.cancel(player);
     }
 
-    private Result complete(UUID uuid, PlayerRef ref, Pending p) {
-        Location loc = p.target.get();
+    private Result complete(UUID uuid, PlayerRef ref, Target t) {
+        Location loc = t.target().get();
         if (loc == null) {
-            return Result.fail("The destination no longer exists.");
+            return Result.fail("The destination no longer exists or is now locked.");
         }
-        if (p.homeCooldown) {
+        if (!teleport(ref, loc)) {
+            return Result.fail("The destination world is not loaded.");
+        }
+        // The cooldown starts only when a teleport actually happens.
+        if (t.homeCooldown()) {
             ctx.player(uuid).setLastHomeTeleport(Time.now());
         }
-        return teleport(ref, loc) ? Result.pass("Teleported to " + p.label + ".") : Result.fail("The destination world is not loaded.");
+        return Result.pass("Teleported to " + t.label() + ".");
     }
 
     /**

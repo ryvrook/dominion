@@ -19,6 +19,7 @@ import dev.ryvrook.dominion.service.FactionService;
 import dev.ryvrook.dominion.service.NationService;
 import dev.ryvrook.dominion.service.PowerService;
 import dev.ryvrook.dominion.service.ProgressService;
+import dev.ryvrook.dominion.service.RelationService;
 import dev.ryvrook.dominion.service.RulesService;
 import dev.ryvrook.dominion.service.ShieldService;
 import dev.ryvrook.dominion.util.Keys;
@@ -28,10 +29,8 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import org.joml.Vector3d;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -60,6 +59,8 @@ public final class ExportServiceImpl implements ExportService {
     private int secondsSinceFlush;
     private int secondsSinceMove;
     private boolean warned;
+    /** True while a timed write waits on the IO thread, so a slow disk never queues a pile of them. */
+    private final java.util.concurrent.atomic.AtomicBoolean queued = new java.util.concurrent.atomic.AtomicBoolean();
     /** Last public chat lines, oldest first. Guarded by its own monitor. */
     private final ArrayDeque<ChatLine> chat = new ArrayDeque<>(CHAT_LIMIT);
     private long lastChatAt;
@@ -136,37 +137,47 @@ public final class ExportServiceImpl implements ExportService {
         }
         if (++secondsSinceFlush >= Math.max(1, ctx.settings().integer("export.intervalSeconds"))) {
             secondsSinceFlush = 0;
-            flush();
+            if (changes.get() != written && queued.compareAndSet(false, true)) {
+                ctx.runIo("map snapshot", () -> {
+                    try {
+                        write(false);
+                    } finally {
+                        queued.set(false);
+                    }
+                });
+            }
         }
     }
 
+    /** Writes the snapshot now, even when nothing changed. Used by /fa export and at shutdown. */
     @Override
-    public synchronized void flush() {
+    public void flush() {
+        write(true);
+    }
+
+    /** Writes when something changed since the last write, or always with force. Returns true when written. */
+    synchronized boolean write(boolean force) {
         long version = changes.get();
-        if (version == written) {
-            return;
+        if (!force && version == written && Files.exists(file())) {
+            return false;
         }
         try {
             String json = build();
-            write(file(), json);
+            if (!ctx.files().writeText(file(), json, false)) {
+                throw new IOException("the file system refused the write, see the error above");
+            }
             written = version;
+            if (warned) {
+                ctx.logger().at(Level.INFO).log("Dominion is writing the map snapshot again");
+            }
             warned = false;
+            return true;
         } catch (Exception e) {
             if (!warned) {
                 warned = true;
                 ctx.logger().at(Level.WARNING).withCause(e).log("Dominion could not write the map snapshot");
             }
-        }
-    }
-
-    private static void write(Path file, String json) throws IOException {
-        Files.createDirectories(file.getParent());
-        Path temp = file.resolveSibling(file.getFileName() + ".tmp");
-        Files.writeString(temp, json, StandardCharsets.UTF_8);
-        try {
-            Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-        } catch (java.nio.file.AtomicMoveNotSupportedException e) {
-            Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING);
+            return false;
         }
     }
 
@@ -188,8 +199,11 @@ public final class ExportServiceImpl implements ExportService {
         j.endArray();
 
         j.key("factions").beginArray();
-        for (Faction f : ctx.repo().factions(FactionType.NORMAL)) {
-            writeFaction(j, f);
+        List<Faction> normal = ctx.repo().factions(FactionType.NORMAL);
+        normal.sort(java.util.Comparator.comparing(Faction::tag, String.CASE_INSENSITIVE_ORDER));
+        Map<UUID, java.util.Set<UUID>> mentionedBy = reverseRelations(normal);
+        for (Faction f : normal) {
+            writeFaction(j, f, mentionedBy);
         }
         j.endArray();
 
@@ -315,7 +329,7 @@ public final class ExportServiceImpl implements ExportService {
             j.field("tag", f.tag());
             j.field("name", f.name());
             j.field("color", f.color());
-            j.field("type", f.type().name());
+            j.field("type", typeName(f.type()));
             j.field("raidable", z.raidable());
             j.key("chunks").beginArray();
             for (long c : z.chunks()) {
@@ -376,11 +390,11 @@ public final class ExportServiceImpl implements ExportService {
     /** KOTH hills, outposts, envoys, bounties and the season from the events module, or null. */
     private void writeEvents(Json j) {
         EventsService events = ctx.serviceOrNull(EventsService.class);
-        j.key("events");
         if (events == null) {
-            j.value((String) null);
+            // The events object is optional in the contract, so it is left out rather than written as null.
             return;
         }
+        j.key("events");
         j.beginObject();
         j.field("enabled", safe(events::enabled, false));
         // koths() and outposts() return status sentences, so names come from the map points, whose ids end in the lower case name.
@@ -439,7 +453,7 @@ public final class ExportServiceImpl implements ExportService {
         return n == null ? null : n.tag();
     }
 
-    private void writeFaction(Json j, Faction f) {
+    private void writeFaction(Json j, Faction f, Map<UUID, java.util.Set<UUID>> mentionedBy) {
         PowerService power = ctx.serviceOrNull(PowerService.class);
         ProgressService progress = ctx.serviceOrNull(ProgressService.class);
         List<Member> members = f.members();
@@ -484,18 +498,7 @@ public final class ExportServiceImpl implements ExportService {
         j.field("points", f.points());
         j.field("bank", f.bank());
         j.key("relations").beginObject();
-        Map<String, String> rel = new HashMap<>();
-        for (Map.Entry<UUID, Relation> e : f.relations().entrySet()) {
-            Relation r = e.getValue();
-            if (r != Relation.ALLY && r != Relation.TRUCE && r != Relation.ENEMY) {
-                continue;
-            }
-            Faction other = ctx.repo().faction(e.getKey());
-            if (other != null) {
-                rel.put(other.tag(), r.name());
-            }
-        }
-        for (Map.Entry<String, String> e : rel.entrySet()) {
+        for (Map.Entry<String, String> e : relationsOf(f, mentionedBy).entrySet()) {
             j.field(e.getKey(), e.getValue());
         }
         j.endObject();
@@ -507,5 +510,52 @@ public final class ExportServiceImpl implements ExportService {
     private String tagOf(UUID factionId) {
         Faction f = ctx.repo().faction(factionId);
         return f == null ? null : f.tag();
+    }
+
+    /**
+     * Territory type as the web map reads it. Player factions are FACTION, which the map shows
+     * without a badge, and server zones keep SAFEZONE and WARZONE, which it shows as a badge.
+     */
+    static String typeName(FactionType type) {
+        return type == null || type == FactionType.NORMAL ? "FACTION" : type.name();
+    }
+
+    /**
+     * Ally, truce and enemy relations of a faction keyed by the other tag, as the relation service
+     * resolves them. An ally request the other side never accepted does not count, an enemy
+     * declaration from either side does, and factions in one nation are allies.
+     */
+    Map<String, String> relationsOf(Faction f, Map<UUID, java.util.Set<UUID>> mentionedBy) {
+        RelationService rs = ctx.serviceOrNull(RelationService.class);
+        java.util.Set<UUID> candidates = new java.util.LinkedHashSet<>(f.relations().keySet());
+        candidates.addAll(mentionedBy.getOrDefault(f.id(), java.util.Set.of()));
+        NationService nations = ctx.serviceOrNull(NationService.class);
+        Nation nation = nations == null ? null : safe(() -> nations.nationOf(f), null);
+        if (nation != null) {
+            candidates.addAll(nation.members());
+        }
+        Map<String, String> out = new java.util.TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        for (UUID id : candidates) {
+            Faction other = ctx.repo().faction(id);
+            if (other == null || other.id().equals(f.id()) || other.type() != FactionType.NORMAL) {
+                continue;
+            }
+            Relation r = rs == null ? f.relationTo(id) : safe(() -> rs.between(f, other), Relation.NEUTRAL);
+            if (r == Relation.ALLY || r == Relation.TRUCE || r == Relation.ENEMY) {
+                out.put(other.tag(), r.name());
+            }
+        }
+        return out;
+    }
+
+    /** For each faction, the factions whose own relation list names it. */
+    private Map<UUID, java.util.Set<UUID>> reverseRelations(Collection<Faction> all) {
+        Map<UUID, java.util.Set<UUID>> out = new HashMap<>();
+        for (Faction f : all) {
+            for (UUID other : f.relations().keySet()) {
+                out.computeIfAbsent(other, k -> new java.util.LinkedHashSet<>()).add(f.id());
+            }
+        }
+        return out;
     }
 }

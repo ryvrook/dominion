@@ -112,11 +112,15 @@ final class UltimateFactionsSource implements Source {
                 continue;
             }
             Plan.Faction f = byId.get(fid);
-            Long x = Data.num(c, "chunkX");
-            Long z = Data.num(c, "chunkZ");
+            Integer x = Data.coord(c.get("chunkX"));
+            Integer z = Data.coord(c.get("chunkZ"));
             String key = Data.str(c, "worldKey");
-            if (f == null || x == null || z == null) {
-                plan.skipped.add("A claim at " + x + ", " + z + " belongs to an unknown faction " + fid);
+            if (f == null) {
+                plan.skipped.add("A claim belongs to an unknown faction " + fid);
+                continue;
+            }
+            if (x == null || z == null || key == null || key.isBlank()) {
+                plan.skipped.add("A claim of " + f.name + " is missing its world or has damaged chunk coordinates");
                 continue;
             }
             String world = Source.worldName(key);

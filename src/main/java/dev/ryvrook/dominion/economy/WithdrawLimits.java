@@ -27,17 +27,26 @@ final class WithdrawLimits {
 
     /** Amount already withdrawn today in cents. */
     static long usedToday(Faction faction, UUID player) {
-        if (faction.stat(dayKey(player)) != today()) {
-            return 0;
-        }
-        return faction.stat(centsKey(player));
+        return used(faction, player, today());
     }
 
+    /** Amount withdrawn on the given epoch day in cents. */
+    static long used(Faction faction, UUID player, long day) {
+        if (faction.stat(dayKey(player)) != day) {
+            return 0;
+        }
+        return Math.max(0, faction.stat(centsKey(player)));
+    }
+
+    /** Adds to today's total. A negative amount gives allowance back, never below zero. */
     static void record(Faction faction, UUID player, double amount) {
-        long day = today();
-        long used = usedToday(faction, player);
+        record(faction, player, amount, today());
+    }
+
+    static void record(Faction faction, UUID player, double amount, long day) {
+        long used = used(faction, player, day);
         set(faction, dayKey(player), day);
-        set(faction, centsKey(player), used + Money.cents(amount));
+        set(faction, centsKey(player), Math.max(0, used + Money.cents(amount)));
     }
 
     private static void set(Faction faction, String key, long value) {

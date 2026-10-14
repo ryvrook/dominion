@@ -63,9 +63,11 @@ final class DeathTrackingSystem extends DeathSystems.OnDeathSystem {
         }
         Faction zone = world == null || chunk == Long.MIN_VALUE ? null : ctx.repo().ownerAt(world, chunk);
         boolean inWarzone = zone != null && zone.type() == FactionType.WARZONE;
+        // Nobody can be hurt by a player in a SafeZone, so a death there is the world's doing and costs no power.
+        boolean inSafezone = zone != null && zone.type() == FactionType.SAFEZONE;
 
         PowerService power = ctx.serviceOrNull(PowerService.class);
-        if (power != null) {
+        if (power != null && !inSafezone) {
             power.onDeath(victimId, world == null ? "" : world, inWarzone);
         }
         ctx.player(victimId).addDeath();

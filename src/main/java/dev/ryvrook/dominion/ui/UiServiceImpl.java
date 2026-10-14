@@ -166,10 +166,11 @@ public final class UiServiceImpl implements UiService {
 
     // ---- HUD -------------------------------------------------------------
 
+    /**
+     * Shows the sidebar to players who have it on. New players start with hud.enabledDefault, so
+     * the server default only decides the first value and each player's own choice wins after that.
+     */
     void onPlayerReady(PlayerRef player) {
-        if (!ctx.settings().bool("hud.enabledDefault")) {
-            return;
-        }
         if (ctx.player(player.getUuid()).hud()) {
             showHud(player);
         }

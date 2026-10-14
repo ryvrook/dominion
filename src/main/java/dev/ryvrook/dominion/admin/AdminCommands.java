@@ -1,6 +1,5 @@
 package dev.ryvrook.dominion.admin;
 
-import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.command.system.arguments.system.RequiredArg;
 import com.hypixel.hytale.server.core.command.system.arguments.types.ArgTypes;
@@ -47,7 +46,7 @@ import java.util.logging.Level;
  * command and variant requires the admin permission on its own.
  */
 final class AdminCommands {
-    private static final List<String> PRESETS = List.of("classic", "singleplayer", "hardcore", "peaceful");
+    private static final List<String> PRESETS = dev.ryvrook.dominion.config.Defaults.PRESETS;
     private static final int MAX_ADMIN_RADIUS = 10;
 
     private static final String NOT_INSTALLED = "That feature is not installed.";
@@ -142,10 +141,11 @@ final class AdminCommands {
                 c.bad(key + " can only be changed in config.json. Edit the file and run /fa reload.");
                 return;
             }
-            if (ctx.settings().set(key, value)) {
+            String why = ctx.settings().trySet(key, value);
+            if (why == null) {
                 c.good(key + " is now " + ctx.settings().raw(key) + ".");
             } else {
-                c.bad("Unknown key or a value of the wrong type for " + key + ".");
+                c.bad(why);
             }
         });
 
@@ -166,17 +166,27 @@ final class AdminCommands {
             }
             c.info(key + " is " + ctx.settings().raw(key) + ".");
             c.send(Msg.muted(" " + def.label() + ", in " + def.group() + ", default " + def.defaultValue() + "."));
+            Settings.Range range = ctx.settings().rangeOf(key);
+            List<String> allowed = ctx.settings().choicesOf(key);
+            if (range != null) {
+                c.send(Msg.muted(" Allowed from " + Msg.number(range.min()) + " to "
+                        + (range.max() >= Long.MAX_VALUE / 2.0 ? "any size" : Msg.number(range.max())) + "."));
+            } else if (!allowed.isEmpty()) {
+                c.send(Msg.muted(" Allowed values are " + String.join(", ", allowed) + "."));
+            }
+            if (ctx.settings().fileOnly(key)) {
+                c.send(Msg.muted(" Only config.json can change it."));
+            }
         });
 
         ServerCmd preset = root.sub(server("preset", "Apply a settings preset."));
         RequiredArg<String> presetName = preset.withRequiredArg("name", "classic, singleplayer, hardcore or peaceful", ArgTypes.STRING);
         preset.handler(c -> {
             String name = c.arg(presetName).toLowerCase(Locale.ROOT);
-            if (!PRESETS.contains(name)) {
-                c.bad("Presets are classic, singleplayer, hardcore and peaceful.");
+            if (!ctx.plugin().applyPreset(name)) {
+                c.bad("Presets are " + String.join(", ", PRESETS) + ".");
                 return;
             }
-            ctx.plugin().applyPreset(name);
             c.good("Applied the " + name + " preset.");
         });
     }
@@ -418,6 +428,10 @@ final class AdminCommands {
                 if (t == null) {
                     return;
                 }
+                if (!Double.isFinite(c.arg(value))) {
+                    c.bad("Give the power as a plain number such as 5 or -2.5.");
+                    return;
+                }
                 if (add) {
                     power().addPower(t.uuid(), c.arg(value));
                 } else {
@@ -436,6 +450,10 @@ final class AdminCommands {
                 return;
             }
             double v = c.arg(boostValue);
+            if (!Double.isFinite(v)) {
+                c.bad("Give the boost as a plain number such as 10 or -5.");
+                return;
+            }
             f.setPowerBoost(v);
             adminAudit(c, f, "Set the power boost to " + Msg.number(v));
             ctx.bus().publish(new DominionEvent.FactionChanged(f.id()));
@@ -571,8 +589,9 @@ final class AdminCommands {
         root.sub(server("backup", "Zip the Dominion data folder.")).handler(c -> {
             c.info("Backing up Dominion data.");
             Path dir = ctx.repo().root();
-            int keep = ctx.settings().integer("storage.backupKeep");
-            HytaleServer.SCHEDULED_EXECUTOR.execute(() -> {
+            // A manual backup always keeps at least this one archive, even with automatic backups off.
+            int keep = Math.max(1, ctx.settings().integer("storage.backupKeep"));
+            ctx.runIo("backup", () -> {
                 try {
                     Path archive = AdminModule.backup(ctx, keep);
                     c.good("Backup written to " + dir.relativize(archive) + ".");
@@ -584,8 +603,20 @@ final class AdminCommands {
         });
 
         root.sub(server("reload", "Reload settings from disk.")).handler(c -> {
-            ctx.settings().load();
-            c.good("Settings reloaded.");
+            Settings.LoadReport report = ctx.settings().reload();
+            if (!report.fileRead()) {
+                c.bad(report.problems().get(0));
+                return;
+            }
+            if (report.problems().isEmpty()) {
+                c.good("Settings reloaded from config.json.");
+                return;
+            }
+            c.warn("Settings reloaded with " + report.problems().size()
+                    + (report.problems().size() == 1 ? " problem." : " problems.") + " config.json was left as it is.");
+            for (String p : report.problems().subList(0, Math.min(10, report.problems().size()))) {
+                c.send(Msg.muted(" " + p));
+            }
         });
 
         root.sub(server("diag", "Show diagnostics.")).handler(this::diag);
@@ -596,7 +627,7 @@ final class AdminCommands {
                 c.bad(NOT_INSTALLED);
                 return;
             }
-            HytaleServer.SCHEDULED_EXECUTOR.execute(() -> {
+            ctx.runIo("export", () -> {
                 try {
                     export.flush();
                     c.good("The snapshot is at " + export.snapshotPath() + ".");
@@ -701,7 +732,7 @@ final class AdminCommands {
                     return;
                 }
                 c.info("Importing from " + source + ". This can take a while on large data.");
-                com.hypixel.hytale.server.core.HytaleServer.SCHEDULED_EXECUTOR.execute(() -> {
+                ctx.runIo("import", () -> {
                     try {
                         Result r = s.run(c.uuid(), c.name(), source);
                         if (r != null && !r.success()) {
@@ -730,7 +761,7 @@ final class AdminCommands {
                 return;
             }
             String source = c.arg(previewSource).trim().toLowerCase(Locale.ROOT);
-            com.hypixel.hytale.server.core.HytaleServer.SCHEDULED_EXECUTOR.execute(() -> {
+            ctx.runIo("import", () -> {
                 try {
                     List<String> lines = s.preview(c.uuid(), source);
                     if (s.sources() != null && s.sources().contains(source)) {
@@ -839,7 +870,21 @@ final class AdminCommands {
         for (String world : ctx.repo().claimWorlds()) {
             c.send(Msg.muted(" " + ctx.repo().claimsIn(world).size() + " claims in " + world + "."));
         }
+        java.util.Map<String, String> states = ctx.plugin().moduleStates();
+        int ok = 0;
+        StringBuilder loaded = new StringBuilder();
+        for (java.util.Map.Entry<String, String> e : states.entrySet()) {
+            if ("ok".equals(e.getValue())) {
+                ok++;
+                loaded.append(loaded.isEmpty() ? "" : ", ").append(e.getKey());
+            } else {
+                c.send(Message.join(Msg.colored(" " + e.getKey(), Msg.BAD), Msg.muted("  " + e.getValue())));
+            }
+        }
+        c.send(Message.join(Msg.colored(" " + ok + " of " + moduleNames().size() + " modules running", ok == moduleNames().size() ? Msg.GOOD : Msg.WARN),
+                Msg.muted("  " + loaded)));
         for (String module : moduleNames()) {
+            String shortName = module.substring(module.lastIndexOf('.') + 1);
             boolean present;
             try {
                 Class.forName(module, false, AdminCommands.class.getClassLoader());
@@ -847,10 +892,18 @@ final class AdminCommands {
             } catch (ClassNotFoundException e) {
                 present = false;
             }
-            String shortName = module.substring(module.lastIndexOf('.') + 1);
-            c.send(Message.join(Msg.colored(" " + shortName, present ? Msg.GOOD : Msg.BAD),
-                    Msg.muted(present ? "  loaded" : "  missing")));
+            if (!present) {
+                c.send(Message.join(Msg.colored(" " + shortName, Msg.BAD), Msg.muted("  not in the jar")));
+            }
         }
+        ExportService export = ctx.serviceOrNull(ExportService.class);
+        if (export != null) {
+            boolean on = ctx.settings().bool("export.enabled");
+            c.send(Msg.muted(" Map snapshot " + (on ? "is written every " + Math.max(1, ctx.settings().integer("export.intervalSeconds"))
+                    + " seconds to " : "is turned off. The last one is at ") + export.snapshotPath() + "."));
+        }
+        c.send(Msg.muted(" Settings preset " + ctx.settings().text("misc.preset") + ", autosave every "
+                + Math.max(10, ctx.settings().integer("storage.autosaveSeconds")) + " seconds."));
     }
 
     /** Wiring keeps its list package private, so it is read reflectively. */

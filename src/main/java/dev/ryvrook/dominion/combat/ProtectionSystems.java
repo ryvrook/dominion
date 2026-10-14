@@ -60,7 +60,7 @@ final class ProtectionSystems {
                 return;
             }
             String world = Ecs.worldName(store, player);
-            Result r = rules.canAct(player.getUuid(), target.action(), world, target.chunk());
+            Result r = check(rules, player.getUuid(), target, world);
             if (r.failed()) {
                 event.setCancelled(true);
                 denials.tell(player, r.message());
@@ -70,6 +70,11 @@ final class ProtectionSystems {
         }
 
         abstract Target target(E event, Store<EntityStore> store, Ref<EntityStore> actor);
+
+        /** Asks the rules service about the action. Entity use overrides this. */
+        Result check(RulesServiceImpl rules, java.util.UUID player, Target target, String world) {
+            return rules.canAct(player, target.action(), world, target.chunk());
+        }
 
         /** Whether an allowed action here counts as a breach action for sieges. Block damage hits do not. */
         boolean reportsBreach() {
@@ -148,6 +153,11 @@ final class ProtectionSystems {
                 chunk = Players.chunkOf(Ecs.player(store, actor));
             }
             return new Target(FactionAction.DAMAGE_ENTITY, chunk);
+        }
+
+        @Override
+        Result check(RulesServiceImpl rules, java.util.UUID player, Target target, String world) {
+            return rules.canUseEntity(player, world, target.chunk());
         }
     }
 }

@@ -94,6 +94,7 @@ public final class ShopServiceImpl implements ShopService {
     private final Path adminFile;
     private final LinkedHashMap<String, Category> catalogue = new LinkedHashMap<>();
     private final Map<UUID, List<Stock>> factionShops = new HashMap<>();
+    private final dev.ryvrook.dominion.market.MissionCredit missions = new dev.ryvrook.dominion.market.MissionCredit();
 
     public ShopServiceImpl(DominionContext ctx) {
         this.ctx = ctx;
@@ -161,8 +162,12 @@ public final class ShopServiceImpl implements ShopService {
         MarketService market = ctx.serviceOrNull(MarketService.class);
         List<Stock> kept = new ArrayList<>();
         for (Stock s : stock) {
-            if (market != null && s.stockedBy() != null) {
-                market.mail(s.stockedBy(), Items.split(s.item(), s.itemId(), s.quantity()), 0);
+            if (s.quantity() <= 0) {
+                continue;
+            }
+            List<ItemStack> stacks = market == null || s.stockedBy() == null ? List.of() : Items.split(s.item(), s.itemId(), s.quantity());
+            if (market != null && s.stockedBy() != null && Items.quantity(stacks) == s.quantity()) {
+                market.mail(s.stockedBy(), stacks, 0);
                 Msg.send(Players.online(s.stockedBy()), Msg.info("The " + Names.of(s.itemId()) + " you stocked in the shop of "
                         + gone.tag() + " went to your market mailbox."));
             } else {
@@ -489,11 +494,8 @@ public final class ShopServiceImpl implements ShopService {
         if (got <= 0) {
             return Result.fail("Those items could not be taken from your inventory.");
         }
-        double total = round(boostedUnitSell(e, sellBoost(seller)) * got);
-        if (wholeOnly()) {
-            // An item currency pays whole units, so a boosted fraction is dropped.
-            total = Math.floor(total + 1e-9);
-        }
+        // An item currency pays whole units, so a boosted fraction is dropped.
+        double total = ShopRules.saleTotal(boostedUnitSell(e, sellBoost(seller)), got, wholeOnly());
         Result r;
         try {
             r = economy().deposit(seller, total, "Admin shop sale of " + got + " " + Names.of(e.itemId()));
@@ -672,6 +674,10 @@ public final class ShopServiceImpl implements ShopService {
         if (!isOfficer(actor, f)) {
             return Result.fail("Only officers and the leader can take items out of the faction shop.");
         }
+        // Stock usually came from the vault, so taking someone else's entry needs the same rights as the vault.
+        boolean vaultRights = factions().can(actor, FactionAction.VAULT);
+        dev.ryvrook.dominion.model.Member member = f.member(actor);
+        boolean onHold = member != null && member.onHold(Time.now());
         PlayerRef p = Players.online(actor);
         if (p == null) {
             return Result.fail("You need to be online to take items out of the shop.");
@@ -688,7 +694,19 @@ public final class ShopServiceImpl implements ShopService {
                     return Result.fail("That entry is no longer in the shop.");
                 }
                 s = list.get(index);
-                List<ItemStack> left = giveSafely(store, ref, Items.split(s.item(), s.itemId(), s.quantity()));
+                if (!actor.equals(s.stockedBy())) {
+                    if (!vaultRights) {
+                        return Result.fail("Your rank cannot use the faction vault, so you can only take back what you stocked.");
+                    }
+                    if (onHold) {
+                        return Result.fail("New members can only take back what they stocked until their hold ends.");
+                    }
+                }
+                List<ItemStack> stacks = Items.split(s.item(), s.itemId(), s.quantity());
+                if (Items.quantity(stacks) != s.quantity()) {
+                    return Result.fail("That item could not be made right now.");
+                }
+                List<ItemStack> left = giveSafely(store, ref, stacks);
                 int leftQty = left.stream().mapToInt(ItemStack::getQuantity).sum();
                 MarketService market = ctx.serviceOrNull(MarketService.class);
                 if (leftQty > 0 && market != null) {
@@ -734,9 +752,9 @@ public final class ShopServiceImpl implements ShopService {
         String buyerName = name(buyer);
         CompletableFuture<Result> fut = Items.onWorld(p, (store, ref) -> {
             Stock s;
-            int bought;
-            double total;
-            boolean mailed = false;
+            int n;
+            List<ItemStack> stacks;
+            // The items are reserved under the lock and paid for outside it, so a slow economy never holds the shop lock.
             synchronized (lock) {
                 List<Stock> list = stockList(f.id());
                 int index = find(list, entryId);
@@ -744,61 +762,118 @@ public final class ShopServiceImpl implements ShopService {
                     return Result.fail("That item is no longer in stock.");
                 }
                 s = list.get(index);
-                int n = Math.min(qty, s.quantity());
-                total = round(s.price() * n);
-                String what = n + " " + Names.of(s.itemId());
-                List<ItemStack> stacks = Items.split(s.item(), s.itemId(), n);
+                n = Math.min(qty, s.quantity());
+                stacks = Items.split(s.item(), s.itemId(), n);
                 if (quantity(stacks) != n) {
                     return Result.fail("That item could not be made right now.");
                 }
-                Result paid = economy().withdraw(buyer, total, "Bought " + what + " from the shop of " + f.tag());
-                if (paid.failed()) {
-                    return Result.fail(paid.message());
-                }
-                Result credit = economy().bankCredit(f, total, buyerName + " bought " + what + " from the faction shop");
-                if (credit.failed()) {
-                    economy().deposit(buyer, total, "Faction shop refund");
-                    return Result.fail("The faction bank could not take the payment so nothing was bought.");
-                }
-                List<ItemStack> left = giveSafely(store, ref, stacks);
-                int leftQty = left.stream().mapToInt(ItemStack::getQuantity).sum();
-                MarketService market = ctx.serviceOrNull(MarketService.class);
-                if (leftQty > 0 && market != null) {
-                    market.mail(buyer, left, 0);
-                    mailed = true;
-                    leftQty = 0;
-                }
-                if (leftQty > 0) {
-                    // Without a mailbox the items that did not fit stay in the shop and are paid back.
-                    double refund = round(s.price() * leftQty);
-                    if (economy().bankCharge(f, refund, "Faction shop refund to " + buyerName).success()) {
-                        economy().deposit(buyer, refund, "Faction shop refund");
-                        total = round(total - refund);
-                    } else {
-                        leftQty = 0;
-                    }
-                }
-                bought = n - leftQty;
-                int remaining = s.quantity() - bought;
-                if (remaining > 0) {
-                    list.set(index, s.withQuantity(remaining));
+                if (n < s.quantity()) {
+                    list.set(index, s.withQuantity(s.quantity() - n));
                 } else {
                     list.remove(index);
                 }
                 saveFaction(f.id());
             }
+            double total = round(s.price() * n);
+            String reserved = n + " " + Names.of(s.itemId());
+            Result paid = economy().withdraw(buyer, total, "Bought " + reserved + " from the shop of " + f.tag());
+            if (paid.failed()) {
+                returnStock(f.id(), s, n);
+                return Result.fail(paid.message());
+            }
+            Result credit = economy().bankCredit(f, total, buyerName + " bought " + reserved + " from the faction shop");
+            if (credit.failed()) {
+                refundBuyer(buyer, total);
+                returnStock(f.id(), s, n);
+                return Result.fail("The faction bank could not take the payment so nothing was bought.");
+            }
+            List<ItemStack> left = giveSafely(store, ref, stacks);
+            int leftQty = quantity(left);
+            boolean mailed = false;
+            double unrefunded = 0;
+            MarketService market = ctx.serviceOrNull(MarketService.class);
+            if (leftQty > 0 && market != null) {
+                market.mail(buyer, left, 0);
+                mailed = true;
+                leftQty = 0;
+            }
+            if (leftQty > 0) {
+                // Without a mailbox the items that did not fit go back into the shop and are paid back.
+                double refund = round(s.price() * leftQty);
+                if (economy().bankCharge(f, refund, "Faction shop refund to " + buyerName).success()) {
+                    refundBuyer(buyer, refund);
+                    total = round(total - refund);
+                } else {
+                    // The bank could not pay it back, so the items stay in stock rather than vanish and the shortfall is logged.
+                    unrefunded = refund;
+                    ctx.logger().at(Level.WARNING).log("Dominion faction shop of %s could not refund %s to %s for %d items that did not fit",
+                            f.tag(), fmt(refund), buyerName, leftQty);
+                }
+                returnStock(f.id(), s, leftQty);
+            }
+            int bought = n - leftQty;
+            String owed = unrefunded > 0 ? " " + fmt(unrefunded) + " for the items that did not fit could not be paid back. Ask "
+                    + f.tag() + " to refund you." : "";
             if (bought <= 0) {
-                return Result.fail("Your inventory is full. Make some room and try again.");
+                return Result.fail("Your inventory is full. Make some room and try again." + owed);
             }
             String what = bought + " " + Names.of(s.itemId());
-            traded(s, bought, total, buyer);
+            traded(s, bought, total, buyer, f);
             if (s.stockedBy() != null && !s.stockedBy().equals(buyer)) {
                 Msg.send(Players.online(s.stockedBy()), Msg.good(buyerName + " bought " + what + " from your faction shop for " + fmt(total) + "."));
             }
             return Result.pass("You bought " + what + " from " + f.tag() + " for " + fmt(total) + "."
-                    + (mailed ? " Your inventory was full so the rest went to your market mailbox." : ""));
+                    + (mailed ? " Your inventory was full so the rest went to your market mailbox." : "") + owed);
         });
         return await(p, fut, "Buying.");
+    }
+
+    /**
+     * Puts reserved items back into a faction shop entry, or back as a new entry when it was emptied
+     * meanwhile. When the faction is gone the items go to whoever stocked them through the mailbox.
+     */
+    private void returnStock(UUID factionId, Stock s, int n) {
+        if (n <= 0) {
+            return;
+        }
+        if (ctx.repo().faction(factionId) == null) {
+            MarketService market = ctx.serviceOrNull(MarketService.class);
+            List<ItemStack> stacks = Items.split(s.item(), s.itemId(), n);
+            if (market != null && s.stockedBy() != null && Items.quantity(stacks) == n) {
+                market.mail(s.stockedBy(), stacks, 0);
+                return;
+            }
+            ctx.logger().at(Level.SEVERE).log("Dominion could not return %d %s to the shop of a disbanded faction %s", n, s.itemId(), factionId);
+            return;
+        }
+        synchronized (lock) {
+            List<Stock> list = stockList(factionId);
+            int index = -1;
+            for (int i = 0; i < list.size(); i++) {
+                if (list.get(i).id().equals(s.id())) {
+                    index = i;
+                }
+            }
+            if (index >= 0) {
+                list.set(index, list.get(index).withQuantity(list.get(index).quantity() + n));
+            } else {
+                list.add(s.withQuantity(n));
+            }
+            saveFaction(factionId);
+        }
+    }
+
+    /** Pays a buyer back, keeping the coins in their mailbox when the economy refuses. */
+    private void refundBuyer(UUID buyer, double amount) {
+        if (amount <= 0 || economy().deposit(buyer, amount, "Faction shop refund").success()) {
+            return;
+        }
+        MarketService market = ctx.serviceOrNull(MarketService.class);
+        if (market != null) {
+            market.mail(buyer, List.of(), amount);
+            return;
+        }
+        ctx.logger().at(Level.SEVERE).log("Dominion could not refund %s to %s from a faction shop", fmt(amount), buyer);
     }
 
     /**
@@ -807,17 +882,16 @@ public final class ShopServiceImpl implements ShopService {
      * cap is the lowest buy price the item has in any category, which includes this entry.
      */
     private double boostedUnitSell(AdminEntry e, double boost) {
-        double unit = e.sell() * boost;
-        double cap = e.buy() > 0 ? e.buy() : Double.MAX_VALUE;
+        double cap = e.buy() > 0 ? e.buy() : 0;
         synchronized (lock) {
             for (Category c : catalogue.values()) {
                 AdminEntry other = c.entries.get(key(e.itemId()));
                 if (other != null && other.buy() > 0) {
-                    cap = Math.min(cap, other.buy());
+                    cap = cap > 0 ? Math.min(cap, other.buy()) : other.buy();
                 }
             }
         }
-        return Math.min(unit, cap);
+        return ShopRules.unitSell(e.sell(), boost, cap);
     }
 
     /** The outpost sell boost of the seller's faction, 1 when there is none or the events module is absent. */
@@ -828,8 +902,7 @@ public final class ShopServiceImpl implements ShopService {
             return 1.0;
         }
         try {
-            double b = events.boostFor(f, "sell");
-            return Double.isFinite(b) && b > 0 ? b : 1.0;
+            return ShopRules.boost(events.boostFor(f, "sell"));
         } catch (RuntimeException ex) {
             return 1.0;
         }
@@ -858,14 +931,16 @@ public final class ShopServiceImpl implements ShopService {
         return left;
     }
 
-    private void traded(Stock s, int qty, double total, UUID buyer) {
+    private void traded(Stock s, int qty, double total, UUID buyer, Faction shop) {
         try {
             ctx.bus().publish(new DominionEvent.MarketTrade(s.id(), s.itemId(), qty, total, buyer, s.stockedBy()));
         } catch (RuntimeException e) {
             ctx.logger().at(Level.WARNING).withCause(e).log("Dominion shop trade event failed");
         }
         ProgressService progress = ctx.serviceOrNull(ProgressService.class);
-        if (progress != null) {
+        Faction own = factions().factionOf(buyer);
+        // Buying from your own faction's shop, repeats and cheap trades do not count toward missions.
+        if (progress != null && missions.counts(buyer, own == null ? null : own.id(), s.stockedBy(), shop.id(), total, Time.now())) {
             try {
                 progress.advance(buyer, "trade", 1);
             } catch (RuntimeException e) {
@@ -875,7 +950,7 @@ public final class ShopServiceImpl implements ShopService {
     }
 
     /** Index of the entry whose id or id prefix matches, or -1. Caller holds the lock. */
-    private static int find(List<Stock> list, String entryId) {
+    static int find(List<Stock> list, String entryId) {
         if (entryId == null || entryId.isBlank()) {
             return -1;
         }
@@ -1100,22 +1175,10 @@ public final class ShopServiceImpl implements ShopService {
 
     /** A readable problem with a price, or null. Zero is allowed when allowZero is set. */
     private String priceProblem(double price, boolean allowZero) {
-        if (Double.isNaN(price) || Double.isInfinite(price) || price < 0 || (!allowZero && price <= 0)) {
-            return allowZero ? "Prices cannot be negative." : "The price must be more than zero.";
-        }
-        if (price > MAX_PRICE) {
-            return "That price is too high.";
-        }
-        if (price > 0 && round(price) <= 0) {
-            return "The price must be at least 0.01.";
-        }
-        if (wholeOnly() && Math.abs(price - Math.rint(price)) > 1e-6) {
-            return "Prices must be whole numbers because the currency is an item.";
-        }
-        return null;
+        return ShopRules.priceProblem(price, allowZero, wholeOnly(), MAX_PRICE);
     }
 
     static double round(double amount) {
-        return Math.round(amount * 100.0) / 100.0;
+        return ShopRules.round(amount);
     }
 }

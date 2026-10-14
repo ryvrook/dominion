@@ -36,6 +36,8 @@ public final class Repository {
     private final Map<String, Long2ObjectMap<ClaimEntry>> claims = new ConcurrentHashMap<>();
     private final Map<UUID, Integer> claimCounts = new ConcurrentHashMap<>();
     private final Dirty claimsDirty = new Dirty();
+    /** Claims of factions that did not load, per world, written back unchanged on every save. */
+    private final Map<String, Document> orphanClaims = new ConcurrentHashMap<>();
 
     public Repository(JsonFiles files, Path root, HytaleLogger logger) {
         this.files = files;
@@ -46,20 +48,20 @@ public final class Repository {
     // ---- loading ---------------------------------------------------------
 
     public void loadAll(Function<UUID, PlayerData> playerFactory) {
+        int swept = files.sweep(root);
+        if (swept > 0) {
+            logger.at(Level.INFO).log("Dominion removed %d unfinished temporary files", swept);
+        }
         int f = 0;
         for (Path p : files.list(root.resolve("factions"), "*.json")) {
-            Document d = files.read(p);
-            if (d == null) {
+            Faction faction = files.read(p, Faction::fromDocument);
+            if (faction == null) {
+                logger.at(Level.WARNING).log("Skipping faction file %s, it could not be read", p.getFileName());
                 continue;
             }
-            try {
-                Faction faction = Faction.fromDocument(d);
-                factions.put(faction.id(), faction);
-                factionsByTag.put(faction.tag().toLowerCase(Locale.ROOT), faction.id());
-                f++;
-            } catch (Exception e) {
-                logger.at(Level.WARNING).withCause(e).log("Skipping faction file %s", p);
-            }
+            factions.put(faction.id(), faction);
+            factionsByTag.put(faction.tag().toLowerCase(Locale.ROOT), faction.id());
+            f++;
         }
         int c = 0;
         for (Path p : files.list(root.resolve("claims"), "*.json")) {
@@ -69,22 +71,33 @@ public final class Repository {
             }
             String world = p.getFileName().toString().replaceFirst("\\.json$", "");
             Long2ObjectMap<ClaimEntry> map = new Long2ObjectOpenHashMap<>();
+            Document orphans = new Document();
             for (Map.Entry<String, Object> e : d.entrySet()) {
                 if (!(e.getValue() instanceof Document cd)) {
                     continue;
                 }
                 try {
-                    UUID fid = UUID.fromString(cd.getString("F"));
-                    if (!factions.containsKey(fid)) {
+                    ClaimEntry entry = claimFromDocument(cd);
+                    long index = Long.parseLong(e.getKey());
+                    if (!factions.containsKey(entry.factionId())) {
+                        orphans.append(e.getKey(), cd);
                         continue;
                     }
-                    String by = cd.getString("By");
-                    map.put(Long.parseLong(e.getKey()), new ClaimEntry(fid, cd.get("At", Number.class).longValue(),
-                            by == null ? null : UUID.fromString(by), cd.getString("Z")));
+                    map.put(index, entry);
                     c++;
                 } catch (Exception ex) {
                     logger.at(Level.WARNING).withCause(ex).log("Skipping claim %s in %s", e.getKey(), world);
                 }
+            }
+            if (!orphans.isEmpty()) {
+                // The owning faction did not load, maybe its file is missing or could not be read. The
+                // claims are not enforced, but they stay in the world file through every save, so they
+                // come back once the faction loads again. A copy goes next to the file for admins.
+                orphanClaims.put(world, orphans);
+                Path aside = p.resolveSibling(world + ".orphans-" + System.currentTimeMillis() + ".txt");
+                files.writeText(aside, orphans.toJson(), false);
+                logger.at(Level.WARNING).log("Dominion found %d claims in %s whose faction did not load. They are kept in the "
+                        + "claims file but not enforced, and a copy was saved to %s", orphans.size(), world, aside.getFileName());
             }
             claims.put(world, map);
         }
@@ -92,21 +105,34 @@ public final class Repository {
         logger.at(Level.INFO).log("Dominion loaded %d factions and %d claims", f, c);
     }
 
+    static ClaimEntry claimFromDocument(Document cd) {
+        UUID fid = UUID.fromString(cd.getString("F"));
+        String by = cd.getString("By");
+        Number at = cd.get("At", Number.class);
+        return new ClaimEntry(fid, at == null ? 0L : at.longValue(), by == null ? null : UUID.fromString(by), cd.getString("Z"));
+    }
+
+    static Document claimToDocument(ClaimEntry v) {
+        return new Document("F", v.factionId().toString())
+                .append("At", v.claimedAt()).append("By", v.claimedBy() == null ? null : v.claimedBy().toString())
+                .append("Z", v.zoneId());
+    }
+
     public PlayerData player(UUID uuid, Function<UUID, PlayerData> factory) {
         return players.computeIfAbsent(uuid, id -> {
-            Document d = files.read(root.resolve("players").resolve(id + ".json"));
-            if (d != null) {
-                try {
-                    return PlayerData.fromDocument(id, d);
-                } catch (Exception e) {
-                    logger.at(Level.WARNING).withCause(e).log("Corrupt player file for %s", id);
-                }
+            PlayerData loaded = files.read(playerFile(id), d -> PlayerData.fromDocument(id, d));
+            if (loaded != null) {
+                return loaded;
             }
             PlayerData p = factory.apply(id);
             p.clearDirty();
             markPlayerDirty(p);
             return p;
         });
+    }
+
+    private Path playerFile(UUID id) {
+        return root.resolve("players").resolve(id + ".json");
     }
 
     public PlayerData playerIfLoaded(UUID uuid) {
@@ -117,11 +143,30 @@ public final class Repository {
         return Collections.unmodifiableCollection(players.values());
     }
 
-    public void unloadPlayer(UUID uuid) {
-        PlayerData p = players.remove(uuid);
-        if (p != null) {
-            savePlayer(p);
+    /**
+     * Saves and drops a loaded player. The file write runs outside the map so loads of other
+     * players never wait on the disk. The record is removed only when the save worked, it is still
+     * the loaded instance and nothing changed it during the save. Otherwise it stays loaded and
+     * dirty and the next autosave tries again. While it stays in the map a load of the same player
+     * returns it, so nobody reads the file before the last changes land. Returns true when dropped.
+     */
+    public boolean unloadPlayer(UUID uuid) {
+        PlayerData p = players.get(uuid);
+        if (p == null) {
+            return true;
         }
+        if (!savePlayer(p)) {
+            return false;
+        }
+        boolean[] dropped = {false};
+        players.computeIfPresent(uuid, (id, current) -> {
+            if (current == p && !current.isDirty()) {
+                dropped[0] = true;
+                return null;
+            }
+            return current;
+        });
+        return dropped[0];
     }
 
     private void markPlayerDirty(PlayerData p) {
@@ -176,11 +221,13 @@ public final class Repository {
         factions.remove(f.id());
         factionsByTag.remove(f.tag().toLowerCase(Locale.ROOT));
         for (Long2ObjectMap<ClaimEntry> map : claims.values()) {
-            map.values().removeIf(c -> c.factionId().equals(f.id()));
+            synchronized (map) {
+                map.values().removeIf(c -> c.factionId().equals(f.id()));
+            }
         }
         claimCounts.remove(f.id());
         claimsDirty.mark();
-        files.delete(root.resolve("factions").resolve(f.id() + ".json"));
+        files.delete(factionFile(f.id()));
     }
 
     // ---- claims ----------------------------------------------------------
@@ -210,6 +257,38 @@ public final class Repository {
         }
         claimCounts.merge(entry.factionId(), 1, Integer::sum);
         claimsDirty.mark();
+    }
+
+    /**
+     * Compare and set for one claim. Writes updated only when the stored entry still equals
+     * expected, both compared by value, so a change made by another thread in between is never
+     * overwritten. A null expected means the chunk must be unclaimed, a null updated removes the
+     * claim. Claim counts and the dirty flag follow the change. Returns true when it was written.
+     */
+    public boolean replaceClaim(String world, long chunkIndex, ClaimEntry expected, ClaimEntry updated) {
+        Long2ObjectMap<ClaimEntry> map = claims.computeIfAbsent(world, w -> new Long2ObjectOpenHashMap<>());
+        synchronized (map) {
+            ClaimEntry current = map.get(chunkIndex);
+            if (!java.util.Objects.equals(current, expected)) {
+                return false;
+            }
+            if (java.util.Objects.equals(current, updated)) {
+                return true;
+            }
+            if (updated == null) {
+                map.remove(chunkIndex);
+            } else {
+                map.put(chunkIndex, updated);
+            }
+            if (current != null) {
+                claimCounts.merge(current.factionId(), -1, Integer::sum);
+            }
+            if (updated != null) {
+                claimCounts.merge(updated.factionId(), 1, Integer::sum);
+            }
+        }
+        claimsDirty.mark();
+        return true;
     }
 
     public ClaimEntry removeClaim(String world, long chunkIndex) {
@@ -270,30 +349,78 @@ public final class Repository {
 
     // ---- saving ----------------------------------------------------------
 
-    public void saveFaction(Faction f) {
-        files.write(root.resolve("factions").resolve(f.id() + ".json"), f.toDocument());
-        f.clearDirty();
+    /** Orders snapshots of the same record. Taken under the record's monitor together with its document. */
+    private final java.util.concurrent.atomic.AtomicLong generations = new java.util.concurrent.atomic.AtomicLong();
+
+    private record Snapshot(long generation, Document document) {}
+
+    /**
+     * Clears the dirty flag and takes the document and a generation in one step under the record's
+     * monitor, which every mutator of the record also holds. A change made after this marks the
+     * record dirty again and is saved next time, and of two saves racing for the same file the one
+     * with the newer state always wins, whichever thread reaches the disk last.
+     */
+    private Snapshot snapshot(Object monitor, Runnable clearDirty, java.util.function.Supplier<Document> document) {
+        synchronized (monitor) {
+            clearDirty.run();
+            return new Snapshot(generations.incrementAndGet(), document.get());
+        }
     }
 
-    public void savePlayer(PlayerData p) {
-        files.write(root.resolve("players").resolve(p.uuid() + ".json"), p.toDocument());
-        p.clearDirty();
+    public boolean saveFaction(Faction f) {
+        if (factions.get(f.id()) != f) {
+            return false;
+        }
+        Snapshot snap = snapshot(f, f::clearDirty, f::toDocument);
+        // The existence check runs again under the file's lock, the same lock removeFaction's delete
+        // takes, so a faction disbanded while a save was queued is never written back.
+        JsonFiles.Versioned v = files.writeVersioned(factionFile(f.id()), snap.generation(),
+                () -> factions.get(f.id()) == f, snap.document());
+        if (v == JsonFiles.Versioned.FAILED) {
+            f.touchZones();
+        }
+        return v == JsonFiles.Versioned.WRITTEN || v == JsonFiles.Versioned.SUPERSEDED;
     }
 
-    public void saveClaims() {
+    private Path factionFile(UUID id) {
+        return root.resolve("factions").resolve(id + ".json");
+    }
+
+    public boolean savePlayer(PlayerData p) {
+        Snapshot snap = snapshot(p, p::clearDirty, p::toDocument);
+        JsonFiles.Versioned v = files.writeVersioned(playerFile(p.uuid()), snap.generation(), () -> true, snap.document());
+        if (v == JsonFiles.Versioned.FAILED) {
+            markPlayerDirty(p);
+        }
+        return v != JsonFiles.Versioned.FAILED;
+    }
+
+    public boolean saveClaims() {
+        claimsDirty.clear();
+        boolean ok = true;
         for (Map.Entry<String, Long2ObjectMap<ClaimEntry>> e : claims.entrySet()) {
             Document d = new Document();
             synchronized (e.getValue()) {
                 for (Long2ObjectMap.Entry<ClaimEntry> c : e.getValue().long2ObjectEntrySet()) {
-                    ClaimEntry v = c.getValue();
-                    d.append(Long.toString(c.getLongKey()), new Document("F", v.factionId().toString())
-                            .append("At", v.claimedAt()).append("By", v.claimedBy() == null ? null : v.claimedBy().toString())
-                            .append("Z", v.zoneId()));
+                    d.append(Long.toString(c.getLongKey()), claimToDocument(c.getValue()));
                 }
             }
-            files.write(root.resolve("claims").resolve(e.getKey() + ".json"), d);
+            Document orphans = orphanClaims.get(e.getKey());
+            if (orphans != null) {
+                // A live claim made since start wins over a kept one on the same chunk.
+                orphans.forEach((k, v) -> d.putIfAbsent(k, v));
+            }
+            ok &= files.write(root.resolve("claims").resolve(e.getKey() + ".json"), d);
         }
-        claimsDirty.clear();
+        if (!ok) {
+            claimsDirty.mark();
+        }
+        return ok;
+    }
+
+    /** True when a claim changed since the last claims save. */
+    public boolean claimsDirty() {
+        return claimsDirty.is();
     }
 
     public void saveDirty() {

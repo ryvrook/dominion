@@ -14,6 +14,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.DoubleFunction;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 
 /**
@@ -21,8 +22,9 @@ import java.util.logging.Level;
  * eco.provider is vaultunlocked. It runs once per start when the bridge first connects and then at
  * most once a day, so balances earned while the bridge was missing move over later. Every player
  * file with a positive balance is zeroed and saved, then the amount is deposited in the external
- * wallet. A refused deposit puts the amount back in the ledger for the next run. A summary file is
- * written after each run for admins but never stops a later run.
+ * wallet. When the zeroed file cannot be written nothing is deposited, so a crash can never pay the
+ * same balance twice. A refused deposit puts the amount back in the ledger for the next run. A
+ * summary file is written after each run for admins but never stops a later run.
  */
 final class LedgerMigration {
     private static final double CENT = 0.005;
@@ -51,8 +53,7 @@ final class LedgerMigration {
      */
     void maybeRun(BalanceProvider external) {
         long now = System.currentTimeMillis();
-        long last = lastRunAt;
-        if (last != 0 && now - last < DAY_MS) {
+        if (!due(lastRunAt, now)) {
             return;
         }
         if (!running.compareAndSet(false, true)) {
@@ -72,6 +73,63 @@ final class LedgerMigration {
             running.set(false);
         }
     }
+
+    /** True when no run happened since this start, or the last one started a day ago or more. */
+    static boolean due(long lastRunAt, long now) {
+        return lastRunAt == 0 || now - lastRunAt >= DAY_MS || now < lastRunAt;
+    }
+
+    /** What happened to one player's balance. */
+    enum Outcome { SKIPPED, MOVED, FAILED }
+
+    /** The outcome for one player, the amount involved and the reason when it failed. */
+    record Step(Outcome outcome, double amount, String reason) {}
+
+    /**
+     * Moves one internal balance into the external wallet. The balance is zeroed under the ledger
+     * lock and the player file is saved before the deposit. When that save fails, or the deposit is
+     * refused, the balance is put back, so money is never created or lost.
+     *
+     * @param live true while the record is the one the repository holds
+     * @param save writes the player file and returns false when it could not be written
+     */
+    static Step moveOne(PlayerData p, Object lock, Predicate<PlayerData> live, Predicate<PlayerData> save, BalanceProvider external) {
+        double amount;
+        synchronized (lock) {
+            synchronized (p) {
+                if (!live.test(p)) {
+                    return new Step(Outcome.SKIPPED, 0, null);
+                }
+                amount = Money.round(p.balance());
+                if (amount < CENT) {
+                    return new Step(Outcome.SKIPPED, 0, null);
+                }
+                p.setBalance(0);
+            }
+        }
+        if (!save.test(p)) {
+            synchronized (lock) {
+                p.setBalance(Money.round(p.balance() + amount));
+            }
+            return new Step(Outcome.FAILED, amount, "the player file could not be saved");
+        }
+        Result r;
+        try {
+            r = external.deposit(p.uuid(), amount, "Dominion balance migration");
+        } catch (RuntimeException e) {
+            r = Result.fail(e.getMessage() == null ? "error" : e.getMessage());
+        }
+        if (r.success()) {
+            return new Step(Outcome.MOVED, amount, null);
+        }
+        synchronized (lock) {
+            p.setBalance(Money.round(p.balance() + amount));
+        }
+        // A failed save leaves the player marked dirty, so the periodic save writes the restored balance.
+        save.test(p);
+        return new Step(Outcome.FAILED, amount, r.message());
+    }
+
 
     private boolean readable(UUID id) {
         Document d = ctx.files().read(ctx.repo().root().resolve("players").resolve(id + ".json"));
@@ -108,41 +166,24 @@ final class LedgerMigration {
                 // A missing or corrupt file would load as a fresh player with the starting balance, which is not theirs to move.
                 continue;
             }
+            PlayerData p = null;
             try {
-                PlayerData p = ctx.player(id);
-                double amount;
-                synchronized (lock) {
-                    amount = Money.round(p.balance());
-                    if (amount < CENT) {
-                        continue;
-                    }
-                    p.setBalance(0);
-                }
-                // Saved as zero before the deposit, so a crash can never pay the same balance twice.
-                ctx.repo().savePlayer(p);
-                Result r;
-                try {
-                    r = external.deposit(id, amount, "Dominion balance migration");
-                } catch (RuntimeException e) {
-                    r = Result.fail(e.getMessage() == null ? "error" : e.getMessage());
-                }
-                if (r.success()) {
+                p = ctx.player(id);
+                Step step = moveOne(p, lock, pd -> ctx.repo().playerIfLoaded(pd.uuid()) == pd, ctx.repo()::savePlayer, external);
+                if (step.outcome() == Outcome.MOVED) {
                     moved++;
-                    total += amount;
-                } else {
+                    total += step.amount();
+                } else if (step.outcome() == Outcome.FAILED) {
                     failed++;
-                    synchronized (lock) {
-                        p.setBalance(Money.round(p.balance() + amount));
-                    }
-                    ctx.repo().savePlayer(p);
                     ctx.logger().at(Level.WARNING).log("Dominion could not move %s for %s into VaultUnlocked, %s",
-                            format.apply(amount), id, r.message());
+                            format.apply(step.amount()), id, step.reason());
                 }
             } catch (RuntimeException e) {
                 failed++;
                 ctx.logger().at(Level.WARNING).withCause(e).log("Dominion balance migration failed for %s", id);
             } finally {
-                if (!wasLoaded && !Players.isOnline(id)) {
+                // A player whose restored balance could not be written stays loaded so the periodic save retries it.
+                if (!wasLoaded && !Players.isOnline(id) && (p == null || !p.isDirty())) {
                     ctx.repo().unloadPlayer(id);
                 }
             }

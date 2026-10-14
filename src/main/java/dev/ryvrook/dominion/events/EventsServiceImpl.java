@@ -68,6 +68,10 @@ public final class EventsServiceImpl implements EventsService {
     private final DominionContext ctx;
     private final java.util.concurrent.atomic.AtomicBoolean decayWarned = new java.util.concurrent.atomic.AtomicBoolean();
     private final Object lock = new Object();
+    /** Serialises season start and end, so the tick and an admin cannot both end the same season. */
+    private final Object seasonLock = new Object();
+    private final SaveOrder eventsOrder = new SaveOrder();
+    private final SaveOrder bountiesOrder = new SaveOrder();
     private final Map<String, Hill> hills = new LinkedHashMap<>();
     private final Map<String, Outpost> outposts = new LinkedHashMap<>();
     private final List<Envoy> envoys = new ArrayList<>();
@@ -179,9 +183,12 @@ public final class EventsServiceImpl implements EventsService {
         }
     }
 
-    void save() {
+    /** Saves both files. Returns false when events.json could not be written. */
+    boolean save() {
         Document events;
         Document bountyDoc;
+        long eventsGen;
+        long bountiesGen;
         synchronized (lock) {
             flushOutpostSeconds();
             List<Document> h = new ArrayList<>();
@@ -214,12 +221,31 @@ public final class EventsServiceImpl implements EventsService {
                         .append("Amount", bounty.amount).append("PlacedAt", bounty.placedAt).append("Placers", placers));
             }
             bountyDoc = new Document("Version", 1).append("Bounties", b);
+            eventsGen = eventsOrder.next();
+            bountiesGen = bountiesOrder.next();
             dirty = false;
             bountiesDirty = false;
             lastSave = Time.now();
         }
-        ctx.files().write(eventsFile(), events);
-        ctx.files().write(bountiesFile(), bountyDoc);
+        // Writes land in snapshot order, so an older tick snapshot never overwrites a newer one such as
+        // the one carrying PayoutsRunAt. A failed write keeps the data pending for the next tick.
+        Document e = events;
+        Document b = bountyDoc;
+        boolean saved = true;
+        if (eventsOrder.write(eventsGen, () -> ctx.files().write(eventsFile(), e)) == SaveOrder.Outcome.FAILED) {
+            saved = false;
+            synchronized (lock) {
+                dirty = true;
+            }
+            ctx.logger().at(Level.WARNING).log("Saving events.json failed, it will be retried");
+        }
+        if (bountiesOrder.write(bountiesGen, () -> ctx.files().write(bountiesFile(), b)) == SaveOrder.Outcome.FAILED) {
+            synchronized (lock) {
+                bountiesDirty = true;
+            }
+            ctx.logger().at(Level.WARNING).log("Saving bounties.json failed, it will be retried");
+        }
+        return saved;
     }
 
     private static List<Document> docs(Document doc, String key) {
@@ -432,6 +458,7 @@ public final class EventsServiceImpl implements EventsService {
     @Override
     public Result kothSchedule(UUID admin, String name, String cronLike) {
         String text = cronLike == null ? "" : cronLike.trim();
+        String msg;
         synchronized (lock) {
             Hill h = hills.get(key(name));
             if (h == null) {
@@ -441,24 +468,25 @@ public final class EventsServiceImpl implements EventsService {
                 h.schedule = null;
                 h.nextRun = 0;
                 dirty = true;
-                save();
-                return Result.pass("Hill " + h.name + " no longer opens on a schedule.");
+                msg = "Hill " + h.name + " no longer opens on a schedule.";
+            } else {
+                Schedule s = Schedule.parse(text);
+                if (s == null) {
+                    return Result.fail("Use every and a number of minutes such as every 30m, or at and times such as at 18:00,21:30.");
+                }
+                long now = Time.now();
+                h.schedule = s;
+                h.nextRun = s.next(now);
+                h.warned10 = false;
+                h.warned1 = false;
+                dirty = true;
+                msg = "Hill " + h.name + " opens " + s.describe() + ". The next opening is in "
+                        + Time.remaining(h.nextRun - now) + ".";
             }
-            Schedule s = Schedule.parse(text);
-            if (s == null) {
-                return Result.fail("Use every and a number of minutes such as every 30m, or at and times such as at 18:00,21:30.");
-            }
-            long now = Time.now();
-            h.schedule = s;
-            h.nextRun = s.next(now);
-            h.warned10 = false;
-            h.warned1 = false;
-            dirty = true;
-            String msg = "Hill " + h.name + " opens " + s.describe() + ". The next opening is in "
-                    + Time.remaining(h.nextRun - now) + ".";
-            save();
-            return Result.pass(msg);
         }
+        // The file is written outside the lock so the tick never waits on the disk.
+        save();
+        return Result.pass(msg);
     }
 
     @Override
@@ -552,12 +580,17 @@ public final class EventsServiceImpl implements EventsService {
     }
 
     private String rewardText() {
+        return rewardText(true);
+    }
+
+    /** The hill prize, addressed to the players who could win it or, after a capture, to the winners. */
+    private String rewardText(boolean yours) {
         EconomyService eco = ctx.serviceOrNull(EconomyService.class);
         double coins = ctx.settings().decimal("events.kothRewardCoins");
         int points = ctx.settings().integer("events.kothRewardPoints");
         List<String> parts = new ArrayList<>();
         if (coins > 0 && eco != null && eco.enabled()) {
-            parts.add(eco.format(coins) + " for your faction bank");
+            parts.add(eco.format(coins) + (yours ? " for your faction bank" : " for its bank"));
         }
         if (points > 0) {
             parts.add(points + " faction points");
@@ -565,8 +598,21 @@ public final class EventsServiceImpl implements EventsService {
         return parts.isEmpty() ? "the hill" : String.join(" and ", parts);
     }
 
+    /**
+     * Moves a scheduled opening that passed while the hill was open to the next one, so a hill
+     * that ran over its slot does not reopen the moment it closes. Caller holds the lock.
+     */
+    private static void reschedule(Hill h, long now) {
+        if (h.schedule != null && h.nextRun > 0 && h.nextRun <= now) {
+            h.nextRun = h.schedule.next(now);
+            h.warned10 = false;
+            h.warned1 = false;
+        }
+    }
+
     /** Closes a hill without a winner. Caller holds the lock. */
     private void close(Hill h, String why, List<Runnable> after) {
+        reschedule(h, Time.now());
         h.running = false;
         h.capturer = null;
         h.held = 0;
@@ -584,6 +630,14 @@ public final class EventsServiceImpl implements EventsService {
     private void tickHill(Hill h, long now, List<Presence> players, List<Runnable> after) {
         if (!h.running) {
             if (h.schedule == null || h.nextRun <= 0) {
+                return;
+            }
+            if (Hill.missed(h.nextRun, now)) {
+                // The opening was missed, usually while the server was down, so wait for the next one.
+                h.nextRun = h.schedule.next(now);
+                h.warned10 = false;
+                h.warned1 = false;
+                dirty = true;
                 return;
             }
             long left = h.nextRun - now;
@@ -616,37 +670,32 @@ public final class EventsServiceImpl implements EventsService {
                 inside.putIfAbsent(p.faction().id(), p);
             }
         }
-        if (inside.size() > 1) {
-            if (!h.contested) {
-                h.contested = true;
+        boolean wasContested = h.contested;
+        UUID hadCapturer = h.capturer;
+        long cap = capSeconds();
+        Hill.Step step = h.step(new ArrayList<>(inside.keySet()), cap);
+        if (step == Hill.Step.CONTESTED) {
+            if (!wasContested) {
                 String text = "Hill " + h.name + " is contested.";
                 after.add(() -> broadcast(Msg.warn(text)));
             }
             return;
         }
-        h.contested = false;
-        if (inside.isEmpty()) {
-            if (h.capturer != null) {
-                h.capturer = null;
-                h.held = 0;
+        if (step == Hill.Step.EMPTY) {
+            if (hadCapturer != null) {
                 dirty = true;
             }
             return;
         }
         Presence holder = inside.values().iterator().next();
         Faction f = holder.faction();
-        if (!f.id().equals(h.capturer)) {
-            h.capturer = f.id();
-            h.held = 1;
+        if (!f.id().equals(hadCapturer)) {
             h.lastNotice = now;
             dirty = true;
             String text = f.tag() + " is taking hill " + h.name + ".";
             after.add(() -> broadcast(Msg.info(text)));
-        } else {
-            h.held++;
         }
-        long cap = capSeconds();
-        if (h.held >= cap) {
+        if (step == Hill.Step.CAPTURED) {
             capture(h, f, holder.player(), after);
             return;
         }
@@ -659,6 +708,7 @@ public final class EventsServiceImpl implements EventsService {
 
     private void capture(Hill h, Faction f, UUID player, List<Runnable> after) {
         long now = Time.now();
+        reschedule(h, now);
         h.running = false;
         h.capturer = null;
         h.held = 0;
@@ -693,7 +743,7 @@ public final class EventsServiceImpl implements EventsService {
                 }
             }
             audit(f, "Captured hill " + name);
-            String text = f.tag() + " captured hill " + name + " and won " + rewardText() + ".";
+            String text = f.tag() + " captured hill " + name + " and won " + rewardText(false) + ".";
             publish("koth", name, "captured", world, f.id(), text);
             broadcast(Msg.good(text));
         });
@@ -730,7 +780,7 @@ public final class EventsServiceImpl implements EventsService {
         }
         save();
         return Result.pass("Outpost " + name + " is set at " + at(world, x, y, z) + " with a radius of " + r
-                + " blocks. Holding it gives a " + kind + " boost of " + multiplier + " times.");
+                + " blocks. Holding it gives " + boostName(kind) + " of " + multiplier + " times.");
     }
 
     @Override
@@ -791,7 +841,7 @@ public final class EventsServiceImpl implements EventsService {
             if (o == null) {
                 return null;
             }
-            String base = "Outpost " + o.name + " at " + at(o.world, o.x, o.y, o.z) + " gives a " + o.boost + " boost of "
+            String base = "Outpost " + o.name + " at " + at(o.world, o.x, o.y, o.z) + " gives " + boostName(o.boost) + " of "
                     + o.multiplier + " times";
             String holder = o.holder == null ? ". Nobody holds it"
                     : ". " + tagOf(o.holder) + " holds it with " + fmt(o.controlOf(o.holder)) + " percent control";
@@ -852,17 +902,9 @@ public final class EventsServiceImpl implements EventsService {
                 byId.put(p.faction().id(), p.faction());
             }
         }
-        o.contested = counts.size() > 1;
-        if (counts.isEmpty()) {
-            decayAll(o, decay, null);
-        } else if (counts.size() == 1) {
-            UUID f = counts.keySet().iterator().next();
-            double v = Math.min(100.0, o.controlOf(f) + gain * counts.get(f));
-            o.control.put(f, v);
-            decayAll(o, decay, f);
-            if (!f.equals(o.holder) && v >= 100.0 && o.controlOf(o.holder) < 100.0) {
-                changeHolder(o, byId.get(f), after);
-            }
+        UUID taker = o.step(counts, gain, decay);
+        if (taker != null) {
+            changeHolder(o, byId.get(taker), after);
         }
         if (o.holder != null) {
             pendingOutpostSeconds.merge(o.holder, 1L, Long::sum);
@@ -886,14 +928,6 @@ public final class EventsServiceImpl implements EventsService {
         return MIN_OUTPOST_DECAY;
     }
 
-    private void decayAll(Outpost o, double decay, UUID except) {
-        if (decay <= 0 || o.control.isEmpty()) {
-            return;
-        }
-        o.control.replaceAll((k, v) -> k.equals(except) ? v : Math.max(0, v - decay));
-        o.control.entrySet().removeIf(e -> e.getValue() <= 0 && !e.getKey().equals(o.holder));
-    }
-
     private void changeHolder(Outpost o, Faction winner, List<Runnable> after) {
         UUID old = o.holder;
         o.holder = winner.id();
@@ -907,7 +941,7 @@ public final class EventsServiceImpl implements EventsService {
             Faction loser = faction(old);
             String text = winner.tag() + " took outpost " + name + (loser != null ? " from " + loser.tag() : "") + ".";
             publish("outpost", name, "captured", world, winner.id(), text);
-            alert(winner, Msg.good("Your faction took outpost " + name + ". You now get a " + boost + " boost of "
+            alert(winner, Msg.good("Your faction took outpost " + name + ". You now get " + boostName(boost) + " of "
                     + mult + " times while you hold it."));
             audit(winner, "Took outpost " + name);
             if (loser != null) {
@@ -1048,20 +1082,21 @@ public final class EventsServiceImpl implements EventsService {
         if (zone.type() != FactionType.WARZONE) {
             return Result.fail(zone.tag() + " is not a war zone.");
         }
+        if (everyMinutes > 0 && everyMinutes < 5) {
+            return Result.fail("The shortest envoy timer is 5 minutes.");
+        }
         synchronized (lock) {
             if (everyMinutes <= 0) {
                 envoyTimers.remove(key(zone.tag()));
-                dirty = true;
-                save();
-                return Result.pass("Envoys no longer drop in " + zone.tag() + " on a timer.");
+            } else {
+                envoyTimers.put(key(zone.tag()), new long[] {everyMinutes, Time.now() + everyMinutes * MINUTE});
             }
-            if (everyMinutes < 5) {
-                return Result.fail("Envoys can drop at most every 5 minutes.");
-            }
-            envoyTimers.put(key(zone.tag()), new long[] {everyMinutes, Time.now() + everyMinutes * MINUTE});
             dirty = true;
         }
         save();
+        if (everyMinutes <= 0) {
+            return Result.pass("Envoys no longer drop in " + zone.tag() + " on a timer.");
+        }
         return Result.pass("An envoy drops in " + zone.tag() + " every " + everyMinutes + " minutes.");
     }
 
@@ -1229,11 +1264,14 @@ public final class EventsServiceImpl implements EventsService {
         if (eco == null || !eco.enabled()) {
             return Result.fail("Bounties need the economy, which is turned off.");
         }
-        if (!(amount > 0) || amount < min) {
-            return Result.fail("The smallest bounty is " + eco.format(min) + ".");
-        }
-        if (eco.wholeUnits() && amount != Math.floor(amount)) {
-            return Result.fail("Bounties must be whole amounts.");
+        switch (Payouts.checkAmount(amount, min, eco.wholeUnits())) {
+            case TOO_SMALL -> {
+                return Result.fail("The smallest bounty is " + eco.format(Math.max(min, 0)) + ".");
+            }
+            case NOT_WHOLE -> {
+                return Result.fail("Bounties must be whole amounts.");
+            }
+            case NONE -> { }
         }
         String targetName = nameOf(target);
         Result paid = eco.withdraw(placer, amount, "bounty on " + targetName);
@@ -1310,7 +1348,7 @@ public final class EventsServiceImpl implements EventsService {
                 return;
             }
             // Factions cannot farm the bounty on their own member, and placers cannot collect their own money.
-            if ((kf != null && vf != null && kf.id().equals(vf.id())) || bounty.placers.containsKey(killer)) {
+            if (!Payouts.collectable(killer, kf == null ? null : kf.id(), vf == null ? null : vf.id(), bounty.placers.keySet())) {
                 return;
             }
             bounties.remove(victim);
@@ -1366,6 +1404,12 @@ public final class EventsServiceImpl implements EventsService {
 
     @Override
     public Result seasonStart(UUID admin, int graceDays, int raidDays) {
+        synchronized (seasonLock) {
+            return startSeason(admin, graceDays, raidDays);
+        }
+    }
+
+    private Result startSeason(UUID admin, int graceDays, int raidDays) {
         if (graceDays < 0 || raidDays < 0) {
             return Result.fail("Days cannot be negative.");
         }
@@ -1408,6 +1452,12 @@ public final class EventsServiceImpl implements EventsService {
 
     @Override
     public Result seasonEnd(UUID admin) {
+        synchronized (seasonLock) {
+            return endSeason(admin);
+        }
+    }
+
+    private Result endSeason(UUID admin) {
         Settings s = ctx.settings();
         synchronized (lock) {
             // Ending twice would refreeze the board and clear the payout record, letting payouts run again.
@@ -1439,13 +1489,13 @@ public final class EventsServiceImpl implements EventsService {
         s.set("season.active", false);
         s.set("season.raidEndsAt", 0L);
         save();
-        StringBuilder top = new StringBuilder();
-        for (int i = 0; i < Math.min(3, frozen.size()); i++) {
-            top.append(i == 0 ? " " : (i == frozen.size() - 1 || i == 2 ? " and " : ", "));
-            top.append(frozen.get(i).getString("Tag"));
+        List<String> tags = new ArrayList<>();
+        for (Document d : frozen) {
+            tags.add(d.getString("Tag"));
         }
         String text = "The season is over and the end of the world has begun."
-                + (frozen.isEmpty() ? "" : " The top factions are" + top + ".");
+                + (frozen.isEmpty() ? "" : (frozen.size() == 1 ? " The top faction is " : " The top factions are ")
+                + Payouts.topList(tags, 3) + ".");
         broadcast(Msg.warn(text));
         publish("season", "season", "ended", null, null, text);
         return Result.pass("The season ended and the leaderboard is frozen.");
@@ -1524,23 +1574,34 @@ public final class EventsServiceImpl implements EventsService {
             if (out.size() >= n) {
                 break;
             }
-            out.add(new String[] {String.valueOf((int) Hill.num(d, "Rank")), d.getString("Tag")});
+            // The frozen board keeps the id, so a faction that renamed is still paid and a faction that
+            // took a freed tag is not. A disbanded faction or an unsafe tag is skipped.
+            String tag = d.getString("Tag");
+            String id = d.getString("Id");
+            if (id != null) {
+                Faction f;
+                try {
+                    f = faction(UUID.fromString(id));
+                } catch (IllegalArgumentException e) {
+                    f = null;
+                }
+                if (f == null) {
+                    ctx.logger().at(Level.INFO).log("Season payout skips %s because the faction no longer exists", tag);
+                    continue;
+                }
+                tag = f.tag();
+            }
+            if (!Payouts.safeTag(tag)) {
+                ctx.logger().at(Level.WARNING).log("Season payout skips the tag %s because it is not plain letters and digits", tag);
+                continue;
+            }
+            out.add(new String[] {String.valueOf((int) Hill.num(d, "Rank")), tag});
         }
         return out;
     }
 
     private List<String> templates() {
-        List<String> out = new ArrayList<>();
-        for (String t : ctx.settings().text("events.payoutCommands").split("\\|")) {
-            String c = t.trim();
-            if (c.startsWith("/")) {
-                c = c.substring(1);
-            }
-            if (!c.isEmpty()) {
-                out.add(c);
-            }
-        }
-        return out;
+        return Payouts.templates(ctx.settings().text("events.payoutCommands"));
     }
 
     @Override
@@ -1571,7 +1632,7 @@ public final class EventsServiceImpl implements EventsService {
     }
 
     private static String fill(String template, String tag, String rank) {
-        return template.replace("{tag}", tag).replace("{rank}", rank);
+        return Payouts.fill(template, tag, rank);
     }
 
     @Override
@@ -1598,7 +1659,14 @@ public final class EventsServiceImpl implements EventsService {
             payoutsRunAt = Time.now();
             dirty = true;
         }
-        save();
+        // The record must be on disk before any command runs, or a restart could pay the same board again.
+        if (!save()) {
+            synchronized (lock) {
+                payoutsRunAt = 0;
+                dirty = true;
+            }
+            return Result.fail("The payout record could not be saved, so no payout commands ran. Check the log.");
+        }
         int ran = 0;
         int failed = 0;
         CommandManager manager = CommandManager.get();
@@ -1640,6 +1708,13 @@ public final class EventsServiceImpl implements EventsService {
             ctx.logger().at(Level.INFO).log("The season raid period ended, starting the end of the world");
             seasonEnd(null);
         }
+    }
+
+    /** The boost with its article, such as an xp boost or a tax boost. */
+    static String boostName(String kind) {
+        String k = kind == null ? "" : kind;
+        boolean vowel = !k.isEmpty() && "aeiox".indexOf(Character.toLowerCase(k.charAt(0))) >= 0;
+        return (vowel ? "an " : "a ") + k + " boost";
     }
 
     private static String plural(long n, String noun) {

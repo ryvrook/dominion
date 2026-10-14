@@ -31,7 +31,7 @@ public final class ProgressModule implements DominionModule {
         ctx.everyMinute(service::tick);
         FarmGuard guard = new FarmGuard(ctx);
         ctx.everyMinute(() -> guard.sweep(Time.now()));
-        ctx.onPlayerQuit(guard::forget);
+        // Drop memory is not cleared on quit, or a player could drop crops, log out and let a friend collect them.
         ctx.bus().subscribe(event -> {
             switch (event) {
                 case DominionEvent.FactionDisbanded d -> {

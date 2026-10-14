@@ -120,6 +120,18 @@ public final class RulesServiceImpl implements RulesService {
         return Result.fail(owner.tag() + " does not let you " + verb(action) + " in its land.");
     }
 
+    /**
+     * Using an entity such as an NPC or a mount. It follows the creature rules in faction land, but a
+     * SafeZone only stops hits, so spawn NPCs and merchants stay usable there.
+     */
+    Result canUseEntity(UUID player, String world, long chunkIndex) {
+        Faction owner = world == null ? null : ctx.repo().ownerAt(world, chunkIndex);
+        if (owner != null && owner.type() == FactionType.SAFEZONE) {
+            return Result.pass();
+        }
+        return canAct(player, FactionAction.DAMAGE_ENTITY, world, chunkIndex);
+    }
+
     /** The zone a claimed chunk belongs to, or null when it has none or the zone was deleted. */
     private Zone zoneAt(Faction owner, String world, long chunkIndex) {
         ClaimEntry entry = ctx.repo().claimAt(world, chunkIndex);
@@ -177,49 +189,33 @@ public final class RulesServiceImpl implements RulesService {
 
     /** PvP decision that also stops attackers hitting out of a SafeZone. */
     Result pvp(UUID attacker, UUID victim, String world, long victimChunk, long attackerChunk) {
-        if (world != null && attackerChunk != Long.MIN_VALUE && attacker != null && !attacker.equals(victim)) {
-            Faction from = ctx.repo().ownerAt(world, attackerChunk);
-            if (from != null && from.type() == FactionType.SAFEZONE) {
-                return Result.fail("You cannot fight from inside the SafeZone.");
-            }
-        }
-        return pvp(attacker, victim, world, victimChunk);
+        return decide(attacker, victim, world, victimChunk, attackerChunk);
     }
 
     /** PvP decision with a reason for the attacker. Grace does not block PvP. */
     Result pvp(UUID attacker, UUID victim, String world, long victimChunk) {
+        return decide(attacker, victim, world, victimChunk, Long.MIN_VALUE);
+    }
+
+    private Result decide(UUID attacker, UUID victim, String world, long victimChunk, long attackerChunk) {
         if (attacker == null || victim == null || attacker.equals(victim)) {
             return Result.pass();
         }
         Settings s = ctx.settings();
-        Faction zone = world == null ? null : ctx.repo().ownerAt(world, victimChunk);
-        if (zone != null && zone.type() == FactionType.SAFEZONE) {
-            return Result.fail("You cannot fight in the SafeZone.");
+        FactionType attackerZone = null;
+        if (world != null && attackerChunk != Long.MIN_VALUE) {
+            Faction from = ctx.repo().ownerAt(world, attackerChunk);
+            attackerZone = from == null ? null : from.type();
         }
+        Faction zone = world == null ? null : ctx.repo().ownerAt(world, victimChunk);
         Faction a = factionOf(attacker);
         Faction v = factionOf(victim);
-        if (zone != null && zone.type() == FactionType.WARZONE) {
-            // WarZones always allow fighting, except between members of the same faction.
-            if (a != null && v != null && a.id().equals(v.id())) {
-                return Result.fail("You cannot hurt your own faction in a WarZone.");
-            }
-            return Result.pass();
-        }
-        if (a == null || v == null) {
-            return s.bool("combat.pvpFactionless") ? Result.pass()
-                    : Result.fail("Fighting players without a faction is turned off.");
-        }
-        if (a.id().equals(v.id())) {
-            return a.setting("friendlyFire", s.bool("combat.friendlyFireDefault")) ? Result.pass()
-                    : Result.fail("Friendly fire is off in your faction.");
-        }
-        Relation r = between(a, v);
-        return switch (r) {
-            case ALLY -> s.bool("combat.allyFire") ? Result.pass() : Result.fail("You cannot hurt your allies.");
-            case TRUCE -> s.bool("combat.truceFire") ? Result.pass() : Result.fail("You cannot hurt factions you have a truce with.");
-            case NEUTRAL -> s.bool("combat.pvpNeutral") ? Result.pass() : Result.fail("Fighting neutral factions is turned off.");
-            case ENEMY, OWN -> Result.pass();
-        };
+        Relation relation = a != null && v != null && !a.id().equals(v.id()) ? between(a, v) : null;
+        boolean friendlyFire = a != null && a.setting("friendlyFire", s.bool("combat.friendlyFireDefault"));
+        PvpRules.Toggles toggles = new PvpRules.Toggles(s.bool("combat.pvpFactionless"), s.bool("combat.pvpNeutral"),
+                s.bool("combat.allyFire"), s.bool("combat.truceFire"));
+        return PvpRules.decide(false, attackerZone, zone == null ? null : zone.type(),
+                a == null ? null : a.id(), v == null ? null : v.id(), relation, friendlyFire, toggles);
     }
 
     // ---- toggles ----------------------------------------------------------

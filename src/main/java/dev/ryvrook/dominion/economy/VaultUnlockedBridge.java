@@ -75,14 +75,27 @@ final class VaultUnlockedBridge implements BalanceProvider {
         if (eco == null) {
             return null;
         }
-        VaultUnlockedBridge bridge = new VaultUnlockedBridge(ctx, format, eco);
-        if (bridge.balance == null || bridge.withdraw == null || bridge.deposit == null) {
+        VaultUnlockedBridge bridge = forEconomy(ctx, format, eco);
+        if (bridge == null) {
             ctx.logger().at(Level.WARNING).log("Found a VaultUnlocked economy in %s but it has no usable balance, withdraw and deposit calls",
                     eco.getClass().getName());
             return null;
         }
         ctx.logger().at(Level.INFO).log("Dominion uses the VaultUnlocked economy %s", eco.getClass().getName());
         return bridge;
+    }
+
+    /**
+     * A bridge over an economy object that was already found, or null when it lacks a usable
+     * balance, withdraw or deposit call. The context may be null in tests, which only skips logging
+     * and account creation.
+     */
+    static VaultUnlockedBridge forEconomy(DominionContext ctx, DoubleFunction<String> format, Object economy) {
+        if (economy == null) {
+            return null;
+        }
+        VaultUnlockedBridge bridge = new VaultUnlockedBridge(ctx, format, economy);
+        return bridge.balance == null || bridge.withdraw == null || bridge.deposit == null ? null : bridge;
     }
 
     @Override
@@ -310,7 +323,7 @@ final class VaultUnlockedBridge implements BalanceProvider {
     }
 
     private void ensureAccount(UUID player) {
-        if (hasAccount == null || createAccount == null) {
+        if (hasAccount == null || createAccount == null || ctx == null) {
             return;
         }
         try {
@@ -323,8 +336,12 @@ final class VaultUnlockedBridge implements BalanceProvider {
         }
     }
 
-    /** Reads transactionSuccess from an EconomyResponse, or treats a boolean or missing response as the answer. */
-    private static boolean success(Object response) {
+    /**
+     * Reads transactionSuccess from an EconomyResponse, then its type field or method, and treats a
+     * boolean or a missing response as the answer. A response with none of these counts as a
+     * success, because the call itself returned without an error.
+     */
+    static boolean success(Object response) {
         if (response == null) {
             return true;
         }
@@ -332,14 +349,32 @@ final class VaultUnlockedBridge implements BalanceProvider {
             return b;
         }
         try {
-            Object ok = response.getClass().getMethod("transactionSuccess").invoke(response);
-            return Boolean.TRUE.equals(ok);
-        } catch (ReflectiveOperationException | RuntimeException e) {
-            return true;
+            Method m = response.getClass().getMethod("transactionSuccess");
+            accessible(m);
+            return Boolean.TRUE.equals(m.invoke(response));
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
+            // older or newer response shapes below
         }
+        Object type = null;
+        try {
+            Field f = response.getClass().getField("type");
+            type = f.get(response);
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
+            try {
+                Method m = response.getClass().getMethod("type");
+                accessible(m);
+                type = m.invoke(response);
+            } catch (ReflectiveOperationException | RuntimeException ignoredToo) {
+                // no type either
+            }
+        }
+        return type == null || "SUCCESS".equalsIgnoreCase(type.toString());
     }
 
-    private static String errorOf(Object response, String fallback) {
+    static String errorOf(Object response, String fallback) {
+        if (response == null) {
+            return fallback;
+        }
         try {
             Field f = response.getClass().getField("errorMessage");
             Object v = f.get(response);
@@ -356,7 +391,7 @@ final class VaultUnlockedBridge implements BalanceProvider {
 
     private void warn(Exception e) {
         long now = System.currentTimeMillis();
-        if (now - lastWarn > 60_000L) {
+        if (ctx != null && now - lastWarn > 60_000L) {
             lastWarn = now;
             ctx.logger().at(Level.WARNING).withCause(e).log("Dominion could not reach the VaultUnlocked economy");
         }

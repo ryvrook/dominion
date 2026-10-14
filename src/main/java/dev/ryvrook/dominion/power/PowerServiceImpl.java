@@ -11,6 +11,7 @@ import dev.ryvrook.dominion.service.PowerService;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 
 /**
  * Classic power mode. Player power lives in PlayerData.power, faction power is the member sum
@@ -28,11 +29,23 @@ public final class PowerServiceImpl implements PowerService {
     private final Dtr dtr;
     /** Last value announced per player so slow decay still publishes once it adds up. */
     private final Map<UUID, Double> published = new ConcurrentHashMap<>();
+    /** Online check. Tests swap it, the server answers through the universe. */
+    Predicate<UUID> online = PowerServiceImpl::liveOnline;
 
     public PowerServiceImpl(DominionContext ctx) {
         this.ctx = ctx;
         this.ticker = new PowerTicker(ctx, this);
-        this.dtr = new Dtr(ctx);
+        this.dtr = new Dtr(ctx, this::isOnline);
+    }
+
+    /** True when the player is connected. False when no universe is running, as in unit tests. */
+    static boolean liveOnline(UUID player) {
+        return player != null && com.hypixel.hytale.server.core.universe.Universe.get() != null
+                && dev.ryvrook.dominion.util.Players.isOnline(player);
+    }
+
+    boolean isOnline(UUID player) {
+        return online.test(player);
     }
 
     @Override

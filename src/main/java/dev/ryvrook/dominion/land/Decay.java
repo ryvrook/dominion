@@ -4,7 +4,6 @@ import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.Member;
 import dev.ryvrook.dominion.storage.Repository;
 import dev.ryvrook.dominion.util.Keys;
-import dev.ryvrook.dominion.util.Players;
 import dev.ryvrook.dominion.util.Time;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 
@@ -67,7 +66,7 @@ final class Decay {
     /** Active when a member is online or was seen after the cutoff, with server downtime credited back. */
     private static boolean active(Land land, Faction f, long cutoff) {
         for (Member m : f.members()) {
-            if (Outage.credited(land.ctx, m.lastSeen()) >= cutoff || Players.isOnline(m.uuid())) {
+            if (Outage.credited(land.ctx, m.lastSeen()) >= cutoff || land.isOnline(m.uuid())) {
                 return true;
             }
         }

@@ -1,5 +1,8 @@
 package dev.ryvrook.dominion.config;
 
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /** Every setting the spec names, grouped the way the admin settings page shows them. */
@@ -55,7 +58,7 @@ public final class Defaults {
         s.define("raid.combineAny", "Raiding", "Any mode makes a faction raidable, otherwise all", true);
         s.define("raid.minDefendersOnline", "Raiding", "Defenders online required to raid", 1);
         s.define("raid.minAttackersOnline", "Raiding", "Attackers online required to siege", 3);
-        s.define("raid.attackerCooldownMinutes", "Raiding", "Minutes before the same attacker can raid again", 60);
+        s.define("raid.attackerCooldownMinutes", "Raiding", "Minutes before one faction can siege the same defender again", 60);
         s.define("raid.protectHomeChunkUntilLast", "Raiding", "Home chunk can only be taken last", true);
 
         // Relations
@@ -89,6 +92,7 @@ public final class Defaults {
         s.define("chat.tagStyle", "Chat", "Tag style, brackets or plain", "brackets");
         s.define("chat.loginAlerts", "Chat", "Announce member logins to the faction", true);
         s.define("chat.logPrivate", "Chat", "Log faction, ally and nation chat to the console at INFO instead of FINE", false);
+        s.define("chat.publicFormat", "Chat", "Public chat style. relation colours each tag for its viewer and delivers the line itself. passthrough adds the tag to the normal line so relays and other chat plugins still see it. In both, Dominion logs and maps only lines that were delivered", "relation");
 
         // Economy
         s.define("eco.enabled", "Economy", "Economy enabled", true);
@@ -203,24 +207,205 @@ public final class Defaults {
         s.define("misc.preset", "Storage", "Active preset name", "classic");
         s.define("misc.tutorial", "Storage", "Show the tutorial on first join", true);
         s.define("misc.singleplayerAutoPreset", "Storage", "Apply the singleplayer preset automatically", true);
+
+        limits(s);
     }
 
+    /** Upper bound for settings that only need to stay positive. */
+    private static final double ANY = Long.MAX_VALUE;
+
+    /**
+     * Ranges and allowed values. A key missing here accepts any value of its type. Bounds are
+     * generous on purpose, they only keep out values that break the code, such as a negative
+     * interval or a percentage above one hundred.
+     */
+    private static void limits(Settings s) {
+        // Factions
+        s.range("faction.tagMin", 1, 32);
+        s.range("faction.tagMax", 1, 32);
+        s.range("faction.nameMax", 1, 64);
+        s.range("faction.maxMembers", 1, 10_000);
+        s.range("faction.inviteHours", 1, 8760);
+        s.range("faction.newMemberHoldHours", 0, 8760);
+        s.range("faction.memberInactiveDays", 0, 3650);
+        s.range("faction.disbandInactiveDays", 0, 3650);
+        s.range("faction.auditLimit", 0, 100_000);
+        // Power
+        s.range("power.start", -1_000_000, 1_000_000);
+        s.range("power.max", -1_000_000, 1_000_000);
+        s.range("power.min", -1_000_000, 1_000_000);
+        s.range("power.regenPerMinute", 0, 1_000_000);
+        s.range("power.lossPerDeath", 0, 1_000_000);
+        s.range("power.offlineDecayAfterDays", 0, 3650);
+        s.range("power.offlineDecayPerDay", 0, 1_000_000);
+        // Land
+        s.range("land.claimsPerPower", 0, 10_000);
+        s.range("land.bufferChunks", 0, 32);
+        s.range("land.spawnProtectRadius", 0, 1_000_000);
+        s.range("land.maxRadiusClaim", 0, 32);
+        s.range("land.maxLineClaim", 1, 128);
+        s.range("land.decayAfterDays", 0, 3650);
+        s.range("land.decayChunksPerDay", 0, 100_000);
+        // Raiding
+        s.range("raid.dominanceMarginPercent", 0, 10_000);
+        s.range("raid.dominanceCooldownMinutes", 0, 525_600);
+        s.range("raid.lowRatioPercent", 0, 100);
+        s.range("raid.minDefendersOnline", 0, 10_000);
+        s.range("raid.minAttackersOnline", 0, 10_000);
+        s.range("raid.attackerCooldownMinutes", 0, 525_600);
+        // Relations
+        s.range("relation.maxAllies", 0, 10_000);
+        s.range("relation.maxTruces", 0, 10_000);
+        s.range("relation.requestHours", 1, 8760);
+        // Combat
+        s.range("combat.tagSeconds", 0, 3600);
+        s.range("combat.killRewardPercent", 0, 100);
+        // Homes
+        s.range("home.warmupSeconds", 0, 3600);
+        s.range("home.cooldownSeconds", 0, 86_400);
+        s.range("home.enemyRadius", 0, 1024);
+        s.range("home.maxWarps", 0, 1000);
+        s.range("home.stuckWarmupSeconds", 0, 3600);
+        // Chat
+        s.choices("chat.tagStyle", "brackets", "plain");
+        s.choices("chat.publicFormat", "relation", "passthrough");
+        // Economy
+        s.choices("eco.provider", "internal", "vaultunlocked", "vault", "item", "items");
+        s.range("eco.startingBalance", 0, ANY);
+        s.range("eco.costCreate", 0, ANY);
+        s.range("eco.costClaim", 0, ANY);
+        s.range("eco.costClaimGrowthPercent", 0, 10_000);
+        s.range("eco.refundUnclaimPercent", 0, 100);
+        s.range("eco.costWarp", 0, ANY);
+        s.range("eco.upkeepPerClaimPerDay", 0, ANY);
+        s.range("eco.duesPerMemberPerDay", 0, ANY);
+        s.range("eco.playtimeStipendPerHour", 0, ANY);
+        s.range("eco.bankInterestPercentPerDay", 0, 100);
+        s.range("eco.withdrawDailyLimitOfficer", 0, ANY);
+        // Market
+        s.range("market.taxPercent", 0, 100);
+        s.range("market.serverTaxPercent", 0, 100);
+        s.range("market.listingHours", 1, 8760);
+        s.range("market.maxListingsPerPlayer", 0, 10_000);
+        s.range("market.auctionMinStepPercent", 0, 1000);
+        s.range("market.auctionAntiSnipeMinutes", 0, 1440);
+        // Sieges and shields
+        s.range("siege.captureMinutes", 1, 1440);
+        s.range("siege.breachMinutes", 1, 1440);
+        s.range("siege.attackerRadius", 1, 256);
+        s.range("siege.defenderRadius", 0, 256);
+        s.range("siege.absentSecondsToFail", 1, 86_400);
+        s.range("siege.immunityHoursAfterDefence", 0, 8760);
+        s.range("shield.hours", 0, 24);
+        s.range("shield.coreRadius", 0, 32);
+        s.range("shield.changeDelayHours", 0, 8760);
+        s.range("grace.endsAt", 0, ANY);
+        // Events
+        s.range("events.kothCapSeconds", 1, 86_400);
+        s.range("events.outpostPercentPerPlayerPerSecond", 0, 100);
+        s.range("events.envoyDespawnMinutes", 1, 1440);
+        s.range("events.kothRadius", 1, 256);
+        s.range("events.kothRewardCoins", 0, ANY);
+        s.range("events.kothRewardPoints", 0, 1_000_000);
+        s.range("events.outpostDecayPerSecond", 0, 100);
+        s.range("events.bountyMin", 0, ANY);
+        s.range("events.payoutTop", 0, 1000);
+        s.range("season.startedAt", 0, ANY);
+        s.range("season.raidEndsAt", 0, ANY);
+        // Progression
+        s.range("value.weightClaims", 0, 1_000_000);
+        s.range("value.weightMembers", 0, 1_000_000);
+        s.range("value.weightPower", 0, 1_000_000);
+        s.range("value.weightKills", 0, 1_000_000);
+        s.range("value.weightSieges", 0, 1_000_000);
+        s.range("value.weightBankPer100", 0, 1_000_000);
+        s.range("value.weightOutpostHours", 0, 1_000_000);
+        s.range("value.strikePercent", 0, 100);
+        s.range("upgrades.baseCost", 0, ANY);
+        s.range("upgrades.costGrowth", 1, 100);
+        s.range("missions.daily", 0, 50);
+        s.range("missions.weekly", 0, 50);
+        s.range("missions.rewardCoins", 0, ANY);
+        s.range("missions.rewardPoints", 0, 1_000_000);
+        s.range("missions.placedBlockMemoryMinutes", 0, 10_080);
+        // Vault and export
+        s.range("vault.basePages", 0, 64);
+        s.range("vault.slotsPerPage", 1, 63);
+        s.range("export.intervalSeconds", 1, 3600);
+        // Shops and nations
+        s.range("shop.factionMaxEntries", 0, 1000);
+        s.range("nation.maxFactions", 1, 1000);
+        s.range("nation.tagMin", 1, 32);
+        s.range("nation.tagMax", 1, 32);
+        // Map, HUD and storage
+        s.range("map.borderOnlyAbove", 0, 1_000_000);
+        s.range("hud.refreshSeconds", 1, 60);
+        s.range("storage.autosaveSeconds", 10, 3600);
+        s.range("storage.backupKeep", 0, 365);
+        s.choices("misc.preset", "classic", "singleplayer", "hardcore", "peaceful");
+
+        // Minimum and maximum pairs. The minimum may equal the maximum but never pass it.
+        s.ordered("faction.tagMin", "faction.tagMax");
+        s.ordered("nation.tagMin", "nation.tagMax");
+        s.ordered("power.min", "power.max");
+    }
+
+    /** Names of the presets in the order the admin page lists them. */
+    public static final List<String> PRESETS = List.of("classic", "hardcore", "peaceful", "singleplayer");
+
+    public static boolean isPreset(String name) {
+        return name != null && PRESETS.contains(name.toLowerCase(Locale.ROOT));
+    }
+
+    /**
+     * The values a preset sets. Every preset names the same keys, so switching from one preset to
+     * another never leaves a value behind from the first. Classic uses the shipped defaults.
+     * Returns an empty map for an unknown name.
+     */
     public static Map<String, Object> preset(String name) {
-        return switch (name.toLowerCase()) {
-            case "singleplayer" -> Map.of(
-                    "raid.enabled", false, "raid.modeSiege", false, "events.enabled", false,
-                    "shield.enabled", false, "grace.active", false, "land.mustBeConnected", false,
-                    "power.lossPerDeath", 0.0, "combat.pvpNeutral", false, "misc.preset", "singleplayer");
-            case "hardcore" -> Map.of(
-                    "raid.enabled", true, "raid.minDefendersOnline", 0, "power.lossPerDeath", 8.0,
-                    "power.dtrMode", true, "combat.pvpNeutral", true, "combat.pvpFactionless", true,
-                    "siege.captureMinutes", 10, "misc.preset", "hardcore");
-            case "peaceful" -> Map.of(
-                    "raid.enabled", false, "combat.pvpNeutral", false, "combat.pvpFactionless", false,
-                    "events.enabled", true, "misc.preset", "peaceful");
-            default -> Map.of(
-                    "raid.enabled", true, "raid.modeOverextended", true, "raid.modeDominance", true,
-                    "raid.modeSiege", true, "combat.pvpNeutral", true, "misc.preset", "classic");
-        };
+        String key = name == null ? "" : name.toLowerCase(Locale.ROOT);
+        if (!isPreset(key)) {
+            return Map.of();
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        // Classic first, then each preset overrides its own differences.
+        out.put("raid.enabled", true);
+        out.put("raid.modeOverextended", true);
+        out.put("raid.modeDominance", true);
+        out.put("raid.modeSiege", true);
+        out.put("raid.minDefendersOnline", 1);
+        out.put("events.enabled", true);
+        out.put("shield.enabled", true);
+        out.put("land.mustBeConnected", true);
+        out.put("power.lossPerDeath", 4.0);
+        out.put("power.dtrMode", false);
+        out.put("combat.pvpNeutral", true);
+        out.put("combat.pvpFactionless", true);
+        out.put("siege.captureMinutes", 15);
+        switch (key) {
+            case "singleplayer" -> {
+                out.put("raid.enabled", false);
+                out.put("raid.modeSiege", false);
+                out.put("events.enabled", false);
+                out.put("shield.enabled", false);
+                out.put("land.mustBeConnected", false);
+                out.put("power.lossPerDeath", 0.0);
+                out.put("combat.pvpNeutral", false);
+            }
+            case "hardcore" -> {
+                out.put("raid.minDefendersOnline", 0);
+                out.put("power.lossPerDeath", 8.0);
+                out.put("power.dtrMode", true);
+                out.put("siege.captureMinutes", 10);
+            }
+            case "peaceful" -> {
+                out.put("raid.enabled", false);
+                out.put("combat.pvpNeutral", false);
+                out.put("combat.pvpFactionless", false);
+            }
+            default -> { }
+        }
+        out.put("misc.preset", key);
+        return out;
     }
 }

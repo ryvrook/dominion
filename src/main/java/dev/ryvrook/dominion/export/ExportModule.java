@@ -40,7 +40,8 @@ public final class ExportModule implements DominionModule {
             ctx.bus().unsubscribe(listener);
         }
         if (ctx.settings().bool("export.enabled")) {
-            service.flush();
+            // Called on the server thread before the IO thread stops, so it writes directly.
+            service.write(false);
         }
         ApiHolder.set(null);
     }

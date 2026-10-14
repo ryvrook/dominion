@@ -77,7 +77,7 @@ Please read it before opening a pull request.
   `setFormatter((sender, content) -> Message)`, `setCancelled(boolean)`.
 - Regular events: `getEventRegistry().registerGlobal(PlayerReadyEvent.class, consumer)`. The plugin already handles
   ready and disconnect and exposes `ctx.onPlayerReady(Consumer<PlayerRef>)` and `ctx.onPlayerQuit(Consumer<UUID>)`.
-- Teleport: `Teleport.createForPlayer(world, new Transform(x, y, z, yaw, pitch, 0))` then
+- Teleport: `Teleport.createForPlayer(world, new Transform(x, y, z, pitch, yaw, 0))` then
   `store.putComponent(ref, Teleport.getComponentType(), teleport)` on the world thread, where
   `store = world.getEntityStore().getStore()` and `ref = playerRef.getReference()`.
 - Notifications: `NotificationUtil.sendNotification(playerRef.getPacketHandler(), Message title, Message body, new ItemStack("Item_Id", 1).toPacket(), NotificationStyle.Default)`.

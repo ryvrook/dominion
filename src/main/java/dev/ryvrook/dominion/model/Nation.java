@@ -58,12 +58,22 @@ public final class Nation {
     }
 
     public static Nation fromDocument(Document d) {
-        String leader = d.getString("Leader");
+        UUID leaderId = null;
+        try {
+            leaderId = d.get("Leader") instanceof String s ? UUID.fromString(s) : null;
+        } catch (IllegalArgumentException ignored) {
+            // reconcile picks a new leading faction
+        }
         Nation n = new Nation(UUID.fromString(d.getString("Id")), d.getString("Tag"), d.getString("Name"),
-                leader == null ? null : UUID.fromString(leader), d.get("CreatedAt", Number.class).longValue());
+                leaderId, d.get("CreatedAt") instanceof Number c ? c.longValue() : 0L);
         n.members.clear();
-        for (String s : d.getList("Members", String.class, List.of())) n.members.add(UUID.fromString(s));
-        for (String s : d.getList("Invites", String.class, List.of())) n.invites.add(UUID.fromString(s));
+        // A damaged id is skipped alone so the rest of the nation still loads.
+        for (Object s : d.get("Members") instanceof List<?> l ? l : List.of()) {
+            try { UUID u = UUID.fromString(String.valueOf(s)); if (!n.members.contains(u)) n.members.add(u); } catch (IllegalArgumentException ignored) { }
+        }
+        for (Object s : d.get("Invites") instanceof List<?> l ? l : List.of()) {
+            try { UUID u = UUID.fromString(String.valueOf(s)); if (!n.invites.contains(u)) n.invites.add(u); } catch (IllegalArgumentException ignored) { }
+        }
         if (d.getString("Color") != null) n.color = d.getString("Color");
         n.dirty = false;
         return n;

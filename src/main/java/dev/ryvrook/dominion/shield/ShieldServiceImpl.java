@@ -49,10 +49,9 @@ public final class ShieldServiceImpl implements ShieldService {
             return false;
         }
         long homeChunk = home.chunkIndex();
-        int radius = Math.max(0, ctx.settings().integer("shield.coreRadius")) + upgradeLevel(faction);
-        int dx = Math.abs(Keys.chunkX(chunkIndex) - Keys.chunkX(homeChunk));
-        int dz = Math.abs(Keys.chunkZ(chunkIndex) - Keys.chunkZ(homeChunk));
-        if (Math.max(dx, dz) > radius) {
+        int dx = Keys.chunkX(chunkIndex) - Keys.chunkX(homeChunk);
+        int dz = Keys.chunkZ(chunkIndex) - Keys.chunkZ(homeChunk);
+        if (!ShieldWindow.covers(ctx.settings().integer("shield.coreRadius"), upgradeLevel(faction), dx, dz)) {
             return false;
         }
         ClaimService claims = ctx.serviceOrNull(ClaimService.class);
@@ -70,14 +69,8 @@ public final class ShieldServiceImpl implements ShieldService {
 
     /** Minutes left in today's window, or zero when the window is not running. */
     private static long minutesLeft(int startHour, int hours) {
-        if (startHour < 0 || startHour > 23 || hours <= 0) {
-            return 0;
-        }
-        int length = Math.min(24, hours) * 60;
         LocalDateTime now = LocalDateTime.now();
-        int nowMinute = now.getHour() * 60 + now.getMinute();
-        int since = Math.floorMod(nowMinute - startHour * 60, 1440);
-        return since < length ? length - since : 0;
+        return ShieldWindow.minutesLeft(startHour, hours, now.getHour() * 60 + now.getMinute());
     }
 
     private int upgradeLevel(Faction faction) {
@@ -163,9 +156,13 @@ public final class ShieldServiceImpl implements ShieldService {
             long left = minutesLeft(start, s.integer("shield.hours"));
             if (left > 0) {
                 ClaimService claims = ctx.serviceOrNull(ClaimService.class);
-                text = claims != null && claims.raidable(faction)
-                        ? "Shield is down because the faction is raidable."
-                        : "Shield active for " + Time.remaining(left * MINUTE) + ".";
+                if (claims != null && claims.raidable(faction)) {
+                    text = "Shield is down because the faction is raidable.";
+                } else if (faction.home() == null) {
+                    text = "The shield window is open but covers no land until the faction sets a home.";
+                } else {
+                    text = "Shield active for " + Time.remaining(left * MINUTE) + ".";
+                }
             } else {
                 text = "Shield starts at " + hour(start) + ".";
             }
@@ -193,11 +190,7 @@ public final class ShieldServiceImpl implements ShieldService {
     @Override
     public boolean graceActive() {
         Settings s = ctx.settings();
-        if (!s.bool("grace.active")) {
-            return false;
-        }
-        long ends = s.longValue("grace.endsAt");
-        return ends <= 0 || Time.now() < ends;
+        return ShieldWindow.graceActive(s.bool("grace.active"), s.longValue("grace.endsAt"), Time.now());
     }
 
     @Override
@@ -266,8 +259,7 @@ public final class ShieldServiceImpl implements ShieldService {
         long delay = Math.max(0, s.integer("shield.changeDelayHours")) * HOUR;
         long now = Time.now();
         for (Faction f : fs.all()) {
-            long at = f.stat(PENDING_AT);
-            if (at > 0 && now >= at + delay) {
+            if (ShieldWindow.pendingDue(f.stat(PENDING_AT), delay, now)) {
                 apply(f, (int) f.stat(PENDING_HOUR), null, "Server");
             }
         }

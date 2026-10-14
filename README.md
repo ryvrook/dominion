@@ -1,6 +1,6 @@
-# Dominion
+# Dominion Factions
 
-Dominion is a factions plugin for Hytale servers. Players found factions, claim chunks, protect
+Dominion Factions is a factions plugin for Hytale servers. Players found factions, claim chunks, protect
 them with the combined power of their members, make allies and enemies, join nations, trade on a
 player market and lay siege to each other's land. Almost everything runs from an in game panel
 opened with `/f`, a sidebar keeps the important numbers on screen and the world map shows who owns
@@ -11,7 +11,7 @@ dependencies and is released under the MIT License.
 | | |
 | --- | --- |
 | Version | 0.1.0 |
-| Hytale server | 0.7.0 (Chapter 1) and 0.6.8 |
+| Hytale server | 0.7.1 or 0.7.0 (Chapter 1), 0.6.8 still compiles |
 | Java | 25 |
 | Build | Gradle |
 | License | MIT |
@@ -107,7 +107,7 @@ dependencies and is released under the MIT License.
 
 ## Install
 
-1. Get `Dominion-0.1.0.jar` from a release or build it from source and drop it into the Mods folder.
+1. Get `DominionFactions-0.2.0.jar` from a release or build it from source and drop it into the Mods folder.
 
 | Setup | Mods folder |
 | --- | --- |
@@ -148,6 +148,7 @@ dependencies and is released under the MIT License.
 | `/f unclaim`, `/f unclaim radius <r>`, `/f unclaim all` | Release land |
 | `/f zone create <name>`, `/f zone assign <name>` | Manage zones |
 | `/f map`, `/f power [player]`, `/f who [tag]` | Show land, power and faction info |
+| `/f map hide`, `/f map show` | Hide yourself from the web map or show yourself again. Also a button on the Overview tab |
 | `/f ally`, `/f truce`, `/f neutral`, `/f enemy <tag>` | Set relations. Answer with `/f accept` or `/f decline` |
 | `/f home`, `/f sethome`, `/f warp <name> [password]`, `/f stuck` | Homes and warps |
 | `/f bank`, `/f deposit <amount>`, `/f withdraw <amount>` | Faction bank |
@@ -247,7 +248,7 @@ cd dominion
 ./gradlew build -Phytale_channel=release -Phytale_version=0.6.8
 ```
 
-The jar lands in `build/libs/Dominion-0.1.0.jar`. To copy it straight into your local Mods folder
+The jar lands in `build/libs/DominionFactions-0.2.0.jar`. To copy it straight into your local Mods folder
 run the `installMod` task, optionally with `-PmodsDir=<path>`.
 
 ```bash
@@ -275,19 +276,20 @@ docs/                                      DEVELOPMENT.md conventions and STATUS
 
 ## Status
 
-Dominion 0.1.0 is code complete for everything that can be built without a game client. It builds
-on 0.7.0 and 0.6.8 and boots headless with all 22 modules on both. **It has not been played in a
-game client yet.** The following are unverified until someone does.
+Dominion Factions 0.2.0 builds against server 0.7.1 and still compiles on 0.7.0 and 0.6.8, boots headless with all
+22 modules next to Atlas, and has a JUnit suite of 431 tests over money moves, storage, settings, parsers, claims,
+power, membership, relations, nations, sieges, shields, the PvP table, events, missions, the market, shops, homes,
+the importer and the web map snapshot contract. **It has not been played in a game client yet.** The following
+are unverified until someone does.
 
 - Rendering of the panel, every page, the HUD sidebar, shop rows and vault stocking, item icons and the hour and quantity pickers.
 - Map marker images and tints, vault chest windows, container change events and windows closing on disconnect or breach.
 - Cross world teleports, home respawn, warmup cancellation and command parsing with apostrophes, multiword zone names and custom rank names.
-- Item currency counting, VaultUnlocked class names, owed item delivery, envoy chest placement on 0.7.0 and console command payouts.
+- Item currency counting, VaultUnlocked class names, owed item delivery, envoy chest placement and console command payouts.
 - Nation chat delivery and importer results against real data from the other mods.
 - The tutorial on first join, the first daily backup, truce door refusal and public chat reaching Atlas.
 
-Tab list integration is not possible server side and is out of scope. See the Status section below for the
-full list.
+Tab list integration is not possible server side and is out of scope.
 
 ## Contributing
 

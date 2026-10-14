@@ -97,10 +97,8 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
             return;
         }
         UUID viewer = ref.getUuid();
+        // mapHidden hides a player from the web map. It never hides land from their own in game map.
         PlayerData data = ctx.repo().playerIfLoaded(viewer);
-        if (data != null && data.mapHidden()) {
-            return;
-        }
         Transform t = ref.getTransform();
         double y = t == null || t.getPosition() == null ? 64 : t.getPosition().y;
         String worldName = world.getName();
@@ -118,7 +116,7 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
             if (f == null) {
                 continue;
             }
-            MapMarkerBuilder b = new MapMarkerBuilder("dominion_claim_" + worldName + "_" + cell.index(), CLAIM_IMAGE,
+            MapMarkerBuilder b = new MapMarkerBuilder(MarkerIds.of("claim", worldName, cell.index()), CLAIM_IMAGE,
                     new Transform(x, y, z))
                     .withName(Message.raw(f.tag() + "  " + f.name()).color(colorOf(f)))
                     .withComponent(new TintComponent(tint(colorOf(f))))
@@ -131,7 +129,7 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
         Faction mine = own == null ? null : ctx.repo().faction(own);
         Location home = mine == null ? null : mine.home();
         if (home != null && worldName.equals(home.world())) {
-            collector.add(new MapMarkerBuilder("dominion_home_" + mine.id(), HOME_IMAGE,
+            collector.add(new MapMarkerBuilder(MarkerIds.of("home", mine.id()), HOME_IMAGE,
                     new Transform(new Vector3d(home.x(), home.y(), home.z())))
                     .withName(Message.raw(mine.tag() + " home").color(colorOf(mine)))
                     .withComponent(new TintComponent(tint(colorOf(mine))))
@@ -160,7 +158,7 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
             }
             String color = p.color() != null && p.color().matches("#[0-9a-fA-F]{6}") ? p.color() : "#ffd166";
             String label = p.label() == null || p.label().isBlank() ? p.kind() : p.label();
-            MapMarkerBuilder b = new MapMarkerBuilder("dominion_event_" + p.kind() + "_" + p.id(), image,
+            MapMarkerBuilder b = new MapMarkerBuilder(MarkerIds.of("event", p.id()), image,
                     new Transform(new Vector3d(p.x(), p.y(), p.z())))
                     .withName(Message.raw(label).color(color))
                     .withComponent(new TintComponent(tint(color)));
@@ -217,7 +215,7 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
                     || !ally.relationCan(Relation.ALLY, FactionAction.USE_HOME) || rs.between(mine, ally) != Relation.ALLY) {
                 continue;
             }
-            collector.add(new MapMarkerBuilder("dominion_allyhome_" + ally.id(), HOME_IMAGE,
+            collector.add(new MapMarkerBuilder(MarkerIds.of("allyhome", ally.id()), HOME_IMAGE,
                     new Transform(new Vector3d(home.x(), home.y(), home.z())))
                     .withName(Message.raw(ally.tag() + " home is open to you").color(Relation.ALLY.color()))
                     .withComponent(new TintComponent(tint(Relation.ALLY.color())))
@@ -231,7 +229,7 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
             if (!worldName.equals(m.world()) || !collector.isInViewDistance(m.x(), m.z())) {
                 continue;
             }
-            collector.add(new MapMarkerBuilder("dominion_siege_" + m.id(), SIEGE_IMAGE,
+            collector.add(new MapMarkerBuilder(MarkerIds.of("siege", m.id()), SIEGE_IMAGE,
                     new Transform(new Vector3d(m.x(), m.y(), m.z())))
                     .withName(Message.raw(m.label()).color(m.color()))
                     .withComponent(new TintComponent(tint(m.color())))

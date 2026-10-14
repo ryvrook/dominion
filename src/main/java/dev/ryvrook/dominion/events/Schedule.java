@@ -77,12 +77,16 @@ record Schedule(String text, int everyMinutes, List<Integer> times) {
         return null;
     }
 
-    /** The next start strictly after the given time, as epoch millis. */
+    /** The next start strictly after the given time, as epoch millis, in the server time zone. */
     long next(long after) {
+        return next(after, ZoneId.systemDefault());
+    }
+
+    /** The next start strictly after the given time in the given zone. A time skipped by a clock change moves forward. */
+    long next(long after, ZoneId zone) {
         if (everyMinutes > 0) {
             return after + everyMinutes * 60_000L;
         }
-        ZoneId zone = ZoneId.systemDefault();
         LocalDateTime from = LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(after), zone);
         LocalDate day = from.toLocalDate();
         for (int d = 0; d < 2; d++) {

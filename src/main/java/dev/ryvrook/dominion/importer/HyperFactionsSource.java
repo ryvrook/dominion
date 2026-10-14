@@ -84,14 +84,14 @@ final class HyperFactionsSource implements Source {
         }
         for (Document c : Data.docs(d, "claims")) {
             String world = Data.str(c, "world");
-            Long x = Data.num(c, "chunkX");
-            Long z = Data.num(c, "chunkZ");
-            if (world == null || x == null || z == null) {
-                plan.skipped.add("A claim of " + name + " is missing its world or chunk coordinates");
+            Integer x = Data.coord(c.get("chunkX"));
+            Integer z = Data.coord(c.get("chunkZ"));
+            if (world == null || world.isBlank() || x == null || z == null) {
+                plan.skipped.add("A claim of " + name + " is missing its world or has damaged chunk coordinates");
                 continue;
             }
             f.sourceCells++;
-            for (long idx : Data.chunks(x.intValue(), z.intValue(), 32)) {
+            for (long idx : Data.chunks(x, z, 32)) {
                 f.addChunk(world, idx);
             }
         }

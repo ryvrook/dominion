@@ -57,17 +57,27 @@ public final class Zone {
     @SuppressWarnings("unchecked")
     public static Zone fromDocument(Document d) {
         Zone z = new Zone(d.getString("Id"), d.getString("Name"));
+        // Unknown ranks, relations or actions from another version are skipped rather than failing
+        // the zone, because a zone that fails to load takes its whole faction with it.
         Document rp = d.get("RankPerms", Document.class);
-        if (rp != null) rp.forEach((k, v) -> z.rankPerms.put(Rank.valueOf(k), toSet((List<String>) v)));
+        if (rp != null) rp.forEach((k, v) -> {
+            try {
+                if (v instanceof List<?> list) z.rankPerms.put(Rank.valueOf(k), toSet(list));
+            } catch (IllegalArgumentException ignored) { }
+        });
         Document lp = d.get("RelationPerms", Document.class);
-        if (lp != null) lp.forEach((k, v) -> z.relationPerms.put(Relation.valueOf(k), toSet((List<String>) v)));
+        if (lp != null) lp.forEach((k, v) -> {
+            try {
+                if (v instanceof List<?> list) z.relationPerms.put(Relation.valueOf(k), toSet(list));
+            } catch (IllegalArgumentException ignored) { }
+        });
         return z;
     }
 
-    private static EnumSet<FactionAction> toSet(List<String> names) {
+    private static EnumSet<FactionAction> toSet(List<?> names) {
         EnumSet<FactionAction> set = EnumSet.noneOf(FactionAction.class);
-        for (String n : names) {
-            try { set.add(FactionAction.valueOf(n)); } catch (IllegalArgumentException ignored) { }
+        for (Object n : names) {
+            try { set.add(FactionAction.valueOf(String.valueOf(n))); } catch (IllegalArgumentException ignored) { }
         }
         return set;
     }

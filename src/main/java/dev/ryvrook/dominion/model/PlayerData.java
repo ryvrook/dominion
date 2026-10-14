@@ -82,7 +82,10 @@ public final class PlayerData {
     }
 
     public static PlayerData fromDocument(UUID uuid, Document d) {
-        PlayerData p = new PlayerData(uuid, d.getString("Name"), num(d, "Power"), num(d, "Balance"));
+        // A file without a name, or with a non text name, loads with an empty name so callers can
+        // compare names without a null check. The next login fills it in.
+        Object rawName = d.get("Name");
+        PlayerData p = new PlayerData(uuid, rawName instanceof String s ? s : "", num(d, "Power"), num(d, "Balance"));
         String f = d.getString("Faction");
         p.factionId = f == null ? null : UUID.fromString(f);
         p.lastSeen = (long) num(d, "LastSeen");

@@ -31,6 +31,8 @@ final class Mailboxes {
     private final JsonFiles files;
     private final Path dir;
     private final Map<UUID, Box> boxes = new ConcurrentHashMap<>();
+    /** Players whose mailbox file is older than memory because a write failed. */
+    private final java.util.Set<UUID> dirty = ConcurrentHashMap.newKeySet();
 
     Mailboxes(JsonFiles files, Path dir) {
         this.files = files;
@@ -77,6 +79,17 @@ final class Mailboxes {
         save(player, b);
     }
 
+    /** Adds stored stack documents as they are, such as the parts from {@link Items#splitDocuments}. */
+    void addDocuments(UUID player, List<Document> docs) {
+        Box b = box(player);
+        for (Document d : docs) {
+            if (d != null) {
+                b.items.add(d);
+            }
+        }
+        save(player, b);
+    }
+
     void addCoins(UUID player, double coins) {
         Box b = box(player);
         b.coins = MarketServiceImpl.round(b.coins + coins);
@@ -95,13 +108,33 @@ final class Mailboxes {
         save(player, b);
     }
 
-    void save(UUID player, Box b) {
+    /** Writes a mailbox. False when it could not be written, in which case {@link #retry} tries again. */
+    boolean save(UUID player, Box b) {
+        boolean ok;
         if (b.empty()) {
-            files.delete(file(player));
-            return;
+            ok = files.delete(file(player)) || !java.nio.file.Files.exists(file(player));
+        } else {
+            ok = files.write(file(player), new Document("Items", new ArrayList<>(b.items)).append("Coins", b.coins)
+                    .append("Notes", new ArrayList<>(b.notes)));
         }
-        files.write(file(player), new Document("Items", new ArrayList<>(b.items)).append("Coins", b.coins)
-                .append("Notes", new ArrayList<>(b.notes)));
+        if (ok) {
+            dirty.remove(player);
+        } else {
+            dirty.add(player);
+        }
+        return ok;
+    }
+
+    /** Writes every mailbox whose last write failed. */
+    void retry() {
+        for (UUID player : List.copyOf(dirty)) {
+            Box b = boxes.get(player);
+            if (b == null) {
+                dirty.remove(player);
+            } else {
+                save(player, b);
+            }
+        }
     }
 
     private Path file(UUID player) {

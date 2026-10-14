@@ -168,8 +168,10 @@ final class SimpleClaimsSource implements Source {
 
     private static void claim(Map<String, Plan.Faction> byId, String owner, String world, Object x, Object z, Plan plan) {
         Plan.Faction f = owner == null ? null : byId.get(owner);
-        if (!(x instanceof Number nx) || !(z instanceof Number nz) || world == null) {
-            plan.skipped.add("A claim is missing its world or chunk coordinates");
+        Integer nx = Data.coord(x);
+        Integer nz = Data.coord(z);
+        if (nx == null || nz == null || world == null || world.isBlank()) {
+            plan.skipped.add("A claim is missing its world or has damaged chunk coordinates");
             return;
         }
         if (f == null) {
@@ -177,7 +179,7 @@ final class SimpleClaimsSource implements Source {
             return;
         }
         f.sourceCells++;
-        for (long idx : Data.chunks(nx.intValue(), nz.intValue(), 32)) {
+        for (long idx : Data.chunks(nx, nz, 32)) {
             f.addChunk(world, idx);
         }
     }

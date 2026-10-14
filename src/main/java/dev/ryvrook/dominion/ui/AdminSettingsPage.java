@@ -78,7 +78,8 @@ public final class AdminSettingsPage extends DominionPage {
         if (PRESETS.equals(group)) {
             c.set("#TabTitle.Text", PRESETS);
             c.set("#TabHint.Text", "Active preset is " + ctx.settings().text("misc.preset"));
-            body.text("A preset changes a bundle of settings at once. Settings it does not mention stay as they are.", Msg.MUTED);
+            body.text("A preset sets the raiding, PvP, power loss and event rules together. Every preset sets the same rules, "
+                    + "so switching back and forth never leaves one behind. Everything else stays as it is.", Msg.MUTED);
             for (String[] p : PRESET_LIST) {
                 body.row(p[0], p[0].equalsIgnoreCase(ctx.settings().text("misc.preset")) ? Msg.GOLD : null,
                         new String[] {"", "", "", ""}, Btn.of("Apply", "preset", p[0]));
@@ -100,9 +101,19 @@ public final class AdminSettingsPage extends DominionPage {
                 body.toggle(d.label(), d.key(), Boolean.TRUE.equals(value), "bool", d.key());
             } else {
                 body.field(d.label(), value == null ? "" : String.valueOf(value), Btn.of("Apply", "set", d.key()));
-                body.text(d.key() + "    default " + d.defaultValue(), Msg.MUTED);
+                body.text(d.key() + "    default " + d.defaultValue() + limits(d.key()), Msg.MUTED);
             }
         }
+    }
+
+    /** The allowed range or values of a key as a short suffix, or nothing. */
+    private String limits(String key) {
+        Settings.Range r = ctx.settings().rangeOf(key);
+        if (r != null) {
+            return "    from " + Msg.number(r.min()) + (r.max() >= Long.MAX_VALUE / 2.0 ? " up" : " to " + Msg.number(r.max()));
+        }
+        List<String> allowed = ctx.settings().choicesOf(key);
+        return allowed.isEmpty() ? "" : "    one of " + String.join(", ", allowed);
     }
 
     private boolean allowed() {
@@ -127,21 +138,27 @@ public final class AdminSettingsPage extends DominionPage {
         switch (e.action) {
             case "bool" -> {
                 boolean next = !settings.bool(e.value());
-                if (settings.set(e.value(), next)) {
+                String why = settings.trySet(e.value(), next);
+                if (why == null) {
                     Msg.send(player(), Msg.good(e.value() + " is now " + (next ? "on." : "off.")));
                 } else {
-                    Msg.send(player(), Msg.bad("Could not change " + e.value() + "."));
+                    Msg.send(player(), Msg.bad(why));
                 }
             }
             case "set" -> {
-                if (settings.set(e.value(), e.text())) {
+                String why = settings.trySet(e.value(), e.text());
+                if (why == null) {
                     Msg.send(player(), Msg.good(e.value() + " is now " + settings.text(e.value()) + "."));
                 } else {
-                    Msg.send(player(), Msg.bad("The value " + e.text() + " does not fit " + e.value() + ". Use the same kind of value as the default."));
+                    Msg.send(player(), Msg.bad(why));
                 }
             }
             case "preset" -> {
                 String name = e.value();
+                if (!dev.ryvrook.dominion.config.Defaults.isPreset(name)) {
+                    Msg.send(player(), Msg.bad("There is no preset called " + name + "."));
+                    return true;
+                }
                 ui.confirm(player(), "Apply the " + name + " preset",
                         "Many settings change at once and apply to every player right away. You can switch presets again later.",
                         yes -> {

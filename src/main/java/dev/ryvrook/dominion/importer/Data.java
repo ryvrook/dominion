@@ -135,6 +135,29 @@ final class Data {
         return id == null ? "unknown" : id.toString().substring(0, 8);
     }
 
+    /** Largest chunk or cell coordinate accepted from a source file. Anything beyond is treated as damaged. */
+    static final long MAX_COORD = 1L << 26;
+
+    /** A coordinate as an int, or null when it is missing, not whole or out of range. */
+    static Integer coord(Object v) {
+        if (v instanceof Number n) {
+            double d = n.doubleValue();
+            if (!Double.isFinite(d) || d != Math.rint(d) || Math.abs(d) > MAX_COORD) {
+                return null;
+            }
+            return (int) d;
+        }
+        if (v instanceof String s) {
+            try {
+                long l = Long.parseLong(s.strip());
+                return Math.abs(l) > MAX_COORD ? null : (int) l;
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
     /** Converts an ARGB or RGB integer to a Dominion hex colour. */
     static String color(Long argb) {
         return argb == null ? null : String.format(Locale.ROOT, "#%06x", argb & 0xFFFFFF);

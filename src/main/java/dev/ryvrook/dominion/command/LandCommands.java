@@ -151,6 +151,12 @@ final class LandCommands extends Section {
         RequiredArg<Integer> page = sized.withRequiredArg("size", "Map size from 1 to 3", ArgTypes.INTEGER);
         sized.handler(c -> printMap(c, Math.min(3, clampPage(c.arg(page)))));
         map.variant(sized);
+
+        // Web map privacy. The snapshot never writes a hidden player's position.
+        map.sub(new PlayerCmd("hide", "Hide yourself from the web map.")).handler(c ->
+                c.good(PlayerToggles.webMap(ctx.player(c.uuid()), true)));
+        map.sub(new PlayerCmd("show", "Show yourself on the web map again.")).handler(c ->
+                c.good(PlayerToggles.webMap(ctx.player(c.uuid()), false)));
     }
 
     private void printMap(Call c, int size) {

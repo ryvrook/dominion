@@ -2,6 +2,7 @@ package dev.ryvrook.dominion.faction;
 
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
+import com.hypixel.hytale.server.core.universe.Universe;
 import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.api.DominionEvent;
 import dev.ryvrook.dominion.api.Result;
@@ -20,6 +21,7 @@ import dev.ryvrook.dominion.util.Time;
 
 import java.util.ArrayList;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 /** Shared plumbing for the faction operations. Membership changes run under {@link #lock}. */
 final class FactionSupport {
@@ -29,9 +31,25 @@ final class FactionSupport {
     final DominionContext ctx;
     /** Serialises creation, joining, leaving and disbanding so tags and memberships stay consistent. */
     final Object lock = new Object();
+    /** Online check. Tests swap it, the server answers through the universe. */
+    Predicate<UUID> online = FactionSupport::liveOnline;
 
     FactionSupport(DominionContext ctx) {
         this.ctx = ctx;
+    }
+
+    /** True when the player is connected. False when no universe is running, as in unit tests. */
+    static boolean liveOnline(UUID player) {
+        return player != null && Universe.get() != null && Players.isOnline(player);
+    }
+
+    /** The connected player, or null when offline or when no universe is running. */
+    static PlayerRef liveRef(UUID player) {
+        return player == null || Universe.get() == null ? null : Players.online(player);
+    }
+
+    boolean isOnline(UUID player) {
+        return online.test(player);
     }
 
     /** A faction plus the failure to return when the caller may not proceed. */
@@ -91,7 +109,7 @@ final class FactionSupport {
     }
 
     void tell(UUID player, Message message) {
-        Msg.send(Players.online(player), message);
+        Msg.send(liveRef(player), message);
     }
 
     /** Sends to online members through the chat module, or directly when it is not loaded. */
@@ -104,7 +122,7 @@ final class FactionSupport {
         for (Member m : f.members()) {
             Rank r = f.rankOf(m.uuid());
             if (!officersOnly || (r != null && r.atLeast(Rank.OFFICER))) {
-                PlayerRef ref = Players.online(m.uuid());
+                PlayerRef ref = liveRef(m.uuid());
                 Msg.send(ref, message);
             }
         }

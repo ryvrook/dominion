@@ -40,11 +40,24 @@ public final class EconomyServiceImpl implements EconomyService {
     private volatile boolean vaultWarned;
     private volatile boolean unknownWarned;
     private final LedgerMigration migration;
+    private final Books books;
 
     public EconomyServiceImpl(DominionContext ctx) {
         this.ctx = ctx;
-        this.daily = new DailyEconomy(ctx, lock);
-        this.internal = new InternalLedger(ctx, lock, this::format);
+        this.books = new Books(lock, this::gone, this::format, line -> ctx.logger().at(Level.SEVERE).log("%s", line),
+                new Books.Wallets() {
+                    @Override
+                    public PlayerData load(UUID player) {
+                        return ctx.player(player);
+                    }
+
+                    @Override
+                    public boolean live(PlayerData p) {
+                        return ctx.repo().playerIfLoaded(p.uuid()) == p;
+                    }
+                }, this::park);
+        this.daily = new DailyEconomy(ctx, books);
+        this.internal = new InternalLedger(ctx, books);
         this.items = new ItemCurrency(ctx, this::format);
         this.migration = new LedgerMigration(ctx, lock, this::format);
     }
@@ -102,32 +115,10 @@ public final class EconomyServiceImpl implements EconomyService {
             return Result.fail("You cannot pay yourself");
         }
         BalanceProvider p = provider();
-        if (p == internal) {
-            // One lock for both sides keeps the internal transfer atomic.
-            synchronized (lock) {
-                PlayerData a = ctx.player(from);
-                PlayerData b = ctx.player(to);
-                if (!Money.covers(a.balance(), amount)) {
-                    return Result.fail("You need " + format(amount) + " but only have " + format(a.balance()));
-                }
-                a.setBalance(Money.round(a.balance() - amount));
-                b.setBalance(Money.round(b.balance() + amount));
-            }
-            return Result.pass("Sent " + format(amount));
-        }
-        Result taken = p.withdraw(from, amount, reason);
-        if (taken.failed()) {
-            return taken;
-        }
-        Result given = p.deposit(to, amount, reason);
-        if (given.failed()) {
-            if (p.deposit(from, amount, "Refund of a failed payment").failed()) {
-                ctx.logger().at(Level.SEVERE).log("Dominion could not refund %s to %s after a failed payment to %s",
-                        format(amount), from, to);
-            }
-            return given;
-        }
-        return Result.pass("Sent " + format(amount));
+        String failed = p == internal
+                ? books.transferInternal(from, to, amount)
+                : books.transferExternal(p, from, to, amount, reason);
+        return failed != null ? Result.fail(failed) : Result.pass("Sent " + format(amount));
     }
 
     @Override
@@ -144,43 +135,11 @@ public final class EconomyServiceImpl implements EconomyService {
             return Result.fail("Your rank cannot deposit to the bank");
         }
         BalanceProvider p = provider();
-        if (p == internal) {
-            synchronized (lock) {
-                PlayerData pd = ctx.player(actor);
-                if (!Money.covers(pd.balance(), amount)) {
-                    return Result.fail("You need " + format(amount) + " but only have " + format(pd.balance()));
-                }
-                if (gone(f)) {
-                    return Result.fail(GONE);
-                }
-                pd.setBalance(Money.round(pd.balance() - amount));
-                synchronized (f) {
-                    f.setBank(Money.round(f.bank() + amount));
-                }
-            }
-        } else {
-            // External wallets are never touched under the ledger lock, so a slow provider cannot stall the banks.
-            Result taken = p.withdraw(actor, amount, "Faction bank deposit");
-            if (taken.failed()) {
-                return taken;
-            }
-            boolean credited = false;
-            synchronized (lock) {
-                if (!gone(f)) {
-                    synchronized (f) {
-                        f.setBank(Money.round(f.bank() + amount));
-                    }
-                    credited = true;
-                }
-            }
-            if (!credited) {
-                // The faction was disbanded after the wallet was charged, so the money goes back.
-                if (p.deposit(actor, amount, "Refund of a deposit to a disbanded faction").failed()) {
-                    ctx.logger().at(Level.SEVERE).log("Dominion could not refund %s to %s after their faction was disbanded",
-                            format(amount), actor);
-                }
-                return Result.fail(GONE);
-            }
+        String failed = p == internal
+                ? books.depositInternal(actor, f, amount)
+                : books.depositExternal(p, actor, f, amount);
+        if (failed != null) {
+            return Result.fail(failed);
         }
         bankChanged(f, actor, "Deposited " + format(amount));
         return Result.pass("Deposited " + format(amount) + " to the bank");
@@ -198,42 +157,12 @@ public final class EconomyServiceImpl implements EconomyService {
             return denied;
         }
         BalanceProvider p = provider();
-        synchronized (lock) {
-            Result limit = limitDenied(f, actor, amount);
-            if (limit != null) {
-                return limit;
-            }
-            synchronized (f) {
-                if (!Money.covers(f.bank(), amount)) {
-                    return Result.fail("The bank only holds " + format(f.bank()));
-                }
-                f.setBank(Money.round(f.bank() - amount));
-            }
-            if (p == internal) {
-                PlayerData pd = ctx.player(actor);
-                pd.setBalance(Money.round(pd.balance() + amount));
-            }
-            recordLimit(f, actor, amount);
-        }
-        if (p != internal) {
-            Result given = p.deposit(actor, amount, "Faction bank withdrawal");
-            if (given.failed()) {
-                boolean refunded = false;
-                synchronized (lock) {
-                    if (!gone(f)) {
-                        synchronized (f) {
-                            f.setBank(Money.round(f.bank() + amount));
-                        }
-                        refunded = true;
-                    }
-                    recordLimit(f, actor, -amount);
-                }
-                if (!refunded) {
-                    ctx.logger().at(Level.SEVERE).log("Dominion could not return %s to the bank of %s because it was disbanded during the withdrawal",
-                            format(amount), f.tag());
-                }
-                return given;
-            }
+        long limit = limitCents(f, actor);
+        String failed = p == internal
+                ? books.withdrawInternal(f, actor, amount, limit)
+                : books.withdrawExternal(p, f, actor, amount, limit);
+        if (failed != null) {
+            return Result.fail(failed);
         }
         bankChanged(f, actor, "Withdrew " + format(amount));
         return Result.pass("Withdrew " + format(amount) + " from the bank");
@@ -257,16 +186,9 @@ public final class EconomyServiceImpl implements EconomyService {
         if (target.id().equals(f.id())) {
             return Result.fail("You cannot pay your own faction");
         }
-        synchronized (lock) {
-            Result limit = limitDenied(f, actor, amount);
-            if (limit != null) {
-                return limit;
-            }
-            Result moved = moveBanks(f, target, amount);
-            if (moved != null) {
-                return moved;
-            }
-            recordLimit(f, actor, amount);
+        String failed = books.pay(f, target, actor, amount, limitCents(f, actor));
+        if (failed != null) {
+            return Result.fail(failed);
         }
         bankChanged(f, actor, "Paid " + format(amount) + " to " + target.tag());
         bankChanged(target, actor, "Received " + format(amount) + " from " + f.tag());
@@ -376,28 +298,6 @@ public final class EconomyServiceImpl implements EconomyService {
         return null;
     }
 
-    /**
-     * Moves bank money from one faction to another. Caller holds the ledger lock. Faction monitors
-     * are taken in id order so two crossing payments cannot deadlock. Null on success.
-     */
-    private Result moveBanks(Faction from, Faction to, double amount) {
-        if (gone(from) || gone(to)) {
-            return Result.fail(GONE);
-        }
-        Faction first = from.id().compareTo(to.id()) < 0 ? from : to;
-        Faction second = first == from ? to : from;
-        synchronized (first) {
-            synchronized (second) {
-                if (!Money.covers(from.bank(), amount)) {
-                    return Result.fail("The bank of " + from.tag() + " only holds " + format(from.bank()));
-                }
-                from.setBank(Money.round(from.bank() - amount));
-                to.setBank(Money.round(to.bank() + amount));
-            }
-        }
-        return null;
-    }
-
     private Result withdrawDenied(Faction f, UUID actor) {
         if (f == null) {
             return Result.fail("You are not in a faction");
@@ -412,27 +312,13 @@ public final class EconomyServiceImpl implements EconomyService {
         return null;
     }
 
-    private Result limitDenied(Faction f, UUID actor, double amount) {
+    /** The actor's daily bank allowance in cents, or zero when the leader or the setting sets no limit. */
+    private long limitCents(Faction f, UUID actor) {
         if (actor.equals(f.leader())) {
-            return null;
+            return 0;
         }
         double limit = ctx.settings().decimal("eco.withdrawDailyLimitOfficer");
-        if (limit <= 0) {
-            return null;
-        }
-        long used = WithdrawLimits.usedToday(f, actor);
-        long left = Money.cents(limit) - used;
-        if (Money.cents(amount) > left) {
-            return Result.fail("You can withdraw " + format(Math.max(0, left) / 100.0) + " more today");
-        }
-        return null;
-    }
-
-    /** A negative amount gives back allowance after a withdrawal that could not be delivered. */
-    private void recordLimit(Faction f, UUID actor, double amount) {
-        if (!actor.equals(f.leader()) && ctx.settings().decimal("eco.withdrawDailyLimitOfficer") > 0) {
-            WithdrawLimits.record(f, actor, amount);
-        }
+        return limit > 0 ? Money.cents(limit) : 0;
     }
 
     void bankChanged(Faction f, UUID who, String text) {
@@ -457,14 +343,9 @@ public final class EconomyServiceImpl implements EconomyService {
         if (check != null) {
             return check;
         }
-        synchronized (lock) {
-            synchronized (faction) {
-                if (!Money.covers(faction.bank(), a)) {
-                    return Result.fail("This costs " + format(a) + " but the bank of " + faction.tag()
-                            + " only holds " + format(faction.bank()));
-                }
-                faction.setBank(Money.round(faction.bank() - a));
-            }
+        String failed = books.charge(faction, a);
+        if (failed != null) {
+            return Result.fail(failed);
         }
         bankChanged(faction, null, "Paid " + format(a) + " for " + describe(reason));
         return Result.pass("Paid " + format(a) + " from the bank of " + faction.tag());
@@ -480,13 +361,9 @@ public final class EconomyServiceImpl implements EconomyService {
         if (check != null) {
             return check;
         }
-        synchronized (lock) {
-            if (gone(faction)) {
-                return Result.fail(GONE);
-            }
-            synchronized (faction) {
-                faction.setBank(Money.round(faction.bank() + a));
-            }
+        String failed = books.credit(faction, a);
+        if (failed != null) {
+            return Result.fail(failed);
         }
         bankChanged(faction, null, "Received " + format(a) + " for " + describe(reason));
         return Result.pass("Added " + format(a) + " to the bank of " + faction.tag());
@@ -497,13 +374,7 @@ public final class EconomyServiceImpl implements EconomyService {
         if (faction == null) {
             return 0;
         }
-        double held;
-        synchronized (lock) {
-            synchronized (faction) {
-                held = Money.round(faction.bank());
-                faction.setBank(0);
-            }
-        }
+        double held = books.drain(faction);
         if (held != 0) {
             bankChanged(faction, null, "Emptied the bank of " + format(held) + " for " + describe(reason));
         }
@@ -523,11 +394,9 @@ public final class EconomyServiceImpl implements EconomyService {
         if (check != null) {
             return check;
         }
-        synchronized (lock) {
-            Result moved = moveBanks(from, to, a);
-            if (moved != null) {
-                return moved;
-            }
+        String failed = books.move(from, to, a);
+        if (failed != null) {
+            return Result.fail(failed);
         }
         String why = describe(reason);
         bankChanged(from, null, "Paid " + format(a) + " to " + to.tag() + " for " + why);
@@ -540,14 +409,27 @@ public final class EconomyServiceImpl implements EconomyService {
         return provider().name();
     }
 
-    private static final String GONE = "That faction no longer exists";
-
     /**
      * True once the faction left the repository. Checked under the ledger lock, because disband
      * removes the faction before it drains the bank, so a credit either lands before the drain or
      * is refused.
      */
-    private boolean gone(Faction f) {
+    /** Keeps coins that could not be put back into a wallet in the player's market mailbox. */
+    private boolean park(UUID player, double amount) {
+        dev.ryvrook.dominion.service.MarketService market = ctx.serviceOrNull(dev.ryvrook.dominion.service.MarketService.class);
+        if (market == null) {
+            return false;
+        }
+        try {
+            market.mail(player, List.of(), amount);
+            return true;
+        } catch (RuntimeException e) {
+            ctx.logger().at(Level.WARNING).withCause(e).log("Dominion could not keep %s for %s in the mailbox", format(amount), player);
+            return false;
+        }
+    }
+
+    boolean gone(Faction f) {
         return ctx.repo().faction(f.id()) == null;
     }
 

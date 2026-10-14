@@ -4,9 +4,10 @@ import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.api.DominionEvent;
 import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.Member;
-import dev.ryvrook.dominion.util.Players;
 
 import java.util.ArrayList;
+import java.util.UUID;
+import java.util.function.Predicate;
 
 /**
  * The deaths pool mode behind power.dtrMode. Each faction has one pool stored in the faction stat
@@ -27,9 +28,11 @@ final class Dtr {
     static final double REGEN_CAP = 0.1;
 
     private final DominionContext ctx;
+    private final Predicate<UUID> isOnline;
 
-    Dtr(DominionContext ctx) {
+    Dtr(DominionContext ctx, Predicate<UUID> online) {
         this.ctx = ctx;
+        this.isOnline = online;
     }
 
     boolean on() {
@@ -85,7 +88,7 @@ final class Dtr {
             }
             int online = 0;
             for (Member m : f.members()) {
-                if (Players.isOnline(m.uuid())) {
+                if (isOnline.test(m.uuid())) {
                     online++;
                 }
             }

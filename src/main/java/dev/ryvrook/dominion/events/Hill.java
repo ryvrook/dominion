@@ -2,6 +2,7 @@ package dev.ryvrook.dominion.events;
 
 import org.bson.Document;
 
+import java.util.List;
 import java.util.UUID;
 
 /** A KOTH hill. Mutable state is guarded by the service lock. */
@@ -43,6 +44,47 @@ final class Hill {
         double dy = py - y;
         double dz = pz - z;
         return dx * dx + dz * dz <= (double) radius * radius && Math.abs(dy) <= Math.max(6, radius);
+    }
+
+    /** What one second at an open hill did. */
+    enum Step { CONTESTED, EMPTY, TAKING, HOLDING, CAPTURED }
+
+    /**
+     * Advances an open hill by one second given the distinct factions standing inside it, in the
+     * order they were seen. Two or more factions freeze the count. An empty hill loses its
+     * capturer. A new single faction starts at one second, and the same faction adds a second until
+     * it reaches capSeconds. Messages and rewards are left to the caller.
+     */
+    Step step(List<UUID> factionsInside, long capSeconds) {
+        if (factionsInside.size() > 1) {
+            contested = true;
+            return Step.CONTESTED;
+        }
+        contested = false;
+        if (factionsInside.isEmpty()) {
+            capturer = null;
+            held = 0;
+            return Step.EMPTY;
+        }
+        UUID f = factionsInside.get(0);
+        Step step;
+        if (!f.equals(capturer)) {
+            capturer = f;
+            held = 1;
+            step = Step.TAKING;
+        } else {
+            held++;
+            step = Step.HOLDING;
+        }
+        return held >= capSeconds ? Step.CAPTURED : step;
+    }
+
+    /** A scheduled opening missed by more than this, for example while the server was down, is skipped. */
+    static final long MISSED_MILLIS = 5 * 60_000L;
+
+    /** True when the scheduled opening is overdue by more than MISSED_MILLIS. */
+    static boolean missed(long nextRun, long now) {
+        return nextRun > 0 && now - nextRun > MISSED_MILLIS;
     }
 
     Document toDocument() {

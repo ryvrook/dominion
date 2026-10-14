@@ -47,6 +47,40 @@ final class Outpost {
         return faction == null ? 0 : control.getOrDefault(faction, 0.0);
     }
 
+    /**
+     * Advances control by one second. counts holds the players of each faction inside the outpost.
+     * A lone faction gains gain percent per player up to 100 while every other faction decays. An
+     * empty outpost decays for everyone. Two or more factions freeze it and mark it contested.
+     * Returns the faction that takes the outpost this second, or null when the holder stays.
+     */
+    UUID step(Map<UUID, Integer> counts, double gain, double decay) {
+        contested = counts.size() > 1;
+        if (counts.isEmpty()) {
+            decayAll(decay, null);
+            return null;
+        }
+        if (counts.size() > 1) {
+            return null;
+        }
+        Map.Entry<UUID, Integer> only = counts.entrySet().iterator().next();
+        UUID f = only.getKey();
+        double v = Math.min(100.0, controlOf(f) + Math.max(0, gain) * only.getValue());
+        control.put(f, v);
+        decayAll(decay, f);
+        if (!f.equals(holder) && v >= 100.0 && controlOf(holder) < 100.0) {
+            return f;
+        }
+        return null;
+    }
+
+    private void decayAll(double decay, UUID except) {
+        if (decay <= 0 || control.isEmpty()) {
+            return;
+        }
+        control.replaceAll((k, v) -> k.equals(except) ? v : Math.max(0, v - decay));
+        control.entrySet().removeIf(e -> e.getValue() <= 0 && !e.getKey().equals(holder));
+    }
+
     Document toDocument() {
         Document c = new Document();
         for (Map.Entry<UUID, Double> e : control.entrySet()) {

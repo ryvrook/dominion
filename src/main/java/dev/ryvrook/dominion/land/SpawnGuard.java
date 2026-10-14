@@ -44,11 +44,19 @@ final class SpawnGuard {
         if (p == null) {
             return false;
         }
+        return within(p.x, p.z, chunk, radius);
+    }
+
+    /** True when the nearest point of the chunk lies closer than the radius to the spawn point. */
+    static boolean within(double spawnX, double spawnZ, long chunk, int radius) {
+        if (radius <= 0) {
+            return false;
+        }
         int size = Keys.chunkSize();
         int minX = Keys.minBlock(Keys.chunkX(chunk));
         int minZ = Keys.minBlock(Keys.chunkZ(chunk));
-        double dx = p.x - Math.max(minX, Math.min(minX + size, p.x));
-        double dz = p.z - Math.max(minZ, Math.min(minZ + size, p.z));
+        double dx = spawnX - Math.max(minX, Math.min(minX + size, spawnX));
+        double dz = spawnZ - Math.max(minZ, Math.min(minZ + size, spawnZ));
         return dx * dx + dz * dz < (double) radius * radius;
     }
 

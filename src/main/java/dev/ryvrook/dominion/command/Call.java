@@ -57,8 +57,17 @@ public final class Call {
         return context.sender().getUsername();
     }
 
+    /**
+     * The value of an argument. The engine keeps the quotes a player typed around a quoted word,
+     * so "My Zone" would arrive with its quotes. Text values are unquoted here once for every command.
+     */
+    @SuppressWarnings("unchecked")
     public <T> T arg(Argument<?, T> argument) {
-        return argument.get(context);
+        T value = argument.get(context);
+        if (value instanceof String s) {
+            return (T) Args.unquote(s);
+        }
+        return value;
     }
 
     public boolean has(Argument<?, ?> argument) {
@@ -92,5 +101,9 @@ public final class Call {
 
     public void info(String text) {
         send(Msg.info(text));
+    }
+
+    public void warn(String text) {
+        send(Msg.warn(text));
     }
 }

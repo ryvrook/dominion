@@ -136,16 +136,20 @@ final class Body {
         commands.set(row + (online ? " #Online" : " #Offline") + ".Visible", true);
     }
 
-    /** A label, a text field and up to three buttons that all submit the field. */
+    /** A label, a text field and up to three buttons that all submit the field. Null buttons are left out. */
     String field(String label, String initial, Btn... buttons) {
         String s = add(FIELD);
         commands.set(s + " #Label.Text", label);
         if (initial != null && !initial.isEmpty()) {
             commands.set(s + " #Input.Value", initial);
         }
-        for (int i = 0; i < Math.min(3, buttons.length); i++) {
+        int slot = 0;
+        for (int i = 0; i < buttons.length && slot < 3; i++) {
             Btn b = buttons[i];
-            String bs = s + " #G" + (i + 1);
+            if (b == null) {
+                continue;
+            }
+            String bs = s + " #G" + (++slot);
             commands.set(bs + ".Visible", true);
             commands.set(bs + ".Text", b.label());
             bindWithText(bs, b.action(), b.value(), s + " #Input");
@@ -154,13 +158,22 @@ final class Body {
     }
 
     String toggle(String label, String key, boolean on, String action, String value) {
+        return toggle(label, key, on, action, value, true);
+    }
+
+    /** A toggle row. Without editable the state is shown and the button is hidden. */
+    String toggle(String label, String key, boolean on, String action, String value, boolean editable) {
         String s = add(TOGGLE);
         commands.set(s + " #Label.Text", label);
         commands.set(s + " #Key.Text", key == null ? "" : key);
         commands.set(s + " #State.Text", on ? "On" : "Off");
         commands.set(s + " #State.Style.TextColor", on ? "#5fd37a" : "#878e9c");
-        commands.set(s + " #Button.Text", on ? "Turn off" : "Turn on");
-        bind(s + " #Button", action, value);
+        if (editable) {
+            commands.set(s + " #Button.Text", on ? "Turn off" : "Turn on");
+            bind(s + " #Button", action, value);
+        } else {
+            commands.set(s + " #Button.Visible", false);
+        }
         return s;
     }
 

@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "dev.ryvrook"
-version = "0.1.0"
+version = "0.2.0"
 
 val hytaleChannel = (project.findProperty("hytale_channel") as String?) ?: "release"
 val hytaleVersion = (project.findProperty("hytale_version") as String?) ?: "0.7.1"
@@ -24,6 +24,17 @@ repositories {
 
 dependencies {
     compileOnly("com.hypixel.hytale:Server:$hytaleVersion")
+
+    // Tests run without a server. The server jar is only on the test classpath for bson and the logger.
+    testImplementation("com.hypixel.hytale:Server:$hytaleVersion")
+    testImplementation(platform("org.junit:junit-bom:5.11.4"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.test {
+    useJUnitPlatform()
+    systemProperty("java.util.logging.manager", "com.hypixel.hytale.logger.backend.HytaleLogManager")
 }
 
 tasks.withType<JavaCompile>().configureEach {
@@ -33,7 +44,7 @@ tasks.withType<JavaCompile>().configureEach {
 }
 
 tasks.jar {
-    archiveBaseName.set("Dominion")
+    archiveBaseName.set("DominionFactions")
     archiveVersion.set(project.version.toString())
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }

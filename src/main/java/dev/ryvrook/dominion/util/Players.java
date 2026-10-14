@@ -8,16 +8,21 @@ import org.joml.Vector3d;
 
 import java.util.UUID;
 
-/** Online player lookups and positions. Null when offline. */
+/**
+ * Online player lookups and positions. Null when offline, and also while the universe is not
+ * running yet or any more, such as during start, shutdown or a unit test.
+ */
 public final class Players {
     private Players() {}
 
     public static PlayerRef online(UUID uuid) {
-        return uuid == null ? null : Universe.get().getPlayer(uuid);
+        Universe u = uuid == null ? null : Universe.get();
+        return u == null ? null : u.getPlayer(uuid);
     }
 
     public static PlayerRef byName(String name) {
-        return Universe.get().getPlayerByUsername(name, com.hypixel.hytale.server.core.NameMatching.EXACT_IGNORE_CASE);
+        Universe u = name == null || name.isBlank() ? null : Universe.get();
+        return u == null ? null : u.getPlayerByUsername(name, com.hypixel.hytale.server.core.NameMatching.EXACT_IGNORE_CASE);
     }
 
     public static boolean isOnline(UUID uuid) {
@@ -35,7 +40,8 @@ public final class Players {
             return null;
         }
         UUID worldId = player.getWorldUuid();
-        return worldId == null ? null : Universe.get().getWorld(worldId);
+        Universe u = worldId == null ? null : Universe.get();
+        return u == null ? null : u.getWorld(worldId);
     }
 
     public static String worldName(PlayerRef player) {

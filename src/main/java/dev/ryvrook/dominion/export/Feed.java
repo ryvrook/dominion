@@ -25,6 +25,7 @@ final class Feed {
 
     private final DominionContext ctx;
     private final Deque<Line> lines = new ArrayDeque<>();
+    private long lastAt;
 
     Feed(DominionContext ctx) {
         this.ctx = ctx;
@@ -44,7 +45,11 @@ final class Feed {
             if (last != null && last.text().equals(line.text()) && line.at() - last.at() < REPEAT_WINDOW_MS) {
                 return;
             }
-            lines.addLast(line);
+            // Strictly increasing, like the chat lines, because the web map hands over each line
+            // newer than the last one it saw and would drop a second line in the same millisecond.
+            long at = Math.max(line.at(), lastAt + 1);
+            lastAt = at;
+            lines.addLast(new Line(at, line.type(), line.text()));
             while (lines.size() > LIMIT) {
                 lines.removeFirst();
             }
@@ -148,8 +153,20 @@ final class Feed {
         if (uuid == null) {
             return "Someone";
         }
-        String n = ctx.player(uuid).name();
+        // Loaded data first, so naming an offline player never creates a player file for them.
+        dev.ryvrook.dominion.model.PlayerData pd = ctx.repo().playerIfLoaded(uuid);
+        String n = pd != null ? pd.name() : nameFromRoster(uuid);
         return n == null || n.isBlank() ? "Someone" : n;
+    }
+
+    private String nameFromRoster(UUID uuid) {
+        for (Faction f : ctx.repo().factions()) {
+            dev.ryvrook.dominion.model.Member m = f.member(uuid);
+            if (m != null) {
+                return m.name();
+            }
+        }
+        return null;
     }
 
     private String money(double amount) {

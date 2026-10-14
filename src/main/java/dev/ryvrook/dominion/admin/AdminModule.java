@@ -1,7 +1,6 @@
 package dev.ryvrook.dominion.admin;
 
 import com.hypixel.hytale.server.core.Constants;
-import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.server.core.universe.Universe;
 import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.DominionModule;
@@ -69,7 +68,7 @@ public final class AdminModule implements DominionModule {
         if (keep <= 0 || !backupRunning.compareAndSet(false, true)) {
             return;
         }
-        HytaleServer.SCHEDULED_EXECUTOR.execute(() -> {
+        ctx.runIo("daily backup", () -> {
             try {
                 Path archive = backup(ctx, keep);
                 ctx.logger().at(Level.INFO).log("Dominion daily backup written to %s, keeping the newest %s",

@@ -1,6 +1,8 @@
 package dev.ryvrook.dominion.progress;
 
 import dev.ryvrook.dominion.DominionContext;
+import dev.ryvrook.dominion.model.Faction;
+import dev.ryvrook.dominion.service.FactionService;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -9,13 +11,18 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import java.util.function.LongSupplier;
 
 /**
  * Stops mission farming. Ore and trunk blocks placed by players are remembered by world and
  * position for missions.placedBlockMemoryMinutes, and breaking one of them earns no mission credit.
  * Other blocks never earn credit, so they are not remembered and the cap lasts longer. Items a
- * player drops are remembered for five minutes, and picking the same item back up earns no credit.
- * Both memories are bounded so a busy server cannot grow them without limit.
+ * player drops are remembered for five minutes, and picking such an item up earns no credit for
+ * the dropper or any member of the dropper's faction, so two members cannot farm a mission by
+ * passing the same crops back and forth. Drops by players of other factions never withhold credit.
+ * The memory outlives a disconnect for the same reason. Both memories are bounded so a busy server
+ * cannot grow them without limit.
  */
 final class FarmGuard {
     /** Most placed positions kept across all worlds. The oldest are forgotten first. */
@@ -38,7 +45,9 @@ final class FarmGuard {
         }
     }
 
-    private final DominionContext ctx;
+    private final LongSupplier placedMemory;
+    /** The faction id of a player, or null when the player has none. */
+    private final Function<UUID, UUID> factionOf;
     /** Insertion ordered, so the eldest entry is always the oldest placement. */
     private final LinkedHashMap<Pos, Long> placed = new LinkedHashMap<>(1024, 0.75f, false) {
         @Override
@@ -49,11 +58,24 @@ final class FarmGuard {
     private final Map<UUID, Deque<Drop>> drops = new ConcurrentHashMap<>();
 
     FarmGuard(DominionContext ctx) {
-        this.ctx = ctx;
+        this(() -> ctx.settings().integer("missions.placedBlockMemoryMinutes") * 60_000L, player -> {
+            FactionService fs = ctx.serviceOrNull(FactionService.class);
+            Faction f = fs == null ? null : fs.factionOf(player);
+            return f == null ? null : f.id();
+        });
+    }
+
+    /**
+     * For tests and callers that supply the placed block memory in milliseconds, read on every use,
+     * and a lookup from player to faction id.
+     */
+    FarmGuard(LongSupplier placedMemoryMillis, Function<UUID, UUID> factionOf) {
+        this.placedMemory = placedMemoryMillis;
+        this.factionOf = factionOf;
     }
 
     private long placedMemoryMillis() {
-        return Math.max(0, ctx.settings().integer("missions.placedBlockMemoryMinutes")) * 60_000L;
+        return Math.max(0, placedMemory.getAsLong());
     }
 
     // ---- placed blocks -------------------------------------------------------
@@ -105,14 +127,36 @@ final class FarmGuard {
     }
 
     /**
-     * How many of the picked up items the player dropped in the last five minutes. Those items
-     * are used up from the memory and earn no credit.
+     * How many of the picked up items the picker or a member of the picker's faction dropped in the
+     * last five minutes, starting with the picker's own drops. Those items are used up from the
+     * memory and earn no credit.
      */
     int ownDrops(UUID player, String itemId, int quantity, long now) {
-        Deque<Drop> list = player == null ? null : drops.get(player);
-        if (list == null || itemId == null || quantity <= 0) {
+        if (itemId == null || quantity <= 0) {
             return 0;
         }
+        int matched = 0;
+        Deque<Drop> mine = player == null ? null : drops.get(player);
+        if (mine != null) {
+            matched += take(mine, itemId, quantity, now);
+        }
+        UUID faction = player == null || matched >= quantity ? null : factionOf.apply(player);
+        if (faction == null) {
+            return matched;
+        }
+        for (Map.Entry<UUID, Deque<Drop>> e : drops.entrySet()) {
+            if (matched >= quantity) {
+                break;
+            }
+            if (e.getValue() != mine && faction.equals(factionOf.apply(e.getKey()))) {
+                matched += take(e.getValue(), itemId, quantity - matched, now);
+            }
+        }
+        return matched;
+    }
+
+    /** Uses up to quantity matching items from one player's drop memory and returns how many. */
+    private static int take(Deque<Drop> list, String itemId, int quantity, long now) {
         int matched = 0;
         synchronized (list) {
             prune(list, now);

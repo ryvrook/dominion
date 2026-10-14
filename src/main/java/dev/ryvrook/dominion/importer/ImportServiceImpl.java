@@ -64,39 +64,52 @@ final class ImportServiceImpl implements ImportService {
 
     // ---- planning --------------------------------------------------------
 
-    /** What will happen to one source faction once Dominion's current state is taken into account. */
-    private static final class Decision {
-        final Plan.Faction f;
-        String tag;
-        String name;
-        UUID leader;
-        String leaderName;
-        final List<Plan.Member> joins = new ArrayList<>();
-        final Map<String, List<Long>> claims = new LinkedHashMap<>();
-        int taken;
-        int duplicate;
-        final List<String> issues = new ArrayList<>();
-
-        Decision(Plan.Faction f) {
-            this.f = f;
-        }
-
-        int claimCount() {
-            int n = 0;
-            for (List<Long> l : claims.values()) {
-                n += l.size();
-            }
-            return n;
-        }
-    }
-
-    private record Resolved(Plan plan, List<Decision> decisions, List<String> skipped) {}
-
     private Source find(String source) {
         return source == null ? null : sources.get(source.strip().toLowerCase(Locale.ROOT));
     }
 
-    private Resolved resolve(Source source) {
+    /** Dominion's live state as the planner sees it. */
+    private final Planner.State state = new Planner.State() {
+        @Override
+        public dev.ryvrook.dominion.config.Settings settings() {
+            return ctx.settings();
+        }
+
+        @Override
+        public String tagOf(UUID factionId) {
+            Faction f = factionId == null ? null : ctx.repo().faction(factionId);
+            return f == null ? null : f.tag();
+        }
+
+        @Override
+        public Map<UUID, String> memberships() {
+            Map<UUID, String> out = new HashMap<>();
+            for (Faction f : ctx.repo().factions()) {
+                for (Member m : f.members()) {
+                    out.put(m.uuid(), f.tag());
+                }
+            }
+            return out;
+        }
+
+        @Override
+        public boolean tagTaken(String tag) {
+            return ctx.repo().tagTaken(tag);
+        }
+
+        @Override
+        public boolean claimed(String world, long chunk) {
+            return ctx.repo().claimAt(world, chunk) != null;
+        }
+
+        @Override
+        public String knownName(UUID player) {
+            PlayerData p = ctx.repo().playerIfLoaded(player);
+            return p == null ? null : p.name();
+        }
+    };
+
+    private Planner.Resolved resolve(Source source) {
         Plan plan = new Plan(source.id(), source.label());
         try {
             source.read(new Locator(ctx), plan);
@@ -104,104 +117,8 @@ final class ImportServiceImpl implements ImportService {
             plan.unsupported = "The " + source.label() + " data could not be read because " + e.getMessage();
             ctx.logger().at(Level.WARNING).withCause(e).log("Dominion import could not read %s data", source.label());
         }
-        List<Decision> decisions = new ArrayList<>();
-        List<String> skipped = new ArrayList<>(plan.skipped);
         Map<String, String> ledger = ledger(source.id());
-        Map<UUID, Faction> memberOf = new HashMap<>();
-        for (Faction f : ctx.repo().factions()) {
-            for (Member m : f.members()) {
-                memberOf.put(m.uuid(), f);
-            }
-        }
-        Set<UUID> assigned = new HashSet<>();
-        Set<String> usedTags = new HashSet<>();
-        Map<String, Set<Long>> planned = new HashMap<>();
-        for (Plan.Faction f : plan.factions) {
-            String label = f.name == null ? f.sourceId : f.name;
-            Faction previous = ctx.repo().faction(Data.uuid(ledger.get(f.sourceId)));
-            if (previous != null) {
-                skipped.add(label + " was already imported as " + previous.tag());
-                continue;
-            }
-            if (ledger.containsKey(f.sourceId)) {
-                // A faction imported earlier and disbanded since is not brought back.
-                skipped.add(label + " was imported before and that faction no longer exists");
-                continue;
-            }
-            Decision d = new Decision(f);
-            List<Plan.Member> free = new ArrayList<>();
-            for (Plan.Member m : f.members.values()) {
-                Faction other = memberOf.get(m.uuid());
-                if (other != null) {
-                    d.issues.add(nameOf(m) + " is already in the Dominion faction " + other.tag() + " and is left out");
-                } else if (!assigned.add(m.uuid())) {
-                    d.issues.add(nameOf(m) + " belongs to an earlier faction in this import and is left out");
-                } else {
-                    free.add(m);
-                }
-            }
-            Plan.Member lead = null;
-            for (Plan.Member m : free) {
-                if (m.uuid().equals(f.leader)) {
-                    lead = m;
-                }
-            }
-            if (lead == null) {
-                for (Plan.Member m : free) {
-                    if (lead == null || m.rank().ordinal() > lead.rank().ordinal()) {
-                        lead = m;
-                    }
-                }
-                if (lead != null) {
-                    d.issues.add("The original leader cannot lead it, so " + nameOf(lead) + " becomes the leader");
-                }
-            }
-            if (lead == null) {
-                skipped.add(label + " is skipped because none of its members is free to lead it");
-                free.forEach(m -> assigned.remove(m.uuid()));
-                continue;
-            }
-            d.leader = lead.uuid();
-            d.leaderName = nameOf(lead);
-            for (Plan.Member m : free) {
-                if (!m.uuid().equals(d.leader)) {
-                    d.joins.add(m);
-                }
-            }
-            d.name = cleanName(label);
-            String wanted = usableTag(f.preferredTag) ? f.preferredTag.strip() : label;
-            d.tag = uniqueTag(wanted, usedTags);
-            if (d.tag == null) {
-                skipped.add(label + " is skipped because no free tag could be made from its name");
-                free.forEach(m -> assigned.remove(m.uuid()));
-                continue;
-            }
-            usedTags.add(d.tag.toLowerCase(Locale.ROOT));
-            if (!d.tag.equalsIgnoreCase(wanted.strip())) {
-                String why = ctx.repo().tagTaken(Tags.base(wanted, ctx.settings())) ? " because that tag is already used in Dominion" : "";
-                d.issues.add("Its tag becomes " + d.tag + why);
-            }
-            for (Map.Entry<String, java.util.LinkedHashSet<Long>> e : f.chunks.entrySet()) {
-                Set<Long> seen = planned.computeIfAbsent(e.getKey(), w -> new HashSet<>());
-                for (long idx : e.getValue()) {
-                    if (ctx.repo().claimAt(e.getKey(), idx) != null) {
-                        d.taken++;
-                    } else if (!seen.add(idx)) {
-                        d.duplicate++;
-                    } else {
-                        d.claims.computeIfAbsent(e.getKey(), w -> new ArrayList<>()).add(idx);
-                    }
-                }
-            }
-            if (d.taken > 0) {
-                d.issues.add(plural(d.taken, "of its chunks") + " already claimed in Dominion and skipped");
-            }
-            if (d.duplicate > 0) {
-                d.issues.add(plural(d.duplicate, "of its chunks") + " also claimed by an earlier faction in this import and skipped");
-            }
-            decisions.add(d);
-        }
-        return new Resolved(plan, decisions, skipped);
+        return Planner.resolve(plan, ledger == null ? Map.of() : ledger, state);
     }
 
     // ---- preview ---------------------------------------------------------
@@ -233,7 +150,7 @@ final class ImportServiceImpl implements ImportService {
         if (s == null) {
             return List.of("There is no import source called " + source + ". Choose one of " + String.join(", ", sources.keySet()) + ".");
         }
-        Resolved r = resolve(s);
+        Planner.Resolved r = resolve(s);
         Plan plan = r.plan();
         List<String> out = new ArrayList<>();
         out.add(plan.label + " import preview. Nothing is changed until the import is run.");
@@ -241,7 +158,10 @@ final class ImportServiceImpl implements ImportService {
             out.add("This source is experimental because " + plan.label + " is closed source and its format is not officially documented.");
         }
         if (plan.unsupported != null) {
-            out.add(plan.unsupported + ".");
+            out.add(plan.unsupported + ". The import cannot run until the data can be read in full.");
+        }
+        if (ledger(s.id()) == null) {
+            out.add("The import record " + ledgerFile(s.id()) + " cannot be read, so the import cannot run until it is fixed or removed.");
         }
         if (plan.found == null) {
             out.add("No " + plan.label + " data was found.");
@@ -251,12 +171,12 @@ final class ImportServiceImpl implements ImportService {
         out.add("Reading " + plan.label + " data from " + plan.found);
         int members = 0;
         int chunks = 0;
-        for (Decision d : r.decisions()) {
+        for (Planner.Decision d : r.decisions()) {
             members += 1 + d.joins.size();
             chunks += d.claimCount();
         }
         out.add(plural(r.decisions().size(), "faction") + " with " + plural(members, "member") + " and " + plural(chunks, "chunk") + " would be created.");
-        for (Decision d : r.decisions()) {
+        for (Planner.Decision d : r.decisions()) {
             out.add(d.f.name + " would become " + d.tag + " led by " + d.leaderName + " with " + plural(1 + d.joins.size(), "member")
                     + " and " + plural(d.claimCount(), "chunk") + worlds(d) + ".");
             for (String issue : d.issues) {
@@ -279,7 +199,7 @@ final class ImportServiceImpl implements ImportService {
         return out;
     }
 
-    private static String worlds(Decision d) {
+    private static String worlds(Planner.Decision d) {
         if (d.claims.isEmpty()) {
             return "";
         }
@@ -303,21 +223,28 @@ final class ImportServiceImpl implements ImportService {
         FactionService factions = ctx.service(FactionService.class);
         ClaimService claims = ctx.serviceOrNull(ClaimService.class);
         synchronized (lock) {
-            Resolved r = resolve(s);
+            Planner.Resolved r = resolve(s);
             Plan plan = r.plan();
+            if (plan.unsupported != null) {
+                // A read that failed part way would import some factions without their land and mark them done for good.
+                return Result.fail(plan.unsupported + ". Nothing was imported");
+            }
             if (plan.found == null) {
-                return Result.fail(plan.unsupported != null ? plan.unsupported : "No " + plan.label + " data was found. Use the preview to see where Dominion looked");
+                return Result.fail("No " + plan.label + " data was found. Use the preview to see where Dominion looked");
             }
             if (r.decisions().isEmpty()) {
                 return Result.fail("There is nothing new to import from " + plan.label + ". " + plural(r.skipped().size(), "record") + " skipped");
             }
             Map<String, String> ledger = ledger(s.id());
+            if (ledger == null) {
+                return Result.fail("The import record " + ledgerFile(s.id()) + " cannot be read, so Dominion cannot tell what was already imported. Fix or remove it and preview again");
+            }
             int created = 0;
             int joined = 0;
             int landed = 0;
             int lost = 0;
             try {
-                for (Decision d : r.decisions()) {
+                for (Planner.Decision d : r.decisions()) {
                     if (ctx.repo().tagTaken(d.tag)) {
                         log("Skipped %s because the tag %s was taken while importing", d.f.name, d.tag);
                         continue;
@@ -440,39 +367,12 @@ final class ImportServiceImpl implements ImportService {
     // ---- names and tags --------------------------------------------------
 
     private String nameOf(Plan.Member m) {
-        if (m.name() != null && !m.name().isBlank()) {
-            return m.name();
-        }
-        PlayerData p = ctx.repo().playerIfLoaded(m.uuid());
-        if (p != null && p.name() != null && !p.name().isBlank()) {
-            return p.name();
-        }
-        return "Player" + Data.shortId(m.uuid());
+        return Planner.nameOf(m, state);
     }
 
     private static String knownName(UUID uuid, Plan.Faction f) {
         Plan.Member m = f.members.get(uuid);
         return m == null || m.name() == null || m.name().isBlank() ? null : m.name();
-    }
-
-    private String cleanName(String name) {
-        String n = name.replaceAll("\\p{Cntrl}", " ").strip();
-        int max = Math.max(1, ctx.settings().integer("faction.nameMax"));
-        return n.length() > max ? n.substring(0, max).strip() : n;
-    }
-
-    /** True when the source's own tag fits Dominion's tag rules without changes. */
-    private boolean usableTag(String tag) {
-        if (tag == null || tag.isBlank()) {
-            return false;
-        }
-        String t = tag.strip();
-        return t.length() >= ctx.settings().integer("faction.tagMin") && t.length() <= ctx.settings().integer("faction.tagMax")
-                && t.equals(Tags.base(t, ctx.settings()));
-    }
-
-    private String uniqueTag(String wanted, Set<String> used) {
-        return Tags.unique(wanted, ctx.settings(), t -> !ctx.repo().tagTaken(t) && !used.contains(t.toLowerCase(Locale.ROOT)));
     }
 
     // ---- ledger ----------------------------------------------------------
@@ -481,6 +381,7 @@ final class ImportServiceImpl implements ImportService {
         return ctx.repo().root().resolve("imports").resolve(source + ".json");
     }
 
+    /** The record of earlier imports from a source, or null when the file exists but cannot be read. */
     private Map<String, String> ledger(String source) {
         Map<String, String> out = new HashMap<>();
         Path file = ledgerFile(source);
@@ -489,6 +390,7 @@ final class ImportServiceImpl implements ImportService {
                 Data.json(file).forEach((k, v) -> out.put(k, String.valueOf(v)));
             } catch (Exception e) {
                 ctx.logger().at(Level.WARNING).withCause(e).log("Dominion import ledger %s is unreadable", file);
+                return null;
             }
         }
         return out;
@@ -500,12 +402,8 @@ final class ImportServiceImpl implements ImportService {
         ctx.files().write(ledgerFile(source), d);
     }
 
-    /** A count with its noun, adding is or are when the noun starts with of. */
     private static String plural(int n, String noun) {
-        if (noun.startsWith("of ")) {
-            return n + " " + noun + (n == 1 ? " is" : " are");
-        }
-        return n + " " + noun + (n == 1 ? "" : "s");
+        return Planner.plural(n, noun);
     }
 
     private void log(String format, Object... args) {

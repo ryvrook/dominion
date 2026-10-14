@@ -9,6 +9,7 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.api.Result;
 import dev.ryvrook.dominion.chat.ChatServiceImpl;
+import dev.ryvrook.dominion.command.PlayerToggles;
 import dev.ryvrook.dominion.model.AuditEntry;
 import dev.ryvrook.dominion.model.ClaimEntry;
 import dev.ryvrook.dominion.model.Faction;
@@ -296,6 +297,7 @@ public final class DominionPanel extends DominionPage {
                 Btn.of("Chat " + channelLabel(me), "channel"),
                 Btn.of(me.alerts() ? "Alerts on" : "Alerts off", "alerts"));
         body.buttons(Btn.of(me.hud() ? "Sidebar on" : "Sidebar off", "hud"),
+                Btn.of(me.mapHidden() ? "Web map hidden" : "Web map shown", "maphide"),
                 Btn.of("Tutorial", "tutorial"), Btn.of("Top factions", "top"));
     }
 
@@ -307,6 +309,9 @@ public final class DominionPanel extends DominionPage {
         UUID leaderId = f.leader();
         members.sort(Comparator.comparing((Member m) -> m.uuid().equals(leaderId) ? Rank.LEADER : m.rank()).reversed()
                 .thenComparing(m -> m.name().toLowerCase(Locale.ROOT)));
+        boolean canPromote = can(FactionAction.PROMOTE);
+        boolean canKick = can(FactionAction.KICK);
+        boolean canInvite = can(FactionAction.INVITE);
         for (Member m : members) {
             boolean online = Players.isOnline(m.uuid());
             Rank rank = m.uuid().equals(leaderId) ? Rank.LEADER : m.rank();
@@ -317,24 +322,32 @@ public final class DominionPanel extends DominionPage {
                 row = body.row(m.name() + "  (you)", rank == Rank.LEADER ? Msg.GOLD : null, cols);
             } else {
                 String id = m.uuid().toString();
-                row = body.row(m.name(), rank == Rank.LEADER ? Msg.GOLD : null, cols,
-                        Btn.of("Promote", "promote", id), Btn.of("Demote", "demote", id), Btn.of("Kick", "kick", id));
+                // Buttons only for what the viewer's rank may do. The service still checks every press.
+                boolean leaderRow = rank == Rank.LEADER;
+                row = body.row(m.name(), leaderRow ? Msg.GOLD : null, cols,
+                        canPromote && !leaderRow ? Btn.of("Promote", "promote", id) : null,
+                        canPromote && !leaderRow ? Btn.of("Demote", "demote", id) : null,
+                        canKick && !leaderRow ? Btn.of("Kick", "kick", id) : null);
             }
             body.dot(row, online);
         }
 
-        body.section("Invite");
-        body.field("Player name", "", Btn.of("Invite", "invite"));
+        if (canInvite) {
+            body.section("Invite");
+            body.field("Player name", "", Btn.of("Invite", "invite"));
+        }
 
         body.section("Join requests");
         List<UUID> requests = f.requests();
         if (requests.isEmpty()) {
             body.text("No pending requests.", Msg.MUTED);
+        } else if (!canInvite) {
+            body.text("Ranks with the invite right can accept or decline these.", Msg.MUTED);
         }
         for (UUID r : requests) {
             String id = r.toString();
             body.row(nameOf(r), null, new String[] {"Wants to join", "", "", ""},
-                    Btn.of("Accept", "req_accept", id), Btn.of("Decline", "req_decline", id));
+                    canInvite ? Btn.of("Accept", "req_accept", id) : null, canInvite ? Btn.of("Decline", "req_decline", id) : null);
         }
     }
 
@@ -359,9 +372,14 @@ public final class DominionPanel extends DominionPage {
                 }
             }
         }
-        body.buttons(Btn.of("Claim", "claim"), Btn.of("Unclaim", "unclaim"),
-                Btn.of(me.autoClaim() ? "Autoclaim on" : "Autoclaim off", "autoclaim"),
-                Btn.of("Set home", "sethome"), Btn.of("Refresh", "refresh"));
+        boolean canClaim = can(FactionAction.CLAIM);
+        body.buttons(canClaim ? Btn.of("Claim", "claim") : null,
+                can(FactionAction.UNCLAIM) ? Btn.of("Unclaim", "unclaim") : null,
+                canClaim || me.autoClaim() ? Btn.of(me.autoClaim() ? "Autoclaim on" : "Autoclaim off", "autoclaim") : null,
+                can(FactionAction.SET_HOME) ? Btn.of("Set home", "sethome") : null, Btn.of("Refresh", "refresh"));
+        if (!canClaim) {
+            body.text("Your rank cannot claim land. Ask an officer to change the permissions.", Msg.MUTED);
+        }
 
         body.section("Nearby chunks");
         int size = GRID_RADIUS * 2 + 1;
@@ -407,16 +425,17 @@ public final class DominionPanel extends DominionPage {
         }
         String[] headings = {"Allies", "Truces", "Enemies"};
         int i = 0;
+        boolean canRelate = can(FactionAction.RELATIONS);
         for (Map.Entry<Relation, List<Faction>> g : grouped.entrySet()) {
             body.section(headings[i++]);
             if (g.getValue().isEmpty()) {
                 body.text("None.", Msg.MUTED);
             }
             for (Faction o : g.getValue()) {
-                Btn enemy = g.getKey() == Relation.ENEMY ? null : Btn.of("Enemy", "rel_enemy", o.tag());
+                Btn enemy = g.getKey() == Relation.ENEMY || !canRelate ? null : Btn.of("Enemy", "rel_enemy", o.tag());
                 body.row(o.tag() + "  " + o.name(), g.getKey().color(),
                         new String[] {o.memberCount() + " members", "", "", ""},
-                        Btn.of("Neutral", "rel_neutral", o.tag()), enemy, Btn.of("Info", "info", o.tag()));
+                        canRelate ? Btn.of("Neutral", "rel_neutral", o.tag()) : null, enemy, Btn.of("Info", "info", o.tag()));
             }
         }
 
@@ -440,19 +459,23 @@ public final class DominionPanel extends DominionPage {
             body.row(o.tag() + "  " + o.name(), e.getValue().type().color(),
                     new String[] {"Offers " + e.getValue().type().displayName().toLowerCase(Locale.ROOT),
                             "Expires in " + Time.remaining(e.getValue().expiresAt() - Time.now()), "", ""},
-                    Btn.of("Accept", "rel_accept", o.tag()), Btn.of("Decline", "rel_decline", o.tag()));
+                    canRelate ? Btn.of("Accept", "rel_accept", o.tag()) : null, canRelate ? Btn.of("Decline", "rel_decline", o.tag()) : null);
         }
         for (Map.Entry<Faction, Faction.RelationRequest> e : outgoing) {
             Faction o = e.getKey();
             body.row(o.tag() + "  " + o.name(), e.getValue().type().color(),
                     new String[] {"You offered " + e.getValue().type().displayName().toLowerCase(Locale.ROOT),
                             "Expires in " + Time.remaining(e.getValue().expiresAt() - Time.now()), "", ""},
-                    Btn.of("Withdraw", "rel_neutral", o.tag()));
+                    canRelate ? Btn.of("Withdraw", "rel_neutral", o.tag()) : null);
         }
 
-        body.section("New relation");
-        body.field("Faction tag", "", Btn.of("Ally", "rel_ally"), Btn.of("Truce", "rel_truce"),
-                Btn.of("Enemy", "rel_enemy_tag"));
+        if (canRelate) {
+            body.section("New relation");
+            body.field("Faction tag", "", Btn.of("Ally", "rel_ally"), Btn.of("Truce", "rel_truce"),
+                    Btn.of("Enemy", "rel_enemy_tag"));
+        } else {
+            body.text("Ranks with the relations right can change these.", Msg.MUTED);
+        }
 
         nation.build(body, f);
     }
@@ -461,7 +484,14 @@ public final class DominionPanel extends DominionPage {
         title(c, "Bank", "Shared funds for upkeep and upgrades");
         body.stat("Faction balance", eco.format(f.bank()), Msg.GOLD);
         body.stat("Your wallet", eco.format(eco.balance(uuid())));
-        body.field("Amount", "", Btn.of("Deposit", "deposit"), Btn.of("Withdraw", "withdraw"));
+        boolean canDeposit = can(FactionAction.DEPOSIT);
+        boolean canWithdraw = can(FactionAction.WITHDRAW);
+        if (canDeposit || canWithdraw) {
+            body.field("Amount", "", canDeposit ? Btn.of("Deposit", "deposit") : null,
+                    canWithdraw ? Btn.of("Withdraw", "withdraw") : null);
+        } else {
+            body.text("Your rank cannot move money in or out of the bank.", Msg.MUTED);
+        }
         body.section("Recent bank activity");
         int shown = 0;
         for (AuditEntry e : f.audit()) {
@@ -479,25 +509,38 @@ public final class DominionPanel extends DominionPage {
     }
 
     private void buildSettings(UICommandBuilder c, Body body, Faction f) {
-        title(c, "Settings", "Changes need the settings permission");
+        boolean canSet = can(FactionAction.SETTINGS);
+        title(c, "Settings", canSet ? "Changes apply at once" : "Your rank can look but not change these");
         body.section("Rules");
         for (String[] t : TOGGLES) {
             boolean on = f.setting(t[0], toggleDefault(t[1]));
-            body.toggle(t[2], t[0], on, "toggle", t[0]);
+            body.toggle(t[2], t[0], on, "toggle", t[0], canSet);
         }
         body.section("Identity");
-        body.palette(safeColor(f.color(), null), "color");
-        body.field("Name", f.name(), Btn.of("Save", "rename"));
-        body.field("Description", f.description(), Btn.of("Save", "describe"));
-        body.field("Message of the day", f.motd(), Btn.of("Save", "motd"));
+        if (canSet) {
+            body.palette(safeColor(f.color(), null), "color");
+            body.field("Name", f.name(), Btn.of("Save", "rename"));
+            body.field("Description", f.description(), Btn.of("Save", "describe"));
+            body.field("Message of the day", f.motd(), Btn.of("Save", "motd"));
+        } else {
+            body.stat("Name", f.name());
+            body.stat("Description", f.description().isBlank() ? "None" : f.description());
+        }
         body.buttons(Btn.of("Permissions", "perms"));
         zones.buildRankNames(body, f);
         zones.buildZones(body, f);
 
-        body.section("Danger zone");
-        body.text("These cannot be undone. Each one asks you to confirm first.", Msg.WARN);
-        body.field("New leader", "", Btn.of("Transfer", "transfer"));
-        body.buttons(Btn.of("Unclaim all", "unclaimall"), Btn.of("Disband", "disband"), Btn.of("Leave", "leave"));
+        boolean leader = uuid().equals(f.leader());
+        boolean canDisband = can(FactionAction.DISBAND);
+        body.section(leader || canDisband ? "Danger zone" : "Leave");
+        if (leader || canDisband) {
+            body.text("These cannot be undone. Each one asks you to confirm first.", Msg.WARN);
+        }
+        if (leader) {
+            body.field("New leader", "", Btn.of("Transfer", "transfer"));
+        }
+        body.buttons(canDisband ? Btn.of("Unclaim all", "unclaimall") : null, canDisband ? Btn.of("Disband", "disband") : null,
+                Btn.of("Leave", "leave"));
     }
 
     private void buildLog(UICommandBuilder c, Body body, Faction f) {
@@ -674,6 +717,10 @@ public final class DominionPanel extends DominionPage {
                 ui.setHudVisible(player(), next);
                 Msg.send(player(), Msg.good(next ? "The faction sidebar is on." : "The faction sidebar is off."));
             }
+            case "maphide" -> {
+                PlayerData me = ctx.player(uuid());
+                Msg.send(player(), Msg.good(PlayerToggles.webMap(me, !me.mapHidden())));
+            }
             case "promote" -> reply(withTarget(v, t -> factions().promote(uuid(), t)));
             case "demote" -> reply(withTarget(v, t -> factions().demote(uuid(), t)));
             case "kick" -> reply(withTarget(v, t -> factions().kick(uuid(), t)));
@@ -744,7 +791,7 @@ public final class DominionPanel extends DominionPage {
                 }
             }
             case "toggle" -> {
-                if (f == null) {
+                if (f == null || !isToggle(v)) {
                     return true;
                 }
                 boolean current = f.setting(v, defaultToggle(v));
@@ -756,7 +803,8 @@ public final class DominionPanel extends DominionPage {
                 if (f == null) {
                     return true;
                 }
-                reply(text.isEmpty() ? Result.fail("Type a name first.") : factions().rename(uuid(), f.tag(), text));
+                // A null tag keeps the current one, the same as /f name.
+                reply(text.isEmpty() ? Result.fail("Type a name first.") : factions().rename(uuid(), null, text));
             }
             case "describe" -> reply(factions().setDescription(uuid(), text));
             case "motd" -> reply(factions().setMotd(uuid(), text));
@@ -918,6 +966,24 @@ public final class DominionPanel extends DominionPage {
             return action.apply(UUID.fromString(id));
         } catch (IllegalArgumentException e) {
             return Result.fail("That player could not be found.");
+        }
+    }
+
+    /** Only the toggles this page shows can be switched, whatever value a client sends. */
+    private static boolean isToggle(String key) {
+        for (String[] t : TOGGLES) {
+            if (t[0].equals(key)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean can(FactionAction action) {
+        try {
+            return factions().can(uuid(), action);
+        } catch (RuntimeException e) {
+            return false;
         }
     }
 

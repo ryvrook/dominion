@@ -5,7 +5,6 @@ import dev.ryvrook.dominion.config.Settings;
 import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.Member;
 import dev.ryvrook.dominion.model.PlayerData;
-import dev.ryvrook.dominion.util.Players;
 import dev.ryvrook.dominion.util.Time;
 
 import java.util.ArrayList;
@@ -39,7 +38,7 @@ final class PowerTicker {
 
     private void regenOnline(double regen) {
         for (PlayerData p : new ArrayList<>(ctx.repo().loadedPlayers())) {
-            if (!Players.isOnline(p.uuid())) {
+            if (!power.isOnline(p.uuid())) {
                 continue;
             }
             dev.ryvrook.dominion.model.Faction f = ctx.repo().faction(p.factionId());
@@ -47,7 +46,11 @@ final class PowerTicker {
             // The regen upgrade adds a quarter of the base rate per level.
             double rate = regen * (1.0 + REGEN_STEP * (f == null ? 0 : Math.max(0, f.upgrade("regen"))));
             synchronized (p) {
-                if (p.power() < max) {
+                if (p.power() > max) {
+                    // The maximum dropped, for example after leaving a faction with the maxpower
+                    // upgrade or after power.max was lowered, so the surplus goes.
+                    power.apply(p, max, max);
+                } else if (p.power() < max) {
                     power.apply(p, Math.min(max, p.power() + rate), max);
                 }
             }
@@ -63,7 +66,7 @@ final class PowerTicker {
             }
             double max = power.maxFor(f);
             for (Member m : f.members()) {
-                if (Players.isOnline(m.uuid())) {
+                if (power.isOnline(m.uuid())) {
                     continue;
                 }
                 PlayerData p = ctx.player(m.uuid());

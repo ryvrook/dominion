@@ -126,8 +126,8 @@ final class Zones {
                     continue;
                 }
                 // Only rewrite the entry when nothing replaced it since the snapshot.
-                if (c.equals(s.ctx.repo().claimAt(world, e.getLongKey()))) {
-                    s.ctx.repo().putClaim(world, e.getLongKey(), new ClaimEntry(c.factionId(), c.claimedAt(), c.claimedBy(), null));
+                if (s.ctx.repo().replaceClaim(world, e.getLongKey(), c,
+                        new ClaimEntry(c.factionId(), c.claimedAt(), c.claimedBy(), null))) {
                     cleared++;
                 }
             }
@@ -144,12 +144,18 @@ final class Zones {
             return g.failure();
         }
         Faction f = g.faction();
-        PlayerRef ref = Players.online(actor);
+        PlayerRef ref = FactionSupport.liveRef(actor);
         if (ref == null) {
             return Result.fail("You need to be online to assign a zone");
         }
-        String world = Players.worldName(ref);
-        long chunk = Players.chunkOf(ref);
+        return assignAt(actor, f, Players.worldName(ref), Players.chunkOf(ref), zoneRef);
+    }
+
+    /** Runs between reading the chunk and writing it. Tests use it to change the chunk in between. */
+    Runnable beforeWrite = () -> { };
+
+    /** Assigns a known chunk of the actor's faction to a zone, or clears it when zoneRef is blank. */
+    Result assignAt(UUID actor, Faction f, String world, long chunk, String zoneRef) {
         ClaimEntry c = world == null ? null : s.ctx.repo().claimAt(world, chunk);
         if (c == null || !f.id().equals(c.factionId())) {
             return Result.fail("Stand in your own faction's land to assign a zone");
@@ -165,7 +171,13 @@ final class Zones {
         if (java.util.Objects.equals(newId, c.zoneId())) {
             return Result.fail(zone == null ? "This chunk is not in a zone" : "This chunk is already in " + zone.name());
         }
-        s.ctx.repo().putClaim(world, chunk, new ClaimEntry(c.factionId(), c.claimedAt(), c.claimedBy(), newId));
+        beforeWrite.run();
+        // A claim made on another thread may have replaced the entry since it was read. Writing the
+        // old owner back would undo that claim, so the write only happens while the entry is unchanged.
+        ClaimEntry updated = new ClaimEntry(c.factionId(), c.claimedAt(), c.claimedBy(), newId);
+        if (!s.ctx.repo().replaceClaim(world, chunk, c, updated)) {
+            return Result.fail("This chunk changed hands a moment ago. Try again");
+        }
         f.touchZones();
         String where = Keys.describe(chunk) + " in " + world;
         String text = zone == null ? "Removed chunk " + where + " from its zone" : "Added chunk " + where + " to the zone " + zone.name();
@@ -194,6 +206,15 @@ final class Zones {
             }
             if (!action.rankScoped()) {
                 return Result.fail("That permission cannot be given to a rank");
+            }
+            // The same limits as the faction grid, so a zone cannot be used to raise your own rank.
+            boolean leader = actor.equals(f.leader());
+            Rank own = f.rankOf(actor);
+            if (!leader && (own == null || rank.ordinal() >= own.ordinal())) {
+                return Result.fail("You can only change permissions for ranks below your own");
+            }
+            if (!leader && Boolean.TRUE.equals(allowed) && !Perms.can(f, actor, action, dev.ryvrook.dominion.util.Time.now())) {
+                return Result.fail("You cannot grant a permission you do not have yourself");
             }
             String n = f.rankName(rank);
             who = n.endsWith("s") ? n : n + "s";

@@ -7,7 +7,6 @@ import dev.ryvrook.dominion.model.Member;
 import dev.ryvrook.dominion.model.Rank;
 import dev.ryvrook.dominion.service.MarketService;
 import dev.ryvrook.dominion.text.Msg;
-import dev.ryvrook.dominion.util.Players;
 import dev.ryvrook.dominion.util.Time;
 
 import java.util.Locale;
@@ -72,7 +71,7 @@ final class Membership {
             if (f.isBanned(player)) {
                 return Result.fail("You are banned from " + f.tag());
             }
-            Rank rosterRank = playerName == null ? null : f.roster().get(playerName.toLowerCase(Locale.ROOT));
+            Rank rosterRank = f.rosterRank(playerName);
             if (s.full(f) && !(rosterRank != null && rotate(f, playerName))) {
                 return Result.fail(f.tag() + " is full");
             }
@@ -89,6 +88,9 @@ final class Membership {
                 return Result.fail(f.tag() + " is invite only. Ask for an invite or send a join request");
             }
             s.addMember(f, player, playerName, rank, null, how);
+            if (rosterRank != null) {
+                f.rosterBind(player, playerName);
+            }
             return Result.pass("You joined " + f.tag());
         }
     }
@@ -105,7 +107,7 @@ final class Membership {
             return Result.fail("You are banned from " + f.tag());
         }
         boolean direct = f.setting("open", false) || f.hasValidInvite(player, Time.now())
-                || (playerName != null && f.roster().containsKey(playerName.toLowerCase(Locale.ROOT)));
+                || f.rosterRank(playerName) != null;
         if (direct) {
             return join(player, playerName, tag);
         }
@@ -169,7 +171,9 @@ final class Membership {
                 return Result.fail("Leaders must transfer leadership or disband first");
             }
             String name = s.nameOf(player);
+            String listed = memberName(f, player);
             s.removeMember(f, player, player, "leave", name + " left");
+            dropFromRoster(f, player, listed, player);
             s.toFaction(f, Msg.warn(name + " left the faction"), false);
             return Result.pass("You left " + f.tag());
         }
@@ -187,7 +191,9 @@ final class Membership {
             if (outranks != null) {
                 return outranks;
             }
+            String listed = memberName(f, target);
             s.removeMember(f, target, actor, "kick", "Kicked " + name);
+            dropFromRoster(f, target, listed, actor);
         }
         s.toFaction(f, Msg.warn(name + " was kicked by " + s.nameOf(actor)), false);
         s.tell(target, Msg.bad("You were kicked from " + f.tag()));
@@ -213,7 +219,9 @@ final class Membership {
                 if (outranks != null) {
                     return outranks;
                 }
+                String listed = memberName(f, target);
                 s.removeMember(f, target, actor, "ban", "Kicked " + name + " with a ban");
+                dropFromRoster(f, target, listed, actor);
                 s.tell(target, Msg.bad("You were banned from " + f.tag()));
             }
             f.ban(target);
@@ -242,9 +250,8 @@ final class Membership {
         if (name == null || name.isBlank()) {
             return;
         }
-        String key = name.toLowerCase(Locale.ROOT);
         for (Faction f : s.ctx.repo().factions()) {
-            if (!f.isSystem() && f.roster().containsKey(key) && !f.isBanned(player)
+            if (!f.isSystem() && f.rosterRank(name) != null && !f.isBanned(player)
                     && (!s.full(f) || s.settings().bool("faction.rosterRotate"))) {
                 Result r = join(player, name, f.tag());
                 if (r.success()) {
@@ -267,7 +274,7 @@ final class Membership {
         Member pick = null;
         for (Member m : f.members()) {
             Rank r = f.rankOf(m.uuid());
-            if (r == null || r.atLeast(Rank.OFFICER) || m.uuid().equals(f.leader()) || Players.isOnline(m.uuid())) {
+            if (r == null || r.atLeast(Rank.OFFICER) || m.uuid().equals(f.leader()) || s.isOnline(m.uuid())) {
                 continue;
             }
             if (pick == null || m.lastSeen() < pick.lastSeen()) {
@@ -296,6 +303,23 @@ final class Membership {
             market.mailNote(player, text);
         } catch (RuntimeException e) {
             s.ctx.logger().at(java.util.logging.Level.WARNING).withCause(e).log("Dominion could not leave a mailbox note");
+        }
+    }
+
+    /** The name the member record holds, which is the name a roster entry would use. */
+    private String memberName(Faction f, UUID player) {
+        Member m = f.member(player);
+        return m == null || m.name().isBlank() ? s.nameOf(player) : m.name();
+    }
+
+    /**
+     * Takes a player who left or was kicked off the roster. A roster entry joins its player again at
+     * every login and lets them use join at any time, so without this a kick or a leave would not last.
+     * The entry they joined through is found by uuid, so a rename since then does not keep it alive.
+     */
+    private void dropFromRoster(Faction f, UUID player, String listed, UUID actor) {
+        for (String name : f.rosterRemovePlayer(player, listed, s.nameOf(player))) {
+            s.audit(f, actor, "member", "Removed " + name + " from the roster");
         }
     }
 

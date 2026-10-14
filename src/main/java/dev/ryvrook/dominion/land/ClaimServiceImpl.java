@@ -38,6 +38,13 @@ public final class ClaimServiceImpl implements ClaimService {
     private final Decay decay;
     private final SpawnGuard spawn;
     private final Object lock = new Object();
+    /**
+     * Reclaiming a chunk the faction lost within this window earns no claim mission credit, so
+     * unclaiming and reclaiming, or two factions trading a chunk back and forth, cannot farm it.
+     * Weekly missions are the longest window a claim counter can feed. The marks are stored on the
+     * faction so a restart keeps them.
+     */
+    static final long MISSION_WINDOW_MILLIS = 7 * 86_400_000L;
 
     ClaimServiceImpl(DominionContext ctx) {
         this.ctx = ctx;
@@ -47,6 +54,11 @@ public final class ClaimServiceImpl implements ClaimService {
         this.maps = new LandMap(land, this);
         this.decay = new Decay(land, this);
         this.spawn = new SpawnGuard(land);
+    }
+
+    /** The shared service helpers. Package tests use it to stand in for online players. */
+    Land land() {
+        return land;
     }
 
     private Repository repo() {
@@ -96,7 +108,7 @@ public final class ClaimServiceImpl implements ClaimService {
     /** Returns {chunkIndex, chunkX, chunkZ} for the online player, or null. */
     @Override
     public long[] playerChunk(UUID player) {
-        long idx = Players.chunkOf(Players.online(player));
+        long idx = Players.chunkOf(Land.liveRef(player));
         if (idx == Long.MIN_VALUE) {
             return null;
         }
@@ -105,7 +117,7 @@ public final class ClaimServiceImpl implements ClaimService {
 
     @Override
     public String playerWorld(UUID player) {
-        return Players.worldName(Players.online(player));
+        return Players.worldName(Land.liveRef(player));
     }
 
     // ---- claiming ---------------------------------------------------------
@@ -187,9 +199,12 @@ public final class ClaimServiceImpl implements ClaimService {
         changed(world, chunk, current, f);
         land.audit(f, actor, current == null ? "Claimed chunk " + where + " in " + world
                 : "Took chunk " + where + " in " + world + " from " + current.tag());
-        land.progress(actor, "claim");
+        if (newLand(f, world, chunk)) {
+            land.progress(actor, "claim");
+        }
         String paidText = cost > 0 ? " The faction bank paid " + eco.format(cost) + "." : "";
         if (current != null) {
+            noteReleased(current, world, chunk);
             land.audit(current, actor, f.tag() + " took chunk " + where + " in " + world);
             clearHomeIfIn(current, world, chunk);
             return Result.pass("Took chunk " + where + " from " + current.tag() + "." + paidText);
@@ -369,6 +384,7 @@ public final class ClaimServiceImpl implements ClaimService {
     /** Removes an owned chunk, refunds the faction bank and returns the refund paid. */
     private double release(UUID actor, Faction f, String world, long chunk) {
         repo().removeClaim(world, chunk);
+        noteReleased(f, world, chunk);
         clearHomeIfIn(f, world, chunk);
         changed(world, chunk, f, null);
         land.audit(f, actor, "Released chunk " + Keys.describe(chunk) + " in " + world);
@@ -412,6 +428,7 @@ public final class ClaimServiceImpl implements ClaimService {
             repo().putClaim(world, chunkIndex, new ClaimEntry(target.id(), Time.now(), actor, null));
             String where = Keys.describe(chunkIndex);
             if (old != null) {
+                noteReleased(old, world, chunkIndex);
                 clearHomeIfIn(old, world, chunkIndex);
             }
             // Quiet only skips the per chunk noise for free land. Taking land from a faction still
@@ -437,6 +454,7 @@ public final class ClaimServiceImpl implements ClaimService {
                 return Result.fail("Nobody owns this land.");
             }
             repo().removeClaim(world, chunkIndex);
+            noteReleased(old, world, chunkIndex);
             clearHomeIfIn(old, world, chunkIndex);
             changed(world, chunkIndex, old, null);
             land.audit(old, actor, "An admin released chunk " + Keys.describe(chunkIndex) + " in " + world);
@@ -543,6 +561,7 @@ public final class ClaimServiceImpl implements ClaimService {
                 return;
             }
             repo().removeClaim(world, chunk);
+            noteReleased(f, world, chunk);
             clearHomeIfIn(f, world, chunk);
             changed(world, chunk, f, null);
             land.audit(f, null, "Lost chunk " + Keys.describe(chunk) + " in " + world
@@ -551,6 +570,16 @@ public final class ClaimServiceImpl implements ClaimService {
     }
 
     // ---- rule helpers -----------------------------------------------------
+
+    /** Records that the faction lost the chunk, by its own choice or not. */
+    private static void noteReleased(Faction f, String world, long chunk) {
+        f.noteReleased(world, chunk, Time.now(), MISSION_WINDOW_MILLIS);
+    }
+
+    /** True unless the faction lost this chunk within the mission window. */
+    private static boolean newLand(Faction f, String world, long chunk) {
+        return !f.releasedWithin(world, chunk, Time.now(), MISSION_WINDOW_MILLIS);
+    }
 
     private void changed(String world, long chunk, Faction from, Faction to) {
         land.publish(new DominionEvent.ClaimChanged(world, chunk,

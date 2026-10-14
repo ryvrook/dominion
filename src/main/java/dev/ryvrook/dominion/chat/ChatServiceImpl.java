@@ -51,7 +51,10 @@ public final class ChatServiceImpl implements ChatService {
 
     // ---- chat event --------------------------------------------------------
 
-    /** Called on the async chat thread for every chat line. */
+    /**
+     * First pass on the async chat thread. Picks the channel and routes private channels, which
+     * cancels the event. Public lines are left alone here and finished in handlePublic.
+     */
     void handle(PlayerChatEvent event) {
         if (event.isCancelled()) {
             return;
@@ -60,6 +63,23 @@ public final class ChatServiceImpl implements ChatService {
         if (sender == null) {
             return;
         }
+        // Fail closed. A line from a player who talks in a private channel is cancelled before any
+        // work that can throw, and any failure while routing cancels the line too, so a private
+        // message can never fall through to the public pass.
+        PlayerData known = ctx.repo().playerIfLoaded(sender.getUuid());
+        if (known != null && known.channel() != PlayerData.Channel.PUBLIC) {
+            event.setCancelled(true);
+        }
+        try {
+            route(event, sender);
+        } catch (RuntimeException e) {
+            event.setCancelled(true);
+            Msg.send(sender, Msg.bad("Your message could not be delivered. Please try again."));
+            throw e;
+        }
+    }
+
+    private void route(PlayerChatEvent event, PlayerRef sender) {
         UUID uuid = sender.getUuid();
         String content = event.getContent() == null ? "" : event.getContent();
         PlayerData.Channel channel = ctx.player(uuid).channel();
@@ -98,30 +118,88 @@ public final class ChatServiceImpl implements ChatService {
             return;
         }
 
+        if (channel == PlayerData.Channel.PUBLIC) {
+            // Finished by handlePublic once every other chat plugin had its turn. Undo the early
+            // cancel, the event was not cancelled when Dominion first saw it.
+            event.setCancelled(false);
+            return;
+        }
         event.setCancelled(true);
         if (channel == PlayerData.Channel.NATION) {
             sendNation(sender, faction, content);
-        } else if (channel == PlayerData.Channel.PUBLIC) {
-            sendPublic(sender, event.getTargets(), content, faction);
         } else {
             sendChannel(sender, faction, channel, content);
         }
+    }
+
+    /**
+     * Second pass, registered last. Anything still alive here is public chat. In relation style the
+     * line is sent to each target with the tag in that viewer's relation colour, which needs the
+     * event cancelled. In passthrough style the tag is added to the formatter and the event goes on,
+     * so relays such as a Discord bridge still see it.
+     */
+    void handlePublic(PlayerChatEvent event) {
+        if (event.isCancelled() || event.getSender() == null) {
+            return;
+        }
+        PlayerRef sender = event.getSender();
+        String content = event.getContent() == null ? "" : event.getContent();
+        if (content.isBlank()) {
+            return;
+        }
+        Faction faction = factions().factionOf(sender.getUuid());
+        PlayerChatEvent.Formatter base = event.getFormatter();
+        boolean ownFormat = base == null || base == PlayerChatEvent.DEFAULT_FORMATTER;
+        if ("passthrough".equalsIgnoreCase(ctx.settings().text("chat.publicFormat"))) {
+            // The engine calls the formatter only for a line it delivers, so the line is logged and
+            // recorded for the map there. A plugin that cancels after Dominion keeps it off both.
+            Message tag = faction == null ? null
+                    : Msg.colored(plainTag(faction.tag()), safeColor(faction.color(), Relation.NEUTRAL.color()));
+            PlayerChatEvent.Formatter inner = base == null ? PlayerChatEvent.DEFAULT_FORMATTER : base;
+            String tagText = faction == null ? "" : faction.tag();
+            java.util.concurrent.atomic.AtomicBoolean once = new java.util.concurrent.atomic.AtomicBoolean();
+            event.setFormatter((s, c) -> {
+                if (once.compareAndSet(false, true)) {
+                    log((faction == null ? "" : plainTag(tagText)) + s.getUsername() + SEPARATOR + c, false);
+                    recordPublic(s.getUsername(), tagText, c);
+                }
+                Message line = inner.format(s, c);
+                return tag == null ? line : Message.join(tag, line);
+            });
+            return;
+        }
+        event.setCancelled(true);
+        sendPublic(sender, event.getTargets(), content, faction, ownFormat ? null : base);
+    }
+
+    private static String safeColor(String color, String fallback) {
+        return color != null && color.matches("#[0-9a-fA-F]{6}") ? color : fallback;
     }
 
     private static boolean startsWithPrefix(String content, String prefix) {
         return prefix != null && !prefix.isEmpty() && content.startsWith(prefix) && content.length() > prefix.length();
     }
 
-    private void sendPublic(PlayerRef sender, List<PlayerRef> targets, String content, Faction faction) {
+    /**
+     * Sends a public line to each target with the tag coloured for that viewer. With a formatter
+     * from another plugin, such as a title or rank prefix, its output follows the tag in place of
+     * Dominion's own name and separator.
+     */
+    private void sendPublic(PlayerRef sender, List<PlayerRef> targets, String content, Faction faction,
+                            PlayerChatEvent.Formatter other) {
         UUID uuid = sender.getUuid();
-        Message name = Msg.colored(sender.getUsername(), Msg.TEXT);
-        Message body = Message.join(Msg.muted(SEPARATOR), Msg.colored(content, CONTENT_COLOR));
+        Message line;
+        if (other != null) {
+            line = other.format(sender, content);
+        } else {
+            line = Message.join(Msg.colored(sender.getUsername(), Msg.TEXT), Msg.muted(SEPARATOR), Msg.colored(content, CONTENT_COLOR));
+        }
         if (targets != null) {
             for (PlayerRef target : targets) {
                 if (target == null) {
                     continue;
                 }
-                target.sendMessage(Message.join(tagFor(target.getUuid(), uuid), name, body));
+                target.sendMessage(faction == null ? line : Message.join(tagFor(target.getUuid(), uuid), line));
             }
         }
         String tag = faction == null ? "" : plainTag(faction.tag());

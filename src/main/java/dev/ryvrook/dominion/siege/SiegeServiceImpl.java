@@ -44,7 +44,6 @@ import java.util.logging.Level;
  */
 public final class SiegeServiceImpl implements SiegeService {
     private static final int HISTORY_LIMIT = 200;
-    private static final long DEFEND_MILLIS = 30_000L;
     private static final long STATUS_MILLIS = 60_000L;
     private static final long SAVE_MILLIS = 60_000L;
     static final String IMMUNE_UNTIL = "siege.immuneUntil";
@@ -56,6 +55,9 @@ public final class SiegeServiceImpl implements SiegeService {
     private final Map<UUID, Long> lastStatus = new HashMap<>();
     private boolean dirty;
     private long lastSave = Time.now();
+    /** Sieges resumed from disk after a boot, with the time until which absence cannot decide them. */
+    private final Map<UUID, Long> resumeGrace = new HashMap<>();
+    private final SaveOrder saveOrder = new SaveOrder();
 
     public SiegeServiceImpl(DominionContext ctx) {
         this.ctx = ctx;
@@ -72,12 +74,24 @@ public final class SiegeServiceImpl implements SiegeService {
         if (doc == null) {
             return;
         }
+        long now = Time.now();
+        long savedAt = (long) number(doc, "SavedAt");
+        // A plugin reload keeps players online, so only a real boot gives captures time for players to rejoin.
+        long grace = SiegeClock.resumeGrace(anyoneOnline());
         synchronized (lock) {
             active.clear();
             history.clear();
+            resumeGrace.clear();
             for (Document d : docs(doc, "Active")) {
                 Siege s = parse(d);
                 if (s != null && s.active()) {
+                    // Timers pause while the server is down, and a capture may get a short grace so players can rejoin.
+                    boolean capture = s.phase() == Siege.Phase.CAPTURING;
+                    long g = capture ? grace : 0L;
+                    s.setPhase(s.phase(), SiegeClock.resumedEnd(s.phaseEndsAt(), savedAt, now, g));
+                    if (g > 0) {
+                        resumeGrace.put(s.id(), now + g);
+                    }
                     active.add(s);
                 } else if (s != null) {
                     history.addLast(s);
@@ -101,6 +115,10 @@ public final class SiegeServiceImpl implements SiegeService {
         }
     }
 
+    private static double number(Document doc, String key) {
+        return doc.get(key) instanceof Number n ? n.doubleValue() : 0;
+    }
+
     private static List<Document> docs(Document doc, String key) {
         List<Document> out = new ArrayList<>();
         Object raw = doc.get(key);
@@ -114,8 +132,19 @@ public final class SiegeServiceImpl implements SiegeService {
         return out;
     }
 
+    /** True when any player is online, which at load time means a plugin reload rather than a boot. */
+    private static boolean anyoneOnline() {
+        try {
+            Universe u = Universe.get();
+            return u != null && !u.getPlayers().isEmpty();
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
     void save() {
         Document doc;
+        long generation;
         synchronized (lock) {
             List<Document> a = new ArrayList<>();
             for (Siege s : active) {
@@ -125,11 +154,18 @@ public final class SiegeServiceImpl implements SiegeService {
             for (Siege s : history) {
                 h.add(s.toDocument());
             }
-            doc = new Document("Version", 1).append("Active", a).append("History", h);
+            long now = Time.now();
+            doc = new Document("Version", 1).append("SavedAt", now).append("Active", a).append("History", h);
+            generation = saveOrder.next();
             dirty = false;
-            lastSave = Time.now();
+            lastSave = now;
         }
-        ctx.files().write(file(), doc);
+        Document out = doc;
+        if (saveOrder.write(generation, () -> ctx.files().write(file(), out)) == SaveOrder.Outcome.FAILED) {
+            // Keep the change pending so the next tick tries again.
+            markDirty();
+            ctx.logger().at(Level.WARNING).log("Saving sieges.json failed, it will be retried");
+        }
     }
 
     /** Breaches live in memory in the land module, so a restart must hand them back. */
@@ -245,7 +281,7 @@ public final class SiegeServiceImpl implements SiegeService {
         }
         int minAttackers = s.integer("raid.minAttackersOnline");
         if (onlineMembers(attacker) < minAttackers) {
-            return Result.fail("Your faction needs " + minAttackers + " members online to start a siege.");
+            return Result.fail("Your faction needs " + plural(minAttackers, "member") + " online to start a siege.");
         }
 
         PlayerRef ref = Players.online(actor);
@@ -281,7 +317,7 @@ public final class SiegeServiceImpl implements SiegeService {
 
         int minDefenders = s.integer("raid.minDefendersOnline");
         if (!eotw && onlineMembers(defender) < minDefenders) {
-            return Result.fail(defender.tag() + " needs " + minDefenders + " members online before it can be sieged.");
+            return Result.fail(defender.tag() + " needs " + plural(minDefenders, "member") + " online before it can be sieged.");
         }
         if (!eotw && shields != null && shields.shielded(defender, world, target)) {
             return Result.fail("That land of " + defender.tag() + " is under its shield right now.");
@@ -308,7 +344,7 @@ public final class SiegeServiceImpl implements SiegeService {
             if (!eotw) {
                 long cooldown = Math.max(0, s.integer("raid.attackerCooldownMinutes")) * 60_000L;
                 long last = lastSiegeAt(attacker.id(), defender.id());
-                if (last > 0 && now - last < cooldown) {
+                if (SiegeClock.onCooldown(last, cooldown, now)) {
                     return Result.fail("You can siege " + defender.tag() + " again in "
                             + Time.remaining(last + cooldown - now) + ".");
                 }
@@ -336,6 +372,9 @@ public final class SiegeServiceImpl implements SiegeService {
         if (siege == null || !siege.active()) {
             return Result.fail("No active siege has that id.");
         }
+        if (!finish(siege, Siege.Phase.FAILED, "An admin ended it.")) {
+            return Result.fail("That siege has already ended.");
+        }
         FactionService fs = ctx.serviceOrNull(FactionService.class);
         if (fs != null) {
             Faction attacker = fs.byId(siege.attacker());
@@ -347,7 +386,6 @@ public final class SiegeServiceImpl implements SiegeService {
                 fs.audit(defender, admin, adminName, "siege", "An admin ended the siege by " + (attacker == null ? "an unknown faction" : attacker.tag()));
             }
         }
-        finish(siege, Siege.Phase.FAILED);
         return Result.pass("The siege was ended.");
     }
 
@@ -378,8 +416,10 @@ public final class SiegeServiceImpl implements SiegeService {
         }
         Faction defender = fs.byId(siege.defender());
         String tag = defender != null ? defender.tag() : "the defenders";
+        if (!finish(siege, Siege.Phase.FAILED, "The attackers called it off.")) {
+            return Result.fail("Your faction is not running a siege.");
+        }
         fs.audit(attacker, actor, nameOf(actor), "siege", "Called off the siege against " + tag);
-        finish(siege, Siege.Phase.FAILED);
         return Result.pass("You called off the siege against " + tag + ".");
     }
 
@@ -407,10 +447,14 @@ public final class SiegeServiceImpl implements SiegeService {
             Faction attacker = fs.byId(siege.attacker());
             Faction defender = fs.byId(siege.defender());
             if (attacker == null || defender == null) {
-                finish(siege, Siege.Phase.FAILED);
+                finish(siege, Siege.Phase.FAILED, "A faction in it no longer exists.");
                 continue;
             }
             Siege.Phase phase = siege.phase();
+            if (SiegeClock.keepsSaveFresh(phase)) {
+                // An open siege keeps the save time fresh, so a crash loses at most a minute of its timer.
+                markDirty();
+            }
             if (phase == Siege.Phase.BREACHED) {
                 if (now >= siege.phaseEndsAt()) {
                     expire(siege, attacker, defender);
@@ -426,30 +470,18 @@ public final class SiegeServiceImpl implements SiegeService {
             int attackers = count(players, siege, attacker, s.integer("siege.attackerRadius"));
             int defenders = count(players, siege, defender, s.integer("siege.defenderRadius"));
 
-            if (defenders > 0 && attackers == 0) {
-                if (siege.defenderPresentSince() == 0) {
-                    siege.setDefenderPresentSince(now);
-                } else if (now - siege.defenderPresentSince() >= DEFEND_MILLIS) {
-                    defended(siege, attacker, defender);
-                    continue;
-                }
-            } else {
-                siege.setDefenderPresentSince(0);
-            }
-
-            if (attackers == 0) {
-                if (siege.attackerAbsentSince() == 0) {
-                    siege.setAttackerAbsentSince(now);
-                } else if (now - siege.attackerAbsentSince() >= Math.max(1, s.integer("siege.absentSecondsToFail")) * 1000L) {
-                    finish(siege, Siege.Phase.FAILED);
-                    continue;
-                }
-            } else {
-                siege.setAttackerAbsentSince(0);
-            }
-
             // The walls only fall while an attacker holds the banner. Otherwise the absence timer decides.
-            if (now >= siege.phaseEndsAt() && attackers > 0) {
+            SiegeClock.Step step = SiegeClock.capture(siege, attackers, defenders, now,
+                    s.integer("siege.absentSecondsToFail") * 1000L, graceUntil(siege));
+            if (step == SiegeClock.Step.DEFENDED) {
+                defended(siege, attacker, defender);
+                continue;
+            }
+            if (step == SiegeClock.Step.FAILED) {
+                finish(siege, Siege.Phase.FAILED, "No attacker stayed at the banner.");
+                continue;
+            }
+            if (step == SiegeClock.Step.BREACH) {
                 breach(siege, attacker, defender);
                 continue;
             }
@@ -510,12 +542,15 @@ public final class SiegeServiceImpl implements SiegeService {
     }
 
     private void contestStatus(Siege siege, Faction attacker, Faction defender, int attackers, int defenders, long now) {
-        String left = Time.remaining(siege.phaseEndsAt() - now);
+        long millis = siege.phaseEndsAt() - now;
         String crowd = plural(attackers, "attacker") + " and " + plural(defenders, "defender")
                 + " are at the banner on chunk " + Keys.describe(siege.chunkIndex()) + ".";
-        alert(attacker, Msg.info("Siege on " + defender.tag() + " continues. " + crowd + " The walls fall in " + left + "."));
-        alert(defender, Msg.warn("The siege by " + attacker.tag() + " continues. " + crowd
-                + " Your walls fall in " + left + " unless you clear the banner."));
+        String forAttackers = millis > 0 ? " The walls fall in " + Time.remaining(millis) + "."
+                : " The walls fall as soon as one of you stands at the banner.";
+        String forDefenders = millis > 0 ? " Your walls fall in " + Time.remaining(millis) + " unless you clear the banner."
+                : " Your walls fall as soon as an attacker reaches the banner, so keep it clear.";
+        alert(attacker, Msg.info("Siege on " + defender.tag() + " continues. " + crowd + forAttackers));
+        alert(defender, Msg.warn("The siege by " + attacker.tag() + " continues. " + crowd + forDefenders));
     }
 
     // ---- phase changes -------------------------------------------------------
@@ -579,6 +614,10 @@ public final class SiegeServiceImpl implements SiegeService {
     private void defended(Siege siege, Faction attacker, Faction defender) {
         long hours = Math.max(0, ctx.settings().integer("siege.immunityHoursAfterDefence")) + immunityBonus(defender);
         long until = Time.now() + hours * 3_600_000L;
+        // The phase change comes first so an admin cancel at the same moment cannot also grant the rewards.
+        if (!finish(siege, Siege.Phase.DEFENDED, null)) {
+            return;
+        }
         if (until > defender.stat(IMMUNE_UNTIL)) {
             setStat(defender, IMMUNE_UNTIL, until);
         }
@@ -586,7 +625,6 @@ public final class SiegeServiceImpl implements SiegeService {
         FactionService fs = ctx.service(FactionService.class);
         fs.audit(defender, null, "Server", "siege", "Held off the siege by " + attacker.tag());
         fs.audit(attacker, null, "Server", "siege", defender.tag() + " held off the siege");
-        finish(siege, Siege.Phase.DEFENDED);
     }
 
     private void expire(Siege siege, Faction attacker, Faction defender) {
@@ -595,34 +633,43 @@ public final class SiegeServiceImpl implements SiegeService {
                 return;
             }
         }
+        if (!finish(siege, Siege.Phase.EXPIRED, null)) {
+            return;
+        }
         attacker.addStat("siegesWon", 1);
         defender.addStat("siegesLost", 1);
+        FactionService fs = ctx.service(FactionService.class);
         ProgressService progress = ctx.serviceOrNull(ProgressService.class);
-        if (progress != null && siege.startedBy() != null) {
+        // The mission credit goes to the faction that won, so a starter who left since earns nothing elsewhere.
+        Faction starterFaction = siege.startedBy() == null ? null : fs.factionOf(siege.startedBy());
+        if (progress != null && starterFaction != null && starterFaction.id().equals(attacker.id())) {
             try {
                 progress.advance(siege.startedBy(), "siege", 1);
             } catch (RuntimeException e) {
                 ctx.logger().at(Level.WARNING).withCause(e).log("Progress update for a siege failed");
             }
         }
-        FactionService fs = ctx.service(FactionService.class);
         fs.audit(attacker, null, "Server", "siege", "Won the siege against " + defender.tag()
                 + " with " + siege.blocksBroken() + " blocks broken and " + siege.containersOpened() + " containers opened");
         fs.audit(defender, null, "Server", "siege", "Lost the siege to " + attacker.tag());
-        finish(siege, Siege.Phase.EXPIRED);
     }
 
-    /** Ends a siege in a final phase, moves it to history, saves and tells both sides. */
-    private void finish(Siege siege, Siege.Phase phase) {
+    /**
+     * Ends a siege in a final phase, moves it to history, saves and tells both sides. Returns false
+     * when the siege had already ended, so callers only hand out rewards once. The reason is added
+     * to the failure message when one is given.
+     */
+    private boolean finish(Siege siege, Siege.Phase phase, String reason) {
         boolean wasBreached;
         synchronized (lock) {
             if (!siege.active()) {
-                return;
+                return false;
             }
             wasBreached = siege.phase() == Siege.Phase.BREACHED;
             siege.setPhase(phase, Time.now());
             active.remove(siege);
             lastStatus.remove(siege.id());
+            resumeGrace.remove(siege.id());
             history.addFirst(siege);
             while (history.size() > HISTORY_LIMIT) {
                 history.removeLast();
@@ -641,11 +688,16 @@ public final class SiegeServiceImpl implements SiegeService {
         if (phase == Siege.Phase.FAILED && attacker != null) {
             attacker.addStat("siegesFailed", 1);
         }
-        phaseChanged(siege, attacker, defender);
+        phaseChanged(siege, attacker, defender, reason);
+        return true;
     }
 
     /** Saves, publishes and alerts both factions about the siege's current phase. */
     private void phaseChanged(Siege siege, Faction attacker, Faction defender) {
+        phaseChanged(siege, attacker, defender, null);
+    }
+
+    private void phaseChanged(Siege siege, Faction attacker, Faction defender, String reason) {
         synchronized (lock) {
             dirty = true;
         }
@@ -672,8 +724,9 @@ public final class SiegeServiceImpl implements SiegeService {
                         + Time.remaining(left) + ".");
             }
             case FAILED -> {
-                toAttacker = Msg.bad("Your siege against " + dTag + " at " + where + " failed.");
-                toDefender = Msg.good("The siege by " + aTag + " at " + where + " failed.");
+                String why = reason == null || reason.isBlank() ? "" : " " + reason;
+                toAttacker = Msg.bad("Your siege against " + dTag + " at " + where + " failed." + why);
+                toDefender = Msg.good("The siege by " + aTag + " at " + where + " failed." + why);
             }
             case DEFENDED -> {
                 long hours = Math.max(0, ctx.settings().integer("siege.immunityHoursAfterDefence")) + immunityBonus(defender);
@@ -750,6 +803,14 @@ public final class SiegeServiceImpl implements SiegeService {
     }
 
     // ---- helpers -------------------------------------------------------------
+
+    /** The resume grace of one siege, zero for sieges that were not loaded from disk. */
+    private long graceUntil(Siege siege) {
+        synchronized (lock) {
+            Long until = resumeGrace.get(siege.id());
+            return until == null ? 0L : until;
+        }
+    }
 
     private void markDirty() {
         synchronized (lock) {

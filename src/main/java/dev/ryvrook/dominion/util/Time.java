@@ -43,14 +43,25 @@ public final class Time {
         return remaining(now() - epochMillis) + " ago";
     }
 
-    /** Parses 7d, 12h, 30m, 90s or combinations such as 1d12h. Returns null if invalid. */
+    /** Longest duration parse accepts, about 100 years, so later millisecond maths never overflows. */
+    private static final long MAX_SECONDS = 100L * 365 * 86400;
+
+    /**
+     * Parses 7d, 12h, 30m, 90s or combinations such as 1d12h or 1d 12h. A plain number counts as
+     * seconds. Returns null for anything else, including a unit without a number, a number without a
+     * unit after another part such as 1d12, and lengths over about a century.
+     */
     public static Duration parse(String text) {
         if (text == null || text.isBlank()) {
             return null;
         }
+        String t = text.strip().toLowerCase(java.util.Locale.ROOT).replace(" ", "");
+        if (t.chars().allMatch(Character::isDigit)) {
+            return seconds(t, 1);
+        }
         long total = 0;
         StringBuilder num = new StringBuilder();
-        for (char c : text.trim().toLowerCase().toCharArray()) {
+        for (char c : t.toCharArray()) {
             if (Character.isDigit(c)) {
                 num.append(c);
                 continue;
@@ -58,19 +69,30 @@ public final class Time {
             if (num.isEmpty()) {
                 return null;
             }
-            long n = Long.parseLong(num.toString());
+            long unit = switch (c) {
+                case 'd' -> 86400;
+                case 'h' -> 3600;
+                case 'm' -> 60;
+                case 's' -> 1;
+                default -> -1;
+            };
+            if (unit < 0 || num.length() > 12) {
+                return null;
+            }
+            total += Long.parseLong(num.toString()) * unit;
             num.setLength(0);
-            switch (c) {
-                case 'd' -> total += n * 86400;
-                case 'h' -> total += n * 3600;
-                case 'm' -> total += n * 60;
-                case 's' -> total += n;
-                default -> { return null; }
+            if (total > MAX_SECONDS) {
+                return null;
             }
         }
-        if (!num.isEmpty()) {
-            total += Long.parseLong(num.toString());
+        return num.isEmpty() ? Duration.ofSeconds(total) : null;
+    }
+
+    private static Duration seconds(String digits, long unit) {
+        if (digits.length() > 12) {
+            return null;
         }
-        return Duration.ofSeconds(total);
+        long s = Long.parseLong(digits) * unit;
+        return s > MAX_SECONDS ? null : Duration.ofSeconds(s);
     }
 }

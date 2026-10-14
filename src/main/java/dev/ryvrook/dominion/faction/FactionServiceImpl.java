@@ -37,6 +37,11 @@ public final class FactionServiceImpl implements FactionService {
         this.zones = new Zones(support);
     }
 
+    /** Shared helpers and the activity tracker, for package tests. */
+    FactionSupport support() { return support; }
+    Activity activity() { return activity; }
+    Zones zones() { return zones; }
+
     @Override public Faction factionOf(UUID player) { return support.factionOf(player); }
     @Override public Faction byTag(String tag) { return ctx.repo().factionByTag(tag); }
     @Override public Faction byId(UUID id) { return ctx.repo().faction(id); }

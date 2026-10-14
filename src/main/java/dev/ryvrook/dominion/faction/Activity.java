@@ -5,7 +5,6 @@ import dev.ryvrook.dominion.model.Member;
 import dev.ryvrook.dominion.model.PlayerData;
 import dev.ryvrook.dominion.service.ChatService;
 import dev.ryvrook.dominion.text.Msg;
-import dev.ryvrook.dominion.util.Players;
 import dev.ryvrook.dominion.util.Time;
 
 import java.util.ArrayList;
@@ -20,7 +19,7 @@ final class Activity {
     private final FactionSupport s;
     private final Membership membership;
     private final Ranks ranks;
-    private final long bootAt = Time.now();
+    final long bootAt = Time.now();
     /** Estimated length of the outage before this boot, added to last seen times older than the boot. */
     private long downtime = -1;
 
@@ -61,12 +60,16 @@ final class Activity {
     }
 
     void inactivityTick() {
+        inactivityTick(Time.now());
+    }
+
+    /** The minute check at a given time, so tests can run it days ahead of the boot. */
+    void inactivityTick(long now) {
         int memberDays = s.settings().integer("faction.memberInactiveDays");
         int disbandDays = s.settings().integer("faction.disbandInactiveDays");
         if (memberDays <= 0 && disbandDays <= 0) {
             return;
         }
-        long now = Time.now();
         if (now - bootAt < BOOT_GRACE) {
             return;
         }
@@ -118,7 +121,7 @@ final class Activity {
     private long newestSeen(Faction f, long now) {
         long newest = 0;
         for (Member m : f.members()) {
-            newest = Math.max(newest, Players.isOnline(m.uuid()) ? now : seen(m));
+            newest = Math.max(newest, s.isOnline(m.uuid()) ? now : seen(m));
         }
         return newest;
     }
@@ -128,7 +131,7 @@ final class Activity {
         List<Member> stale = new ArrayList<>();
         Member successor = null;
         for (Member m : f.members()) {
-            boolean active = Players.isOnline(m.uuid()) || seen(m) >= cutoff;
+            boolean active = s.isOnline(m.uuid()) || seen(m) >= cutoff;
             if (!active) {
                 stale.add(m);
             } else if (!m.uuid().equals(f.leader()) && better(f, m, successor)) {

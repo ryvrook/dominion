@@ -8,6 +8,7 @@ import com.hypixel.hytale.server.core.event.events.player.PlayerReadyEvent;
 import com.hypixel.hytale.server.core.plugin.JavaPlugin;
 import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
+import com.hypixel.hytale.server.core.universe.Universe;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.ryvrook.dominion.config.Defaults;
 import dev.ryvrook.dominion.config.Settings;
@@ -15,12 +16,18 @@ import dev.ryvrook.dominion.storage.JsonFiles;
 import dev.ryvrook.dominion.storage.Repository;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 
@@ -35,6 +42,10 @@ public final class DominionPlugin extends JavaPlugin {
     private List<DominionModule> modules = new ArrayList<>();
     private final Set<UUID> ready = new HashSet<>();
     private final List<ScheduledFuture<?>> tasks = new ArrayList<>();
+    /** Each module's state after setup, ok or the step that failed, in load order. */
+    private final Map<String, String> moduleState = new LinkedHashMap<>();
+    private final AtomicBoolean saving = new AtomicBoolean();
+    private ExecutorService io;
 
     public DominionPlugin(JavaPluginInit init) {
         super(init);
@@ -51,32 +62,73 @@ public final class DominionPlugin extends JavaPlugin {
 
     @Override
     protected void setup() {
+        io = Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "Dominion-IO");
+            t.setDaemon(true);
+            return t;
+        });
         JsonFiles files = new JsonFiles(getLogger());
         Settings settings = new Settings(files, getDataDirectory().resolve("config.json"));
+        for (String problem : settings.startReport().problems()) {
+            getLogger().at(Level.WARNING).log("Dominion config.json %s", problem);
+        }
         Repository repo = new Repository(files, getDataDirectory(), getLogger());
-        ctx = new DominionContext(this, getLogger(), settings, files, repo);
-        repo.loadAll(id -> new dev.ryvrook.dominion.model.PlayerData(id, "",
-                settings.decimal("power.start"), settings.decimal("eco.startingBalance")));
+        ctx = new DominionContext(this, getLogger(), settings, files, repo, io);
+        repo.loadAll(ctx::newPlayer);
 
         modules = Wiring.load(getLogger());
+        moduleState.clear();
         for (DominionModule m : modules) {
+            DominionContext.HookMark mark = ctx.mark();
             try {
                 m.init(ctx);
-            } catch (Exception e) {
+                moduleState.put(m.name(), "ok");
+            } catch (Exception | LinkageError e) {
+                moduleState.put(m.name(), "failed to init");
+                dropHooks(m, mark);
                 getLogger().at(Level.SEVERE).withCause(e).log("Dominion module %s failed to init", m.name());
             }
         }
         for (DominionModule m : modules) {
+            if (!"ok".equals(moduleState.get(m.name()))) {
+                continue;
+            }
+            DominionContext.HookMark mark = ctx.mark();
             try {
                 m.start(ctx);
-            } catch (Exception e) {
+            } catch (Exception | LinkageError e) {
+                moduleState.put(m.name(), "failed to start");
+                dropHooks(m, mark);
                 getLogger().at(Level.SEVERE).withCause(e).log("Dominion module %s failed to start", m.name());
             }
         }
 
         getEventRegistry().registerGlobal(PlayerReadyEvent.class, this::onPlayerReady);
         getEventRegistry().registerGlobal(PlayerDisconnectEvent.class, this::onPlayerDisconnect);
-        getLogger().at(Level.INFO).log("Dominion started with %d modules", modules.size());
+        long failed = moduleState.values().stream().filter(v -> !"ok".equals(v)).count();
+        if (failed == 0) {
+            getLogger().at(Level.INFO).log("Dominion started with %d modules", modules.size());
+        } else {
+            getLogger().at(Level.WARNING).log("Dominion started with %d modules and %d of them failed, see the errors above",
+                    modules.size(), failed);
+        }
+    }
+
+    /**
+     * Drops the timers and player hooks a failing module added in the step that failed, so half set
+     * up code never runs on a timer. Commands, systems and bus listeners it already registered with
+     * the engine cannot be taken back and are left as they are.
+     */
+    private void dropHooks(DominionModule m, DominionContext.HookMark mark) {
+        int dropped = ctx.rollback(mark);
+        if (dropped > 0) {
+            getLogger().at(Level.WARNING).log("Dominion dropped %d timers and hooks of the failed module %s", dropped, m.name());
+        }
+    }
+
+    /** Module name to ok, failed to init or failed to start, in load order. For /fa diag. */
+    public Map<String, String> moduleStates() {
+        return new LinkedHashMap<>(moduleState);
     }
 
     @Override
@@ -87,7 +139,41 @@ public final class DominionPlugin extends JavaPlugin {
         tasks.add(exec.scheduleAtFixedRate(() -> run(ctx.minuteTasks()), 60, 60, TimeUnit.SECONDS));
         tasks.add(exec.scheduleAtFixedRate(() -> run(ctx.dailyTasks()), 1, 24, TimeUnit.HOURS));
         int autosave = Math.max(10, ctx.settings().integer("storage.autosaveSeconds"));
-        tasks.add(exec.scheduleAtFixedRate(this::autosave, autosave, autosave, TimeUnit.SECONDS));
+        // The timer only queues the save. The file writes run on the Dominion-IO thread.
+        tasks.add(exec.scheduleAtFixedRate(() -> {
+            if (saving.compareAndSet(false, true)) {
+                ctx.runIo("autosave", () -> {
+                    try {
+                        autosave();
+                    } finally {
+                        saving.set(false);
+                    }
+                });
+            }
+        }, autosave, autosave, TimeUnit.SECONDS));
+        adoptOnlinePlayers();
+    }
+
+    /**
+     * After /plugin reload the players already online never send a ready event again. They are
+     * treated as ready now so their records stay loaded and the HUD and other join work runs.
+     */
+    private void adoptOnlinePlayers() {
+        Collection<PlayerRef> online;
+        try {
+            Universe u = Universe.get();
+            online = u == null ? List.of() : new ArrayList<>(u.getPlayers());
+        } catch (RuntimeException e) {
+            return;
+        }
+        for (PlayerRef p : online) {
+            if (p != null && p.getUuid() != null) {
+                markReady(p);
+            }
+        }
+        if (!online.isEmpty()) {
+            getLogger().at(Level.INFO).log("Dominion picked up %d players who were already online", online.size());
+        }
     }
 
     @Override
@@ -96,10 +182,24 @@ public final class DominionPlugin extends JavaPlugin {
             t.cancel(false);
         }
         for (DominionModule m : modules) {
+            if ("failed to init".equals(moduleState.get(m.name()))) {
+                // Never set up, so there is nothing of it to shut down.
+                continue;
+            }
             try {
                 m.shutdown(ctx);
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 getLogger().at(Level.WARNING).withCause(e).log("Dominion module %s failed to shut down", m.name());
+            }
+        }
+        if (io != null) {
+            io.shutdown();
+            try {
+                if (!io.awaitTermination(15, TimeUnit.SECONDS)) {
+                    getLogger().at(Level.WARNING).log("Dominion IO tasks were still running at shutdown");
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             }
         }
         if (ctx != null) {
@@ -151,6 +251,10 @@ public final class DominionPlugin extends JavaPlugin {
         if (playerRef == null) {
             return;
         }
+        markReady(playerRef);
+    }
+
+    private void markReady(PlayerRef playerRef) {
         boolean first;
         synchronized (ready) {
             first = ready.add(playerRef.getUuid());
@@ -184,11 +288,30 @@ public final class DominionPlugin extends JavaPlugin {
                 getLogger().at(Level.WARNING).withCause(e).log("Dominion quit listener failed");
             }
         }
-        ctx.repo().unloadPlayer(uuid);
+        ctx.runIo("player save", () -> {
+            boolean back;
+            synchronized (ready) {
+                back = ready.contains(uuid);
+            }
+            // A quick rejoin keeps the record loaded.
+            if (!back) {
+                ctx.repo().unloadPlayer(uuid);
+            }
+        });
     }
 
-    /** Applies a named preset. Used by the admin module and the singleplayer detection. */
-    public void applyPreset(String name) {
-        ctx.settings().applyPreset(Defaults.preset(name));
+    /**
+     * Applies a named preset. Used by the admin module and the singleplayer detection. Returns
+     * false and changes nothing for a name that is not a preset.
+     */
+    public boolean applyPreset(String name) {
+        if (!Defaults.isPreset(name)) {
+            return false;
+        }
+        List<String> refused = ctx.settings().applyPreset(Defaults.preset(name));
+        if (!refused.isEmpty()) {
+            getLogger().at(Level.WARNING).log("Dominion preset %s skipped %s", name, String.join(", ", refused));
+        }
+        return true;
     }
 }

@@ -26,7 +26,8 @@ final class MembershipCommands extends Section {
         create.handler(c -> c.reply(factions().create(c.uuid(), c.name(), c.arg(createTag), null)));
         PlayerCmd createNamed = new PlayerCmd("Found a new faction with a display name.");
         RequiredArg<String> namedTag = createNamed.withRequiredArg("tag", "Short faction tag", ArgTypes.STRING);
-        RequiredArg<String> namedName = createNamed.withRequiredArg("name", "Display name", ArgTypes.STRING);
+        // Greedy like /f name and /f nation create, so a display name of several words needs no quotes.
+        RequiredArg<String> namedName = createNamed.withRequiredArg("name", "Display name", ArgTypes.GREEDY_STRING);
         createNamed.handler(c -> c.reply(factions().create(c.uuid(), c.name(), c.arg(namedTag), c.arg(namedName))));
         create.variant(createNamed);
 

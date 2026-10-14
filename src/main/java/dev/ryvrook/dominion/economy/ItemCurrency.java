@@ -99,9 +99,22 @@ final class ItemCurrency implements BalanceProvider {
 
     // ---- paying -----------------------------------------------------------
 
+    /** Whole items a payment takes, rounding a fraction up. */
+    static int itemsFor(double amount) {
+        if (!(amount > EPSILON)) {
+            return 0;
+        }
+        return (int) Math.min(Integer.MAX_VALUE, Math.ceil(amount - EPSILON));
+    }
+
+    /** Whole items ready to hand out from an owed amount. */
+    static int wholeOwed(double owed) {
+        return owed > 0 ? (int) Math.min(Integer.MAX_VALUE, Math.floor(owed + EPSILON)) : 0;
+    }
+
     @Override
     public Result withdraw(UUID player, double amount, String reason) {
-        int need = (int) Math.ceil(amount - EPSILON);
+        int need = itemsFor(amount);
         if (need <= 0) {
             return Result.pass();
         }
@@ -130,6 +143,15 @@ final class ItemCurrency implements BalanceProvider {
         }
         if (!ok) {
             return Result.fail("You need " + format.apply(need) + " but only carry " + format.apply(Math.max(0, have[0])));
+        }
+        double change = need - amount;
+        if (change > EPSILON) {
+            // A fraction was rounded up to a whole item, so the difference is owed back and paid with the next whole item.
+            ensureLoaded();
+            synchronized (owed) {
+                owed.merge(player, change, Double::sum);
+            }
+            save();
         }
         return Result.pass();
     }
@@ -176,45 +198,60 @@ final class ItemCurrency implements BalanceProvider {
         }
         String id = itemId();
         world.execute(() -> {
+            // The whole items are reserved under the monitor first, so two deliveries can never hand out the same items.
             int whole;
             synchronized (owed) {
-                whole = (int) Math.floor(owed.getOrDefault(player, 0.0) + EPSILON);
+                double before = owed.getOrDefault(player, 0.0);
+                whole = wholeOwed(before);
+                if (whole <= 0) {
+                    return;
+                }
+                settle(player, before - whole);
             }
-            if (whole <= 0) {
-                return;
-            }
-            Ref<EntityStore> r = ref.getReference();
-            if (r == null || !r.isValid()) {
-                return;
-            }
-            ItemContainer c = InventoryComponent.getCombined(r.getStore(), r, InventoryComponent.HOTBAR_STORAGE_BACKPACK);
-            if (c == null) {
-                return;
-            }
-            ItemStackTransaction tx = c.addItemStack(new ItemStack(id, whole), false, false, true);
-            ItemStack rest = tx == null ? null : tx.getRemainder();
-            int left = ItemStack.isEmpty(rest) ? 0 : rest.getQuantity();
-            if (tx == null || (!tx.succeeded() && left == 0)) {
-                left = whole;
-            }
-            int given = whole - left;
-            if (given > 0) {
-                synchronized (owed) {
-                    double now = owed.getOrDefault(player, 0.0) - given;
-                    if (now <= EPSILON) {
-                        owed.remove(player);
-                    } else {
-                        owed.put(player, now);
+            int given = 0;
+            int left = whole;
+            ItemContainer c = null;
+            try {
+                Ref<EntityStore> r = ref.getReference();
+                if (r != null && r.isValid()) {
+                    c = InventoryComponent.getCombined(r.getStore(), r, InventoryComponent.HOTBAR_STORAGE_BACKPACK);
+                }
+                if (c != null) {
+                    ItemStackTransaction tx = c.addItemStack(new ItemStack(id, whole), false, false, true);
+                    ItemStack rest = tx == null ? null : tx.getRemainder();
+                    left = ItemStack.isEmpty(rest) ? 0 : rest.getQuantity();
+                    if (tx == null || (!tx.succeeded() && left == 0)) {
+                        left = whole;
+                    }
+                    given = whole - left;
+                }
+            } finally {
+                if (left > 0) {
+                    synchronized (owed) {
+                        settle(player, owed.getOrDefault(player, 0.0) + left);
                     }
                 }
-                save();
+                if (given > 0) {
+                    save();
+                }
+            }
+            if (given > 0 && c != null) {
                 lastKnown.put(player, count(c, id));
             }
-            if (left > 0) {
+            if (left > 0 && c != null) {
                 Msg.send(ref, Msg.warn("Your inventory is full. " + format.apply(left)
                         + " more will arrive when you log in again or receive another payment"));
             }
         });
+    }
+
+    /** Stores what a player is owed, dropping the entry once nothing is left. Caller holds the owed monitor. */
+    private void settle(UUID player, double amount) {
+        if (amount <= EPSILON) {
+            owed.remove(player);
+        } else {
+            owed.put(player, amount);
+        }
     }
 
     // ---- world thread calls -----------------------------------------------

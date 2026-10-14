@@ -24,6 +24,7 @@ import dev.ryvrook.dominion.util.Players;
 import dev.ryvrook.dominion.util.Time;
 
 import java.util.UUID;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 
 /**
@@ -37,9 +38,25 @@ final class Land {
     static final String YOU = "#ffffff";
 
     final DominionContext ctx;
+    /** Online check. Tests swap it, the server answers through the universe. */
+    Predicate<UUID> online = Land::liveOnline;
 
     Land(DominionContext ctx) {
         this.ctx = ctx;
+    }
+
+    /** True when the player is connected. False when no universe is running, as in unit tests. */
+    static boolean liveOnline(UUID player) {
+        return player != null && Universe.get() != null && Players.isOnline(player);
+    }
+
+    /** The connected player, or null when offline or when no universe is running. */
+    static com.hypixel.hytale.server.core.universe.PlayerRef liveRef(UUID player) {
+        return player == null || Universe.get() == null ? null : Players.online(player);
+    }
+
+    boolean isOnline(UUID player) {
+        return online.test(player);
     }
 
     Repository repo() {
@@ -183,7 +200,7 @@ final class Land {
     int onlineMembers(Faction f) {
         int n = 0;
         for (Member m : f.members()) {
-            if (Players.isOnline(m.uuid())) {
+            if (isOnline(m.uuid())) {
                 n++;
             }
         }

@@ -29,6 +29,8 @@ public final class NationServiceImpl implements dev.ryvrook.dominion.service.Nat
     private final DominionContext ctx;
     private final Map<UUID, Nation> nations = new ConcurrentHashMap<>();
     private final Object lock = new Object();
+    /** Serialises file writes. The minute save and the shutdown save share one temp file. */
+    private final Object saveLock = new Object();
     private volatile boolean dirty;
 
     public NationServiceImpl(DominionContext ctx) {
@@ -64,15 +66,20 @@ public final class NationServiceImpl implements dev.ryvrook.dominion.service.Nat
     }
 
     void save() {
-        List<Document> docs = new ArrayList<>();
-        synchronized (lock) {
-            for (Nation n : nations.values()) {
-                docs.add(n.toDocument());
-                n.clearDirty();
+        synchronized (saveLock) {
+            List<Document> docs = new ArrayList<>();
+            synchronized (lock) {
+                for (Nation n : nations.values()) {
+                    docs.add(n.toDocument());
+                    n.clearDirty();
+                }
+                dirty = false;
             }
-            dirty = false;
+            if (!ctx.files().write(file(), new Document("Version", 1).append("Nations", docs))) {
+                // Keep the changes marked so the next minute tries again.
+                dirty = true;
+            }
         }
-        ctx.files().write(file(), new Document("Version", 1).append("Nations", docs));
     }
 
     void saveIfDirty() {
@@ -501,7 +508,7 @@ public final class NationServiceImpl implements dev.ryvrook.dominion.service.Nat
 
     private void tellLeader(Faction f, com.hypixel.hytale.server.core.Message message) {
         UUID leader = f.leader();
-        if (leader != null) {
+        if (leader != null && com.hypixel.hytale.server.core.universe.Universe.get() != null) {
             Msg.send(Players.online(leader), message);
         }
     }

@@ -61,6 +61,8 @@ final class HelpTopics {
                 {"/f unclaim radius <n>", "Release a square"},
                 {"/f unclaim all", "Release everything"},
                 {"/f map [size]", "Show nearby land"},
+                {"/f map hide", "Hide yourself from the web map"},
+                {"/f map show", "Show yourself on the web map again"},
                 {"/f power [player]", "Show power"}}));
         TOPICS.put("relations", new Topic("Allies, truces and enemies", new String[][] {
                 {"/f ally <tag>", "Ask for an alliance"},
