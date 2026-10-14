@@ -1,14 +1,8 @@
 package dev.ryvrook.dominion.home;
 
-import com.hypixel.hytale.component.Ref;
-import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.math.vector.Rotation3f;
-import com.hypixel.hytale.math.vector.Transform;
-import com.hypixel.hytale.server.core.modules.entity.teleport.Teleport;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
-import com.hypixel.hytale.server.core.universe.Universe;
 import com.hypixel.hytale.server.core.universe.world.World;
-import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.api.DominionEvent;
 import dev.ryvrook.dominion.api.Result;
@@ -19,6 +13,7 @@ import dev.ryvrook.dominion.model.PlayerData;
 import dev.ryvrook.dominion.model.Relation;
 import dev.ryvrook.dominion.service.ChatService;
 import dev.ryvrook.dominion.service.ClaimService;
+import dev.ryvrook.dominion.service.CombatTagService;
 import dev.ryvrook.dominion.service.EconomyService;
 import dev.ryvrook.dominion.service.FactionService;
 import dev.ryvrook.dominion.service.HomeService;
@@ -26,6 +21,7 @@ import dev.ryvrook.dominion.service.RelationService;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Keys;
 import dev.ryvrook.dominion.util.Players;
+import dev.ryvrook.dominion.util.Teleports;
 import dev.ryvrook.dominion.util.Time;
 import org.joml.Vector3d;
 
@@ -241,8 +237,8 @@ public final class HomeServiceImpl implements HomeService {
         if (ref == null || world == null || chunk == Long.MIN_VALUE) {
             return Result.fail("Your position is not known yet. Try again in a moment.");
         }
-        if (ctx.player(player).combatTagged(Time.now())) {
-            return Result.fail("You cannot use stuck while in combat.");
+        if (inCombat(player)) {
+            return Result.fail("You cannot use stuck while in combat. Wait " + Time.remaining(combatLeft(player)) + ".");
         }
         if (claims().ownerAt(world, chunk) == null) {
             return Result.fail("You are already in the wilderness.");
@@ -302,6 +298,20 @@ public final class HomeServiceImpl implements HomeService {
 
     // ---- warmups -------------------------------------------------------------
 
+    /**
+     * The shared combat tag, which also covers CombatLog when it is installed. Falls back to
+     * Dominion's own tag when the combat module is not running.
+     */
+    private boolean inCombat(UUID player) {
+        CombatTagService tags = ctx.serviceOrNull(CombatTagService.class);
+        return tags != null ? tags.tagged(player) : ctx.player(player).combatTagged(Time.now());
+    }
+
+    private long combatLeft(UUID player) {
+        CombatTagService tags = ctx.serviceOrNull(CombatTagService.class);
+        return tags != null ? tags.remainingMillis(player) : Math.max(0L, ctx.player(player).combatTagUntil() - Time.now());
+    }
+
     /** Combat, cooldown, enemy territory and nearby enemy checks shared by home and warps. */
     private Result teleportAllowed(UUID player) {
         PlayerRef ref = Players.online(player);
@@ -312,8 +322,8 @@ public final class HomeServiceImpl implements HomeService {
         }
         PlayerData pd = ctx.player(player);
         long now = Time.now();
-        if (pd.combatTagged(now)) {
-            return Result.fail("You cannot teleport while in combat. Wait " + Time.remaining(pd.combatTagUntil() - now) + ".");
+        if (inCombat(player)) {
+            return Result.fail("You cannot teleport while in combat. Wait " + Time.remaining(combatLeft(player)) + ".");
         }
         long cooldown = ctx.settings().integer("home.cooldownSeconds") * 1000L;
         long since = now - pd.lastHomeTeleport();
@@ -370,10 +380,9 @@ public final class HomeServiceImpl implements HomeService {
         if (warmups.isEmpty()) {
             return;
         }
-        long now = Time.now();
         List<Warmups.Step<Target>> steps;
         try {
-            steps = warmups.tick(id -> where(Players.online(id)), id -> ctx.player(id).combatTagged(now));
+            steps = warmups.tick(id -> where(Players.online(id)), this::inCombat);
         } catch (RuntimeException ex) {
             ctx.logger().at(Level.WARNING).withCause(ex).log("Dominion teleport warmup failed");
             return;
@@ -433,26 +442,9 @@ public final class HomeServiceImpl implements HomeService {
         return Result.pass("Teleported to " + t.label() + ".");
     }
 
-    /**
-     * Attaches the Teleport component on the thread of the world that owns the player entity.
-     * The target world is passed to the component so cross world teleports work too.
-     */
+    /** Uses the shared teleport path, see {@link Teleports}. */
     private boolean teleport(PlayerRef player, Location loc) {
-        World target = Universe.get().getWorld(loc.world());
-        World current = Players.world(player);
-        if (target == null || current == null) {
-            return false;
-        }
-        current.execute(() -> {
-            Ref<EntityStore> ref = player.getReference();
-            if (ref == null || !ref.isValid()) {
-                return;
-            }
-            Store<EntityStore> store = ref.getStore();
-            Transform transform = new Transform(loc.x(), loc.y(), loc.z(), loc.pitch(), loc.yaw(), 0f);
-            store.putComponent(ref, Teleport.getComponentType(), Teleport.createForPlayer(target, transform));
-        });
-        return true;
+        return Teleports.teleport(player, loc);
     }
 
     // ---- land loss -----------------------------------------------------------

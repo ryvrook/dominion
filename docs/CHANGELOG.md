@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.2.1 - 2026-10-14
+
+Dominion Factions 0.2.1 works with the CombatLog mod by Devify. When CombatLog is installed its combat tags drive
+Dominion's combat rules next to Dominion's own tag. Punishing players who log out in combat stays with CombatLog,
+Dominion only reads whether a player is tagged.
+
+### Upgrading
+- Replace `DominionFactions-0.2.0.jar` with `DominionFactions-0.2.1.jar`. The data folder and every existing setting carry over.
+- Three new settings are added to config.json with their defaults on the first start. `combat.useCombatLog` is `auto`, `combat.blockSafeZoneEntry` is `true` and `combat.blockClaimsWhileTagged` is `true`.
+- CombatLog 1.7.0 or newer is optional. The manifest lists `Devify:CombatLog` as an optional dependency so the server loads it before Dominion when it is present. Without it Dominion runs on its own combat tag as before.
+
+### Changed
+- New CombatTagService answers whether a player is combat tagged and for how long, as the union of Dominion's own tag and CombatLog's tag. The remaining time is the longer of the two.
+- CombatLog is reached through reflection in combat/CombatLogBridge, resolved once at start. A missing mod, an API of another shape or a call that throws answers not tagged and never reaches Dominion as an error.
+- New setting `combat.useCombatLog` with the values `auto` (use CombatLog when it is installed) and `off` (ignore it).
+- `/f home`, ally homes, warps and `/f stuck` read the shared tag, and a running teleport warmup is cancelled within a second when either mod tags the player.
+- `/f stuck` while tagged now says how long the tag has left, like the other teleports.
+- New setting `combat.blockSafeZoneEntry`. A tagged player who walks into a SafeZone is moved back to the last spot they stood outside it and told You cannot enter a safe zone while in combat. Long jumps such as teleports and respawns are not pushed back.
+- New setting `combat.blockClaimsWhileTagged`. Claiming, radius and line claims, auto claim, unclaiming and unclaim all are refused while tagged. Admin claims are not affected.
+- Dying ends Dominion's own combat tag, the same way CombatLog ends its tag on death.
+- The start log and `/fa diag` say which tag source is in use, for example Dominion uses CombatLog 1.7.0 for combat tags.
+- Homes, warps, stuck and the SafeZone push back share one teleport path in util/Teleports.
+- 30 new tests for the tag union, the auto and off setting, the bridge against fake APIs of the right and wrong shape, the SafeZone push back rule and claim refusal while tagged, for 461 in total.
+
 ## 0.2.0 - 2026-10-14
 
 Dominion Factions 0.2.0. The mod is renamed Dominion Factions, the jar is `DominionFactions-0.2.0.jar`, and the

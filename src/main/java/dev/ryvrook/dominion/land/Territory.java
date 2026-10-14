@@ -7,10 +7,15 @@ import dev.ryvrook.dominion.api.DominionEvent;
 import dev.ryvrook.dominion.api.Result;
 import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.FactionType;
+import dev.ryvrook.dominion.model.Location;
 import dev.ryvrook.dominion.model.PlayerData;
 import dev.ryvrook.dominion.service.UiService;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Players;
+import dev.ryvrook.dominion.util.Teleports;
+import dev.ryvrook.dominion.util.Time;
+import org.joml.Vector3d;
+import com.hypixel.hytale.math.vector.Rotation3f;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,7 +25,10 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 
-/** Watches every online player's chunk for territory banners, enter events and auto claim. */
+/**
+ * Watches every online player's chunk for territory banners, enter events and auto claim, and
+ * moves combat tagged players back out of SafeZones they walk into.
+ */
 final class Territory {
     private record Spot(String world, long chunk, UUID owner) {}
 
@@ -28,6 +36,10 @@ final class Territory {
     private final ClaimServiceImpl claims;
     private final Map<UUID, Spot> last = new ConcurrentHashMap<>();
     private final Map<UUID, String> autoFailed = new ConcurrentHashMap<>();
+    private final SafeZoneGuard guard = new SafeZoneGuard();
+    /** When each player was last told about the SafeZone push back, so a pending teleport does not spam them. */
+    private final Map<UUID, Long> toldAt = new ConcurrentHashMap<>();
+    private static final long TELL_EVERY_MILLIS = 2000L;
 
     Territory(Land land, ClaimServiceImpl claims) {
         this.land = land;
@@ -55,6 +67,10 @@ final class Territory {
         if (world == null || chunk == Long.MIN_VALUE) {
             return;
         }
+        if (pushedBack(p, world, chunk)) {
+            // The player is on their way back out, so the SafeZone is neither announced nor remembered.
+            return;
+        }
         Spot prev = last.get(id);
         if (prev != null && prev.world().equals(world) && prev.chunk() == chunk) {
             return;
@@ -76,6 +92,38 @@ final class Territory {
         }
         land.publish(new DominionEvent.PlayerEnteredTerritory(id, world, prevOwner, ownerId));
         banner(p, owner, world, chunk);
+    }
+
+    /**
+     * Runs the SafeZone guard for one tick and starts the push back when it says so. True when the
+     * player is being moved back out.
+     */
+    private boolean pushedBack(PlayerRef p, String world, long chunk) {
+        Vector3d pos = Players.position(p);
+        if (pos == null) {
+            return false;
+        }
+        UUID id = p.getUuid();
+        Faction here = claims.ownerAt(world, chunk);
+        boolean safe = here != null && here.type() == FactionType.SAFEZONE;
+        Rotation3f rot = p.getTransform() == null ? null : p.getTransform().getRotation();
+        SafeZoneGuard.Spot now = new SafeZoneGuard.Spot(world, pos.x, pos.y, pos.z,
+                rot == null ? 0f : rot.yaw(), rot == null ? 0f : rot.pitch());
+        boolean enabled = safe && land.settings().bool("combat.blockSafeZoneEntry");
+        if (guard.observe(id, now, safe, enabled, () -> land.tagged(id)) != SafeZoneGuard.Verdict.PUSH_BACK) {
+            return false;
+        }
+        SafeZoneGuard.Spot back = guard.anchor(id);
+        if (back == null || !Teleports.teleport(p, new Location(back.world(), back.x(), back.y(), back.z(), back.yaw(), back.pitch()))) {
+            return false;
+        }
+        long nowMs = Time.now();
+        Long told = toldAt.get(id);
+        if (told == null || nowMs - told >= TELL_EVERY_MILLIS) {
+            toldAt.put(id, nowMs);
+            Msg.send(p, Msg.bad("You cannot enter a safe zone while in combat."));
+        }
+        return true;
     }
 
     private void autoClaim(PlayerRef p, String world, long chunk) {
@@ -152,5 +200,12 @@ final class Territory {
     void reset(UUID player) {
         last.remove(player);
         autoFailed.remove(player);
+    }
+
+    /** Drops everything kept for a player who left the server. */
+    void forget(UUID player) {
+        reset(player);
+        guard.forget(player);
+        toldAt.remove(player);
     }
 }

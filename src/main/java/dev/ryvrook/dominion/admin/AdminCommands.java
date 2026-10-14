@@ -18,6 +18,7 @@ import dev.ryvrook.dominion.model.FactionType;
 import dev.ryvrook.dominion.model.Siege;
 import dev.ryvrook.dominion.service.ClaimService;
 import dev.ryvrook.dominion.service.EconomyService;
+import dev.ryvrook.dominion.service.CombatTagService;
 import dev.ryvrook.dominion.service.ExportService;
 import dev.ryvrook.dominion.service.FactionService;
 import dev.ryvrook.dominion.service.PowerService;
@@ -896,6 +897,9 @@ final class AdminCommands {
                 c.send(Message.join(Msg.colored(" " + shortName, Msg.BAD), Msg.muted("  not in the jar")));
             }
         }
+        CombatTagService tags = ctx.serviceOrNull(CombatTagService.class);
+        c.send(Msg.muted(" " + (tags == null ? "The combat module is not running, so only Dominion's own combat tag applies"
+                : tags.status()) + "."));
         ExportService export = ctx.serviceOrNull(ExportService.class);
         if (export != null) {
             boolean on = ctx.settings().bool("export.enabled");

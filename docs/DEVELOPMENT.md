@@ -104,6 +104,32 @@ Javap any class before relying on it:
 `javap -cp <path to the Server jar from maven.hytale.com> -p <class>`.
 A class list comes from `unzip -l` on the same jar.
 
+## Verified CombatLog API facts (javap -public on CombatLog 1.7.0 by Devify, api package only)
+
+CombatLog (CurseForge `combatlog`, plugin id `Devify:CombatLog`, MIT) is an optional dependency. Dominion never
+compiles against it and the jar is never added to the repository. `combat/CombatLogBridge` resolves the class with
+`Class.forName` across Dominion's loader, the thread loader and every plugin loader, then looks up method handles
+with `MethodHandles.publicLookup().findStatic`. Only the public API package below was inspected.
+
+- `org.combatlog.plugin.api.CombatLogApi` is a final class with static methods only.
+  `public static boolean isAvailable()`, `public static boolean isTagged(UUID)`,
+  `public static long getRemainingMillis(UUID)`, `public static CombatTagInfo getTagInfo(UUID)`.
+  The listing says they answer safe defaults when the mod is not running.
+- `org.combatlog.plugin.api.CombatTagInfo` is a final class with `static CombatTagInfo empty(UUID)`,
+  `getPlayerUuid()`, `isTagged()`, `getRemainingMillis()` (long), `getCause()`, `getAttackerName()` and `isAttackerPlayer()`.
+- `org.combatlog.plugin.api.CombatTagCause` is an enum with PVP, PVE, ENVIRONMENT and UNKNOWN.
+- `org.combatlog.plugin.api.CombatTagEndReason` is an enum with EXPIRED, DEATH, DISCONNECT, CLEARED, MOD_DISABLED and MANUAL.
+- `org.combatlog.plugin.api.event.CombatTagStartedEvent` implements `com.hypixel.hytale.event.IEvent<Void>` with
+  `getPlayerUuid()`, `getCause()`, `getAttackerName()` and `isAttackerPlayer()`.
+- `org.combatlog.plugin.api.event.CombatTagEndedEvent` implements `IEvent<Void>` with `getPlayerUuid()`, `getReason()`,
+  `getLastCause()`, `getLastAttackerName()` and `isLastAttackerPlayer()`.
+- Dominion uses only `isAvailable`, `isTagged` and `getRemainingMillis`. Warmups and the SafeZone guard poll the shared
+  tag, so the events are not subscribed to.
+- The installed version comes from `PluginManager.get().getPlugin(new PluginIdentifier("Devify", "CombatLog")).getManifest().getVersion()`.
+  The manifest lists `"OptionalDependencies": { "Devify:CombatLog": ">=1.7.0" }` so the engine sets CombatLog up first.
+- Every combat rule reads `CombatTagService` (tagged and remainingMillis). `PlayerData.combatTagged` is only read
+  as a fallback when the combat module is not running. `combat.useCombatLog` is `auto` or `off` and is read on every call.
+
 ## Headless boot test
 
 A short headless boot catches wiring and startup errors without a game client.
@@ -111,16 +137,16 @@ A short headless boot catches wiring and startup errors without a game client.
 1. Build the jar with `./gradlew build`.
 2. Make an empty scratch directory outside the repository with a `mods` folder inside it and copy the
    jar from `build/libs` into `mods`.
-3. Add a `permissions.json` containing `{"users":{},"groups":{}}` to the scratch directory so the bare
+3. Add a `permissions.json` containing `{"users":{},"groups":{}}` to the scratch directory so the headless
    server stays up.
 4. From the scratch directory run the server jar of a Hytale install with
-   `java -jar <path to HytaleServer.jar> --assets <path to Assets.zip> --auth-mode offline --disable-sentry --bare`.
+   `java -jar <path to HytaleServer.jar> --assets <path to Assets.zip> --auth-mode offline --disable-sentry --bind 127.0.0.1:<port>`. Do not pass `--bare`, since server 0.7.1 stops with "Listeners is empty after starting ServerManager" without a bound listener.
    Assets.zip sits one level above the Server folder of the install.
 5. Expect "Dominion started with 22 modules" and "Enabled plugin Ryvrook:Dominion", and no stack trace
    from `dev.ryvrook`. Stop the server when done.
 
 With Atlas in the same mods folder, `curl http://127.0.0.1:8123/api/health` checks the web map.
-Without `--bare` the server generates a world, and piping `chunk load X Z` commands into its console
+Without `` the server generates a world, and piping `chunk load X Z` commands into its console
 loads chunks so Atlas tiles render.
 
 Vanilla markup extracted from Assets.zip is for reference only. Keep it outside the repository and

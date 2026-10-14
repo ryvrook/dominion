@@ -71,6 +71,8 @@ final class DeathTrackingSystem extends DeathSystems.OnDeathSystem {
             power.onDeath(victimId, world == null ? "" : world, inWarzone);
         }
         ctx.player(victimId).addDeath();
+        // Death ends Dominion's own combat tag, the same way CombatLog ends its tag on death.
+        ctx.player(victimId).setCombatTagUntil(0L);
         Faction victimFaction = factionOf(victimId);
         bump(victimFaction, victimId, false);
         siegeDeath(victimId, world, chunk);

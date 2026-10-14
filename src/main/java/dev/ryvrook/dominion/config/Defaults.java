@@ -76,6 +76,9 @@ public final class Defaults {
         s.define("combat.truceFire", "Combat", "Truces can hurt each other", false);
         s.define("combat.tagSeconds", "Combat", "Combat tag duration in seconds", 15);
         s.define("combat.killRewardPercent", "Combat", "Percent of victim bank paid to killer bank", 0.0);
+        s.define("combat.useCombatLog", "Combat", "Use combat tags from the CombatLog mod. auto uses them when the mod is installed, off ignores them", "auto");
+        s.define("combat.blockSafeZoneEntry", "Combat", "Move combat tagged players back out of SafeZones", true);
+        s.define("combat.blockClaimsWhileTagged", "Combat", "Refuse claiming and unclaiming while combat tagged", true);
 
         // Homes
         s.define("home.warmupSeconds", "Homes", "Teleport warmup in seconds", 5);
@@ -260,6 +263,7 @@ public final class Defaults {
         // Combat
         s.range("combat.tagSeconds", 0, 3600);
         s.range("combat.killRewardPercent", 0, 100);
+        s.choices("combat.useCombatLog", "auto", "off");
         // Homes
         s.range("home.warmupSeconds", 0, 3600);
         s.range("home.cooldownSeconds", 0, 86_400);

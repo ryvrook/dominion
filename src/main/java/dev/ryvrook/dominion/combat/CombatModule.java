@@ -5,14 +5,16 @@ import com.hypixel.hytale.component.system.ISystem;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.DominionModule;
+import dev.ryvrook.dominion.service.CombatTagService;
 import dev.ryvrook.dominion.service.RulesService;
 
 import java.util.function.Supplier;
 import java.util.logging.Level;
 
-/** Protection and PvP rules plus the ECS systems that enforce them. */
+/** Protection and PvP rules, the shared combat tag and the ECS systems that enforce them. */
 public final class CombatModule implements DominionModule {
     private RulesServiceImpl rules;
+    private CombatTags tags;
 
     public CombatModule() {}
 
@@ -25,10 +27,20 @@ public final class CombatModule implements DominionModule {
     public void init(DominionContext ctx) {
         rules = new RulesServiceImpl(ctx);
         ctx.register(RulesService.class, rules);
+        // CombatLog is an optional dependency, so the engine has already set it up when it is installed.
+        CombatLogBridge bridge;
+        try {
+            bridge = CombatLogBridge.discover();
+        } catch (RuntimeException | LinkageError e) {
+            bridge = new CombatLogBridge(null, null, null);
+        }
+        tags = new CombatTags(ctx.settings(), new OwnCombatTag(ctx), bridge);
+        ctx.register(CombatTagService.class, tags);
     }
 
     @Override
     public void start(DominionContext ctx) {
+        ctx.logger().at(Level.INFO).log("%s", tags.status());
         Denials denials = new Denials();
         ComponentRegistryProxy<EntityStore> registry = ctx.plugin().getEntityStoreRegistry();
         register(ctx, registry, () -> new ProtectionSystems.BreakGuard(rules, denials));

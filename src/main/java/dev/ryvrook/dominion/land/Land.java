@@ -10,8 +10,10 @@ import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.FactionAction;
 import dev.ryvrook.dominion.model.FactionType;
 import dev.ryvrook.dominion.model.Member;
+import dev.ryvrook.dominion.model.PlayerData;
 import dev.ryvrook.dominion.model.Rank;
 import dev.ryvrook.dominion.model.Relation;
+import dev.ryvrook.dominion.service.CombatTagService;
 import dev.ryvrook.dominion.service.EconomyService;
 import dev.ryvrook.dominion.service.FactionService;
 import dev.ryvrook.dominion.service.PowerService;
@@ -189,6 +191,26 @@ final class Land {
             return sh.shielded(f, world, chunk);
         } catch (RuntimeException e) {
             ctx.logger().at(Level.WARNING).withCause(e).log("Dominion shield check failed");
+            return false;
+        }
+    }
+
+    /**
+     * The shared combat tag, which includes CombatLog when it is installed and allowed. Falls back
+     * to Dominion's own tag when the combat module is missing. Never throws.
+     */
+    boolean tagged(UUID player) {
+        if (player == null) {
+            return false;
+        }
+        try {
+            CombatTagService tags = ctx.serviceOrNull(CombatTagService.class);
+            if (tags != null) {
+                return tags.tagged(player);
+            }
+            PlayerData pd = ctx.repo().playerIfLoaded(player);
+            return pd != null && pd.combatTagged(Time.now());
+        } catch (RuntimeException e) {
             return false;
         }
     }

@@ -46,8 +46,18 @@ dependencies and is released under the MIT License.
 ### Relations and nations
 
 - Ally, truce, neutral and enemy. Alliances and truces need both sides to agree, with limits on allies and truces, request expiry and PvP rules by relation with friendly fire, ally fire and truce fire switches.
-- A combat tag and an optional bank reward for kills.
+- A combat tag and an optional bank reward for kills. Tagged players cannot use homes, warps or stuck, cannot claim or unclaim land, and are moved back out of SafeZones they walk into.
 - Allied factions can form a nation under one tag with a leading faction, with invites, kicks, leadership transfer and a nation chat channel.
+
+### CombatLog integration
+
+Dominion reads combat tags from [CombatLog](https://www.curseforge.com/hytale/mods/combatlog) by Devify when that mod is installed. A player counts as tagged while either Dominion's own tag or CombatLog's tag runs, and the remaining time shown is the longer of the two. Every combat rule in Dominion uses this shared tag.
+
+- `/f home`, ally homes, warps and `/f stuck` are refused while tagged, and a running teleport warmup is cancelled when the player becomes tagged.
+- A tagged player who walks into a SafeZone is moved back to where they stood and told so (`combat.blockSafeZoneEntry`).
+- Claiming and unclaiming are refused while tagged (`combat.blockClaimsWhileTagged`).
+
+Punishing players who log out in combat stays with CombatLog. Dominion only reads its tag state, through reflection, so it has no compile time dependency on the mod and runs the same without it. Set `combat.useCombatLog` to `off` to ignore CombatLog and use Dominion's own tag only. The start log and `/fa diag` say which tag source is in use.
 
 ### Homes and warps
 
@@ -102,12 +112,12 @@ dependencies and is released under the MIT License.
 ## Requirements
 
 - A Hytale server on 0.7.0 or 0.6.8, dedicated or a singleplayer world.
-- No other mods. VaultUnlocked is optional.
+- No other mods. VaultUnlocked and CombatLog 1.7.0 or newer are optional.
 - JDK 25 only if you build from source.
 
 ## Install
 
-1. Get `DominionFactions-0.2.0.jar` from a release or build it from source and drop it into the Mods folder.
+1. Get `DominionFactions-0.2.1.jar` from a release or build it from source and drop it into the Mods folder.
 
 | Setup | Mods folder |
 | --- | --- |
@@ -174,7 +184,7 @@ dependencies and is released under the MIT License.
 
 ## Configuration
 
-Settings live in `config.json` inside the plugin data folder. There are 156 keys grouped into
+Settings live in `config.json` inside the plugin data folder. There are 162 keys grouped into
 Factions, Power, Land, Raiding, Relations, Combat, Homes, Chat, Economy, Market, Sieges, Shields,
 Events, Progression, Map and Storage. Defaults are defined in
 `src/main/java/dev/ryvrook/dominion/config/Defaults.java`.
@@ -198,6 +208,9 @@ A few keys worth knowing
 | `land.bufferChunks` | `1` | Empty chunks required between factions |
 | `raid.enabled` | `true` | Raiding enabled at all |
 | `raid.combineAny` | `true` | Any raid mode makes a faction raidable, otherwise all |
+| `combat.useCombatLog` | `auto` | `auto` reads combat tags from CombatLog when it is installed, `off` ignores it |
+| `combat.blockSafeZoneEntry` | `true` | Move combat tagged players back out of SafeZones |
+| `combat.blockClaimsWhileTagged` | `true` | Refuse claiming and unclaiming while combat tagged |
 | `eco.provider` | `internal` | `internal`, `vaultunlocked` or `item` |
 | `market.taxPercent` | `5.0` | Faction tax on market sales |
 | `siege.captureMinutes` | `15` | Siege capture time |
@@ -248,7 +261,7 @@ cd dominion
 ./gradlew build -Phytale_channel=release -Phytale_version=0.6.8
 ```
 
-The jar lands in `build/libs/DominionFactions-0.2.0.jar`. To copy it straight into your local Mods folder
+The jar lands in `build/libs/DominionFactions-0.2.1.jar`. To copy it straight into your local Mods folder
 run the `installMod` task, optionally with `-PmodsDir=<path>`.
 
 ```bash
@@ -276,8 +289,8 @@ docs/                                      DEVELOPMENT.md conventions and STATUS
 
 ## Status
 
-Dominion Factions 0.2.0 builds against server 0.7.1 and still compiles on 0.7.0 and 0.6.8, boots headless with all
-22 modules next to Atlas, and has a JUnit suite of 431 tests over money moves, storage, settings, parsers, claims,
+Dominion Factions 0.2.1 builds against server 0.7.1 and still compiles on 0.7.0 and 0.6.8, boots headless with all
+22 modules next to Atlas and next to CombatLog, and has a JUnit suite of 461 tests over money moves, storage, settings, parsers, claims,
 power, membership, relations, nations, sieges, shields, the PvP table, events, missions, the market, shops, homes,
 the importer and the web map snapshot contract. **It has not been played in a game client yet.** The following
 are unverified until someone does.
@@ -287,6 +300,7 @@ are unverified until someone does.
 - Cross world teleports, home respawn, warmup cancellation and command parsing with apostrophes, multiword zone names and custom rank names.
 - Item currency counting, VaultUnlocked class names, owed item delivery, envoy chest placement and console command payouts.
 - Nation chat delivery and importer results against real data from the other mods.
+- Live CombatLog tags blocking homes, claims and SafeZone entry, and the SafeZone push back teleport itself.
 - The tutorial on first join, the first daily backup, truce door refusal and public chat reaching Atlas.
 
 Tab list integration is not possible server side and is out of scope.

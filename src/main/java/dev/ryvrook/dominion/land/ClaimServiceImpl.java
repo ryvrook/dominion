@@ -140,6 +140,9 @@ public final class ClaimServiceImpl implements ClaimService {
         if (!land.can(actor, FactionAction.CLAIM, f)) {
             return Result.fail("Your rank cannot claim land.");
         }
+        if (settings().bool("combat.blockClaimsWhileTagged") && land.tagged(actor)) {
+            return Result.fail("You cannot claim land while in combat.");
+        }
         if (!worldAllowed(world)) {
             return Result.fail("Land cannot be claimed in this world.");
         }
@@ -347,6 +350,9 @@ public final class ClaimServiceImpl implements ClaimService {
             if (!land.can(actor, FactionAction.DISBAND, f)) {
                 return Result.fail("Your rank cannot release all of your land.");
             }
+            if (settings().bool("combat.blockClaimsWhileTagged") && land.tagged(actor)) {
+                return Result.fail("You cannot unclaim land while in combat.");
+            }
             int count = claimCount(f);
             if (count == 0) {
                 return Result.fail("Your faction does not own any land.");
@@ -372,6 +378,9 @@ public final class ClaimServiceImpl implements ClaimService {
         }
         if (!land.can(actor, FactionAction.UNCLAIM, f)) {
             return Result.fail("Your rank cannot unclaim land.");
+        }
+        if (settings().bool("combat.blockClaimsWhileTagged") && land.tagged(actor)) {
+            return Result.fail("You cannot unclaim land while in combat.");
         }
         return null;
     }
@@ -539,7 +548,7 @@ public final class ClaimServiceImpl implements ClaimService {
     // ---- module hooks -----------------------------------------------------
 
     void forget(UUID player) {
-        territory.reset(player);
+        territory.forget(player);
     }
 
     void onEvent(DominionEvent event) {
