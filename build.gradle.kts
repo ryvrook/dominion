@@ -49,6 +49,8 @@ dependencies {
     // Tests run without a server. The server jar is only on the test classpath for bson and the logger.
     testImplementation("com.hypixel.hytale:Server:$hytaleVersion")
     testImplementation(files(coinageJar))
+    // The Atlas jar too, for the bridge over a stand in AtlasApi.
+    testImplementation(files(atlasJar))
     testImplementation(platform("org.junit:junit-bom:5.11.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")

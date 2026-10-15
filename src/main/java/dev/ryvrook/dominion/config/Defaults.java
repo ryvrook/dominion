@@ -380,7 +380,9 @@ public final class Defaults {
         // Integrations brief. Optional links to the sibling mods, read once at start.
         s.define("integrations.tracker", "Integrations", "Publish faction counters to TrackerAPI. auto when installed, always warns when missing, never ignores it", "auto");
         s.define("integrations.feats", "Integrations", "Mirror faction counters to Feats. auto when installed, always warns when missing, never ignores it", "auto");
-        s.define("integrations.atlas", "Integrations", "Push live sieges and the map hide switch to Atlas. auto when installed, always warns when missing, never ignores it", "auto");
+        s.define("integrations.atlas", "Integrations", "Push the map hide switch, and sieges while the snapshot is off, to Atlas. auto when installed, always warns when missing, never ignores it", "auto");
+        s.define("integrations.atlasSiegeTier", "Integrations", "Who sees the Atlas siege layer, set it to Atlas's visibility.territories. Only drawn while export.enabled is off, the snapshot draws sieges otherwise", "public");
+        s.choices("integrations.atlasSiegeTier", "public", "linked", "faction", "admin");
         s.define("integrations.featsAnnounce", "Integrations", "Post Feats unlocks to the player's faction chat", true);
         s.choices("integrations.tracker", "auto", "always", "never");
         s.choices("integrations.feats", "auto", "always", "never");

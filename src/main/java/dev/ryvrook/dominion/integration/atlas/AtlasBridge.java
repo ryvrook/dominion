@@ -30,16 +30,17 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /**
- * Pushes what the map snapshot lacks to Atlas through its API, and keeps the two web map hide switches in step.
+ * Keeps the two web map hide switches in step with Atlas and, while the snapshot export is off, draws the sieges.
  * The only class of Dominion that uses Atlas types, loaded by name once the plugin manager listed Atlas.
  *
- * <p>Atlas already draws claims, homes, warps, siege pins, hills, outposts and envoys from export/snapshot.json, so
- * none of those are sent again. The snapshot pin of a siege has no phase and no end time, so the bridge keeps one
- * live layer, {@code Ryvrook:Dominion:sieges}, with a circle over each besieged chunk whose popup names the phase
- * and when it ends. The layer is redrawn on siege events only and removed when Dominion stops.
+ * <p>Atlas draws claims, homes, warps, siege pins, hills, outposts and envoys from export/snapshot.json, and the
+ * siege pins carry the phase and the phase end, so with export.enabled on nothing is pushed and Atlas drops the
+ * layer anyway. With the export off the bridge keeps one live layer, {@code Ryvrook:Dominion:sieges}, with a circle
+ * over each besieged chunk whose popup names the phase and when it ends, at the tier integrations.atlasSiegeTier
+ * names. The layer is redrawn on siege events and when the export switch flips, and removed when Dominion stops.
  *
- * <p>Atlas has no way to remove its enable and disable hooks, so they stay registered after a stop and do nothing
- * once the stopped flag is set.
+ * <p>Stop removes the Atlas enable and disable hooks through {@code AtlasApi.removeHooks}, looked up by reflection
+ * because Atlas 1.6.0 does not have it. On that Atlas the hooks stay and do nothing once the stopped flag is set.
  */
 public final class AtlasBridge implements Link {
     public static final String PLUGIN_ID = "Ryvrook:Dominion";
@@ -51,6 +52,10 @@ public final class AtlasBridge implements Link {
     private final DominionContext ctx;
     private final Consumer<DominionEvent> listener = this::onEvent;
     private final BiConsumer<UUID, Boolean> toggle = this::onToggle;
+    private final Consumer<AtlasApi> enableHook = this::bind;
+    private final Runnable disableHook = this::unbind;
+    /** The export switch at the last draw, so a flip redraws on the next poll. */
+    private volatile Boolean exportSeen;
     private volatile AtlasApi api;
     private volatile String version;
     private volatile boolean stopped;
@@ -66,8 +71,8 @@ public final class AtlasBridge implements Link {
         host.ctx().bus().subscribe(b.listener);
         PlayerToggles.onWebMap(b.toggle);
         host.ctx().onPlayerReady(b::onReady);
-        AtlasApi.onDisable(b::unbind);
-        AtlasApi.onEnable(b::bind);
+        AtlasApi.onDisable(b.disableHook);
+        AtlasApi.onEnable(b.enableHook);
         return b;
     }
 
@@ -77,14 +82,10 @@ public final class AtlasBridge implements Link {
         }
         api = live;
         version = host.foundVersion();
-        try {
-            live.layer(PLUGIN_ID, SIEGES).label(Messages.get(IntegrationText.ATLAS_LAYER)).tier(Tier.PUBLIC).priority(50);
-        } catch (RuntimeException | LinkageError e) {
-            host.warn(e, "Dominion could not make its Atlas siege layer");
-        }
         redrawSieges();
         int hidden = syncHidden();
-        host.info("Dominion is bound to Atlas " + version + " with a live siege layer and the /f map hide switch"
+        host.info("Dominion is bound to Atlas " + version + " with the /f map hide switch"
+                + (layerWanted() ? " and a live siege layer" : ", the snapshot draws the sieges")
                 + (hidden > 0 ? ", " + hidden + " hidden players passed on" : ""));
     }
 
@@ -103,16 +104,47 @@ public final class AtlasBridge implements Link {
         }
     }
 
-    /** Puts every active siege on the layer and removes the ones that ended. */
+    /** True when the siege layer is drawn, which is only while the snapshot export is off. */
+    boolean layerWanted() {
+        return !ctx.settings().bool("export.enabled");
+    }
+
+    /** The layer tier from integrations.atlasSiegeTier, public for anything Atlas does not know. */
+    static Tier tier(String setting) {
+        Tier t = Tier.parse(setting);
+        return t == null ? Tier.PUBLIC : t;
+    }
+
+    /** Every 5 seconds. Redraws when the export switch flipped since the last draw. */
+    @Override
+    public void poll() {
+        Boolean seen = exportSeen;
+        if (api != null && !stopped && (seen == null || seen != !layerWanted())) {
+            redrawSieges();
+        }
+    }
+
+    /** Puts every active siege on the layer and removes the ones that ended, or removes the layer while the snapshot has them. */
     private synchronized void redrawSieges() {
         AtlasApi a = api;
         if (stopped || a == null) {
             return;
         }
+        boolean wanted = layerWanted();
+        exportSeen = !wanted;
+        if (!wanted) {
+            try {
+                a.removeLayer(PLUGIN_ID, SIEGES);
+            } catch (RuntimeException | LinkageError ignored) {
+                // nothing was drawn
+            }
+            return;
+        }
         try {
             SiegeService sieges = ctx.serviceOrNull(SiegeService.class);
             List<Siege> active = sieges == null ? List.of() : sieges.active();
-            MarkerLayer layer = a.layer(PLUGIN_ID, SIEGES);
+            MarkerLayer layer = a.layer(PLUGIN_ID, SIEGES).label(Messages.get(IntegrationText.ATLAS_LAYER))
+                    .tier(tier(ctx.settings().text("integrations.atlasSiegeTier"))).priority(50);
             Map<String, Set<String>> keep = new HashMap<>();
             int size = Keys.chunkSize();
             ZoneId zone = ZoneId.systemDefault();
@@ -205,6 +237,7 @@ public final class AtlasBridge implements Link {
         stopped = true;
         ctx.bus().unsubscribe(listener);
         PlayerToggles.removeWebMapListener(toggle);
+        removeHooks(enableHook, disableHook);
         AtlasApi a = api;
         api = null;
         if (a != null) {
@@ -213,6 +246,19 @@ public final class AtlasBridge implements Link {
             } catch (RuntimeException | LinkageError ignored) {
                 // Atlas drops its layers itself when it stops
             }
+        }
+    }
+
+    /**
+     * Calls {@code AtlasApi.removeHooks} when the running Atlas has it. Answers false on an Atlas without it, whose
+     * hooks then stay and do nothing.
+     */
+    static boolean removeHooks(Consumer<AtlasApi> enable, Runnable disable) {
+        try {
+            AtlasApi.class.getMethod("removeHooks", Consumer.class, Runnable.class).invoke(null, enable, disable);
+            return true;
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+            return false;
         }
     }
 }

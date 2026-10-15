@@ -1,6 +1,6 @@
 # Dominion settings
 
-Every key in `config.json`, generated from `config/Defaults.java`. There are 255 keys in 21 sections. Change them with `/fa set`, `/fa config` or the settings page, or edit the file and run `/fa reload`. A test fails when this file and the defaults disagree, so after adding a key run `DOMINION_WRITE_DOCS=1 ./gradlew test` to write it again.
+Every key in `config.json`, generated from `config/Defaults.java`. There are 256 keys in 21 sections. Change them with `/fa set`, `/fa config` or the settings page, or edit the file and run `/fa reload`. A test fails when this file and the defaults disagree, so after adding a key run `DOMINION_WRITE_DOCS=1 ./gradlew test` to write it again.
 
 ## Factions
 
@@ -300,7 +300,8 @@ Every key in `config.json`, generated from `config/Defaults.java`. There are 255
 | --- | --- | --- | --- |
 | `integrations.tracker` | `auto` | one of auto, always, never | Publish faction counters to TrackerAPI. auto when installed, always warns when missing, never ignores it |
 | `integrations.feats` | `auto` | one of auto, always, never | Mirror faction counters to Feats. auto when installed, always warns when missing, never ignores it |
-| `integrations.atlas` | `auto` | one of auto, always, never | Push live sieges and the map hide switch to Atlas. auto when installed, always warns when missing, never ignores it |
+| `integrations.atlas` | `auto` | one of auto, always, never | Push the map hide switch, and sieges while the snapshot is off, to Atlas. auto when installed, always warns when missing, never ignores it |
+| `integrations.atlasSiegeTier` | `public` | one of public, linked, faction, admin | Who sees the Atlas siege layer, set it to Atlas's visibility.territories. Only drawn while export.enabled is off, the snapshot draws sieges otherwise |
 | `integrations.featsAnnounce` | `true` | true or false | Post Feats unlocks to the player's faction chat |
 | `integrations.coinage` | `auto` | one of auto, always, never | Link to Coinage for wallets, faction banks, net worth and the market. auto when installed, always warns when missing, never ignores it |
 | `integrations.foundedWindowSeconds` | `60` | 1 to 86400 | Seconds after a faction is created in which its leader is credited as founder |
