@@ -2,6 +2,7 @@ package dev.ryvrook.dominion.economy;
 
 import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.PlayerData;
+import dev.ryvrook.dominion.text.Messages;
 
 import java.util.List;
 import java.util.UUID;
@@ -23,7 +24,6 @@ import java.util.function.Predicate;
  * than changed after its last save.
  */
 final class Books {
-    static final String GONE = "That faction no longer exists";
 
     /** Where internal wallet records come from. */
     interface Wallets {
@@ -148,7 +148,7 @@ final class Books {
     }
 
     private String need(double amount, double have) {
-        return "You need " + format.apply(amount) + " but only have " + format.apply(have);
+        return Messages.get(EconomyText.NEED_HAVE, "amount", format.apply(amount), "have", format.apply(have));
     }
 
     // ---- wallets ------------------------------------------------------------
@@ -156,7 +156,7 @@ final class Books {
     /** Moves between two internal wallets under the ledger lock. */
     String transferInternal(UUID fromId, UUID toId, double amount) {
         if (fromId.equals(toId)) {
-            return "You cannot pay yourself";
+            return Messages.get(EconomyText.PAY_YOURSELF);
         }
         synchronized (lock) {
             return withWallets(fromId, toId, (from, to) -> {
@@ -194,7 +194,7 @@ final class Books {
                     return need(amount, payer.balance());
                 }
                 if (gone.test(f)) {
-                    return GONE;
+                    return Messages.get(EconomyText.FACTION_GONE);
                 }
                 payer.setBalance(Money.round(payer.balance() - amount));
                 synchronized (f) {
@@ -222,7 +222,7 @@ final class Books {
         }
         if (!credited) {
             refund(p, actor, amount, "Refund of a deposit to a disbanded faction", "after their faction was disbanded");
-            return GONE;
+            return Messages.get(EconomyText.FACTION_GONE);
         }
         return null;
     }
@@ -291,11 +291,11 @@ final class Books {
             return limit;
         }
         if (gone.test(f)) {
-            return GONE;
+            return Messages.get(EconomyText.FACTION_GONE);
         }
         synchronized (f) {
             if (!Money.covers(f.bank(), amount)) {
-                return "The bank only holds " + format.apply(f.bank());
+                return Messages.get(EconomyText.BANK_ONLY_HOLDS, "amount", format.apply(f.bank()));
             }
             f.setBank(Money.round(f.bank() - amount));
         }
@@ -311,7 +311,7 @@ final class Books {
         }
         long left = limitCents - WithdrawLimits.usedToday(f, actor);
         if (Money.cents(amount) > left) {
-            return "You can withdraw " + format.apply(Math.max(0, left) / 100.0) + " more today";
+            return Messages.get(EconomyText.WITHDRAW_LEFT_TODAY, "amount", format.apply(Math.max(0, left) / 100.0));
         }
         return null;
     }
@@ -346,14 +346,14 @@ final class Books {
     /** Caller holds the ledger lock. Faction monitors are taken in id order so crossing payments cannot deadlock. */
     private String moveLocked(Faction from, Faction to, double amount) {
         if (gone.test(from) || gone.test(to)) {
-            return GONE;
+            return Messages.get(EconomyText.FACTION_GONE);
         }
         Faction first = from.id().compareTo(to.id()) < 0 ? from : to;
         Faction second = first == from ? to : from;
         synchronized (first) {
             synchronized (second) {
                 if (!Money.covers(from.bank(), amount)) {
-                    return "The bank of " + from.tag() + " only holds " + format.apply(from.bank());
+                    return Messages.get(EconomyText.BANK_OF_ONLY_HOLDS, "faction", from.tag(), "amount", format.apply(from.bank()));
                 }
                 from.setBank(Money.round(from.bank() - amount));
                 to.setBank(Money.round(to.bank() + amount));
@@ -369,8 +369,8 @@ final class Books {
         synchronized (lock) {
             synchronized (f) {
                 if (!Money.covers(f.bank(), amount)) {
-                    return "This costs " + format.apply(amount) + " but the bank of " + f.tag()
-                            + " only holds " + format.apply(f.bank());
+                    return Messages.get(EconomyText.CHARGE_BANK_SHORT, "cost", format.apply(amount), "faction", f.tag(),
+                            "amount", format.apply(f.bank()));
                 }
                 f.setBank(Money.round(f.bank() - amount));
             }
@@ -382,7 +382,7 @@ final class Books {
     String credit(Faction f, double amount) {
         synchronized (lock) {
             if (gone.test(f)) {
-                return GONE;
+                return Messages.get(EconomyText.FACTION_GONE);
             }
             synchronized (f) {
                 f.setBank(Money.round(f.bank() + amount));

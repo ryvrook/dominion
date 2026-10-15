@@ -4,6 +4,7 @@ import com.hypixel.hytale.server.core.plugin.PluginBase;
 import com.hypixel.hytale.server.core.plugin.PluginManager;
 import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.api.Result;
+import dev.ryvrook.dominion.text.Messages;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -287,14 +288,14 @@ final class VaultUnlockedBridge implements BalanceProvider {
     public Result withdraw(UUID player, double amount, String reason) {
         double have = balance(player);
         if (!Money.covers(have, amount)) {
-            return Result.fail("You need " + format.apply(amount) + " but only have " + format.apply(have));
+            return Result.fail(Messages.get(EconomyText.NEED_HAVE, "amount", format.apply(amount), "have", format.apply(have)));
         }
-        return move(withdraw, player, amount, "The payment was refused by the economy");
+        return move(withdraw, player, amount, Messages.get(EconomyText.PAYMENT_REFUSED));
     }
 
     @Override
     public Result deposit(UUID player, double amount, String reason) {
-        return move(deposit, player, amount, "The economy did not accept the payment");
+        return move(deposit, player, amount, Messages.get(EconomyText.PAYMENT_NOT_ACCEPTED));
     }
 
     @Override
@@ -318,7 +319,7 @@ final class VaultUnlockedBridge implements BalanceProvider {
             return success(r) ? Result.pass() : Result.fail(errorOf(r, refused));
         } catch (ReflectiveOperationException | RuntimeException e) {
             warn(e);
-            return Result.fail("The economy is not responding right now");
+            return Result.fail(Messages.get(EconomyText.NOT_RESPONDING));
         }
     }
 

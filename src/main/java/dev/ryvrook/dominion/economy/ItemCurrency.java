@@ -10,6 +10,7 @@ import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.api.Result;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Players;
 import org.bson.Document;
@@ -120,7 +121,7 @@ final class ItemCurrency implements BalanceProvider {
         }
         PlayerRef ref = Players.online(player);
         if (ref == null) {
-            return Result.fail("You need to be online to pay with items");
+            return Result.fail(Messages.get(EconomyText.ITEMS_ONLINE));
         }
         String id = itemId();
         int[] have = { -1 };
@@ -139,10 +140,10 @@ final class ItemCurrency implements BalanceProvider {
             lastKnown.put(player, have[0]);
         }
         if (ok == null) {
-            return Result.fail("Your inventory could not be read right now. Try again in a moment");
+            return Result.fail(Messages.get(EconomyText.INVENTORY_UNREADABLE));
         }
         if (!ok) {
-            return Result.fail("You need " + format.apply(need) + " but only carry " + format.apply(Math.max(0, have[0])));
+            return Result.fail(Messages.get(EconomyText.NEED_CARRY, "amount", format.apply(need), "have", format.apply(Math.max(0, have[0]))));
         }
         double change = need - amount;
         if (change > EPSILON) {
@@ -239,8 +240,7 @@ final class ItemCurrency implements BalanceProvider {
                 lastKnown.put(player, count(c, id));
             }
             if (left > 0 && c != null) {
-                Msg.send(ref, Msg.warn("Your inventory is full. " + format.apply(left)
-                        + " more will arrive when you log in again or receive another payment"));
+                Msg.send(ref, Msg.warn(Messages.get(EconomyText.INVENTORY_FULL, "amount", format.apply(left))));
             }
         });
     }

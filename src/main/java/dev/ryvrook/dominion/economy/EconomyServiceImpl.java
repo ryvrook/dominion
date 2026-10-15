@@ -9,6 +9,8 @@ import dev.ryvrook.dominion.model.Member;
 import dev.ryvrook.dominion.model.PlayerData;
 import dev.ryvrook.dominion.service.EconomyService;
 import dev.ryvrook.dominion.service.FactionService;
+import dev.ryvrook.dominion.text.CommonText;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.util.Time;
 
 import java.util.ArrayList;
@@ -28,7 +30,6 @@ import java.util.logging.Level;
  * providers are only called outside the ledger lock, so a slow provider never stalls the banks.
  */
 public final class EconomyServiceImpl implements EconomyService {
-    static final String DISABLED = "The economy is disabled";
 
     private final DominionContext ctx;
     private final Object lock = new Object();
@@ -92,7 +93,7 @@ public final class EconomyServiceImpl implements EconomyService {
             return check;
         }
         Result r = provider().deposit(player, amount, reason);
-        return r.failed() ? r : Result.pass("Received " + format(amount));
+        return r.failed() ? r : Result.pass(Messages.get(EconomyText.RECEIVED, "amount", format(amount)));
     }
 
     @Override
@@ -102,7 +103,7 @@ public final class EconomyServiceImpl implements EconomyService {
             return check;
         }
         Result r = provider().withdraw(player, amount, reason);
-        return r.failed() ? r : Result.pass("Paid " + format(amount));
+        return r.failed() ? r : Result.pass(Messages.get(EconomyText.PAID, "amount", format(amount)));
     }
 
     @Override
@@ -112,13 +113,13 @@ public final class EconomyServiceImpl implements EconomyService {
             return check;
         }
         if (from.equals(to)) {
-            return Result.fail("You cannot pay yourself");
+            return Result.fail(Messages.get(EconomyText.PAY_YOURSELF));
         }
         BalanceProvider p = provider();
         String failed = p == internal
                 ? books.transferInternal(from, to, amount)
                 : books.transferExternal(p, from, to, amount, reason);
-        return failed != null ? Result.fail(failed) : Result.pass("Sent " + format(amount));
+        return failed != null ? Result.fail(failed) : Result.pass(Messages.get(EconomyText.SENT, "amount", format(amount)));
     }
 
     @Override
@@ -129,10 +130,10 @@ public final class EconomyServiceImpl implements EconomyService {
         }
         Faction f = factions().factionOf(actor);
         if (f == null) {
-            return Result.fail("You are not in a faction");
+            return Result.fail(Messages.get(CommonText.NOT_IN_FACTION));
         }
         if (!factions().can(actor, FactionAction.DEPOSIT)) {
-            return Result.fail("Your rank cannot deposit to the bank");
+            return Result.fail(Messages.get(EconomyText.RANK_NO_DEPOSIT));
         }
         BalanceProvider p = provider();
         String failed = p == internal
@@ -141,9 +142,9 @@ public final class EconomyServiceImpl implements EconomyService {
         if (failed != null) {
             return Result.fail(failed);
         }
-        bankChanged(f, actor, "Deposited " + format(amount));
+        bankChanged(f, actor, Messages.get(EconomyText.DEPOSITED_LOG, "amount", format(amount)));
         ctx.bus().publish(new DominionEvent.BankDeposited(f.id(), actor, amount));
-        return Result.pass("Deposited " + format(amount) + " to the bank");
+        return Result.pass(Messages.get(EconomyText.DEPOSITED, "amount", format(amount)));
     }
 
     @Override
@@ -165,8 +166,8 @@ public final class EconomyServiceImpl implements EconomyService {
         if (failed != null) {
             return Result.fail(failed);
         }
-        bankChanged(f, actor, "Withdrew " + format(amount));
-        return Result.pass("Withdrew " + format(amount) + " from the bank");
+        bankChanged(f, actor, Messages.get(EconomyText.WITHDREW_LOG, "amount", format(amount)));
+        return Result.pass(Messages.get(EconomyText.WITHDREW, "amount", format(amount)));
     }
 
     @Override
@@ -182,18 +183,18 @@ public final class EconomyServiceImpl implements EconomyService {
         }
         Faction target = factions().byTag(targetTag);
         if (target == null) {
-            return Result.fail("No faction has that tag");
+            return Result.fail(Messages.get(EconomyText.NO_FACTION_WITH_TAG));
         }
         if (target.id().equals(f.id())) {
-            return Result.fail("You cannot pay your own faction");
+            return Result.fail(Messages.get(EconomyText.PAY_OWN_FACTION));
         }
         String failed = books.pay(f, target, actor, amount, limitCents(f, actor));
         if (failed != null) {
             return Result.fail(failed);
         }
-        bankChanged(f, actor, "Paid " + format(amount) + " to " + target.tag());
-        bankChanged(target, actor, "Received " + format(amount) + " from " + f.tag());
-        return Result.pass("Paid " + format(amount) + " to " + target.tag());
+        bankChanged(f, actor, Messages.get(EconomyText.PAID_TO, "amount", format(amount), "faction", target.tag()));
+        bankChanged(target, actor, Messages.get(EconomyText.RECEIVED_FROM, "amount", format(amount), "faction", f.tag()));
+        return Result.pass(Messages.get(EconomyText.PAID_TO, "amount", format(amount), "faction", target.tag()));
     }
 
     @Override
@@ -281,7 +282,7 @@ public final class EconomyServiceImpl implements EconomyService {
 
     private Result validate(double amount) {
         if (!enabled()) {
-            return Result.fail(DISABLED);
+            return Result.fail(Messages.get(EconomyText.DISABLED));
         }
         String reason = Money.invalid(amount);
         return reason == null ? null : Result.fail(reason);
@@ -294,21 +295,21 @@ public final class EconomyServiceImpl implements EconomyService {
             return r;
         }
         if (provider().wholeUnits() && Math.abs(amount - Math.rint(amount)) > 1e-6) {
-            return Result.fail("Only whole amounts can be moved because the currency is an item");
+            return Result.fail(Messages.get(EconomyText.WHOLE_AMOUNTS));
         }
         return null;
     }
 
     private Result withdrawDenied(Faction f, UUID actor) {
         if (f == null) {
-            return Result.fail("You are not in a faction");
+            return Result.fail(Messages.get(CommonText.NOT_IN_FACTION));
         }
         Member m = f.member(actor);
         if (m != null && !actor.equals(f.leader()) && m.onHold(Time.now())) {
-            return Result.fail("New members cannot withdraw until their hold ends in " + Time.remaining(m.holdUntil() - Time.now()));
+            return Result.fail(Messages.get(EconomyText.NEW_MEMBER_HOLD, "time", Time.remaining(m.holdUntil() - Time.now())));
         }
         if (!factions().can(actor, FactionAction.WITHDRAW)) {
-            return Result.fail("Your rank cannot withdraw from the bank");
+            return Result.fail(Messages.get(EconomyText.RANK_NO_WITHDRAW));
         }
         return null;
     }
@@ -337,7 +338,7 @@ public final class EconomyServiceImpl implements EconomyService {
     @Override
     public Result bankCharge(Faction faction, double amount, String reason) {
         if (faction == null) {
-            return Result.fail("There is no faction to charge");
+            return Result.fail(Messages.get(EconomyText.NO_FACTION_TO_CHARGE));
         }
         double a = Money.round(amount);
         Result check = validate(a);
@@ -348,14 +349,14 @@ public final class EconomyServiceImpl implements EconomyService {
         if (failed != null) {
             return Result.fail(failed);
         }
-        bankChanged(faction, null, "Paid " + format(a) + " for " + describe(reason));
-        return Result.pass("Paid " + format(a) + " from the bank of " + faction.tag());
+        bankChanged(faction, null, Messages.get(EconomyText.PAID_FOR, "amount", format(a), "reason", describe(reason)));
+        return Result.pass(Messages.get(EconomyText.PAID_FROM_BANK, "amount", format(a), "faction", faction.tag()));
     }
 
     @Override
     public Result bankCredit(Faction faction, double amount, String reason) {
         if (faction == null) {
-            return Result.fail("There is no faction to pay");
+            return Result.fail(Messages.get(EconomyText.NO_FACTION_TO_PAY));
         }
         double a = Money.round(amount);
         Result check = validate(a);
@@ -366,8 +367,8 @@ public final class EconomyServiceImpl implements EconomyService {
         if (failed != null) {
             return Result.fail(failed);
         }
-        bankChanged(faction, null, "Received " + format(a) + " for " + describe(reason));
-        return Result.pass("Added " + format(a) + " to the bank of " + faction.tag());
+        bankChanged(faction, null, Messages.get(EconomyText.RECEIVED_FOR, "amount", format(a), "reason", describe(reason)));
+        return Result.pass(Messages.get(EconomyText.ADDED_TO_BANK, "amount", format(a), "faction", faction.tag()));
     }
 
     @Override
@@ -377,7 +378,7 @@ public final class EconomyServiceImpl implements EconomyService {
         }
         double held = books.drain(faction);
         if (held != 0) {
-            bankChanged(faction, null, "Emptied the bank of " + format(held) + " for " + describe(reason));
+            bankChanged(faction, null, Messages.get(EconomyText.EMPTIED_FOR, "amount", format(held), "reason", describe(reason)));
         }
         return held;
     }
@@ -385,10 +386,10 @@ public final class EconomyServiceImpl implements EconomyService {
     @Override
     public Result bankTransfer(Faction from, Faction to, double amount, String reason) {
         if (from == null || to == null) {
-            return Result.fail("Both factions must exist");
+            return Result.fail(Messages.get(EconomyText.BOTH_MUST_EXIST));
         }
         if (from.id().equals(to.id())) {
-            return Result.fail("A faction cannot pay itself");
+            return Result.fail(Messages.get(EconomyText.PAY_ITSELF));
         }
         double a = Money.round(amount);
         Result check = validate(a);
@@ -400,9 +401,9 @@ public final class EconomyServiceImpl implements EconomyService {
             return Result.fail(failed);
         }
         String why = describe(reason);
-        bankChanged(from, null, "Paid " + format(a) + " to " + to.tag() + " for " + why);
-        bankChanged(to, null, "Received " + format(a) + " from " + from.tag() + " for " + why);
-        return Result.pass("Moved " + format(a) + " from " + from.tag() + " to " + to.tag());
+        bankChanged(from, null, Messages.get(EconomyText.PAID_TO_FOR, "amount", format(a), "faction", to.tag(), "reason", why));
+        bankChanged(to, null, Messages.get(EconomyText.RECEIVED_FROM_FOR, "amount", format(a), "faction", from.tag(), "reason", why));
+        return Result.pass(Messages.get(EconomyText.MOVED, "amount", format(a), "from", from.tag(), "to", to.tag()));
     }
 
     @Override
@@ -435,7 +436,7 @@ public final class EconomyServiceImpl implements EconomyService {
     }
 
     private static String describe(String reason) {
-        return reason == null || reason.isBlank() ? "an unnamed reason" : reason.strip();
+        return reason == null || reason.isBlank() ? Messages.get(EconomyText.UNNAMED_REASON) : reason.strip();
     }
 
     // ---- provider selection ---------------------------------------------------

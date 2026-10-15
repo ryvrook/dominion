@@ -5,6 +5,7 @@ import dev.ryvrook.dominion.config.Settings;
 import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.Member;
 import dev.ryvrook.dominion.model.PlayerData;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.util.Players;
 
 import java.util.ArrayList;
@@ -68,10 +69,9 @@ final class DailyEconomy {
             total = books.duesExternal(provider, f, ids, dues, missed);
         }
         if (total > 0 || missed[0] > 0) {
-            String text = "Collected " + svc.format(total) + " in daily dues";
-            if (missed[0] > 0) {
-                text += " and " + missed[0] + (missed[0] == 1 ? " member" : " members") + " could not pay in full";
-            }
+            String text = missed[0] == 0 ? Messages.get(EconomyText.DUES_COLLECTED, "amount", svc.format(total))
+                    : missed[0] == 1 ? Messages.get(EconomyText.DUES_COLLECTED_ONE_MISSED, "amount", svc.format(total))
+                    : Messages.get(EconomyText.DUES_COLLECTED_MISSED, "amount", svc.format(total), "count", missed[0]);
             svc.bankChanged(f, null, text);
         }
     }
@@ -86,14 +86,22 @@ final class DailyEconomy {
         Books.Upkeep u = books.upkeep(f, cost);
         if (u.paid()) {
             resetUnpaid(f);
-            svc.bankChanged(f, null, "Paid " + svc.format(cost) + " upkeep for " + claims + (claims == 1 ? " claim" : " claims"));
+            svc.bankChanged(f, null, claims == 1
+                    ? Messages.get(EconomyText.UPKEEP_PAID_ONE, "amount", svc.format(cost))
+                    : Messages.get(EconomyText.UPKEEP_PAID, "amount", svc.format(cost), "claims", claims));
         } else {
             long days = f.addStat(UPKEEP_UNPAID, 1);
-            String behind = days + (days == 1 ? " day" : " days") + " behind";
-            svc.bankChanged(f, null, u.taken() > 0
-                    ? "Upkeep of " + svc.format(cost) + " was not paid in full. The bank gave the " + svc.format(u.taken())
-                            + " it held and is now " + behind
-                    : "Upkeep of " + svc.format(cost) + " was not paid. The bank is now " + behind);
+            String text;
+            if (u.taken() > 0) {
+                text = days == 1
+                        ? Messages.get(EconomyText.UPKEEP_PARTIAL_ONE_DAY, "amount", svc.format(cost), "taken", svc.format(u.taken()))
+                        : Messages.get(EconomyText.UPKEEP_PARTIAL, "amount", svc.format(cost), "taken", svc.format(u.taken()), "days", days);
+            } else {
+                text = days == 1
+                        ? Messages.get(EconomyText.UPKEEP_UNPAID_ONE_DAY, "amount", svc.format(cost))
+                        : Messages.get(EconomyText.UPKEEP_UNPAID, "amount", svc.format(cost), "days", days);
+            }
+            svc.bankChanged(f, null, text);
         }
     }
 
@@ -125,7 +133,7 @@ final class DailyEconomy {
         if (interest <= 0) {
             return;
         }
-        svc.bankChanged(f, null, "Earned " + svc.format(interest) + " in interest");
+        svc.bankChanged(f, null, Messages.get(EconomyText.INTEREST_EARNED, "amount", svc.format(interest)));
     }
 
     /**

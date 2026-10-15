@@ -1,5 +1,7 @@
 package dev.ryvrook.dominion.economy;
 
+import dev.ryvrook.dominion.text.Messages;
+
 import java.util.Locale;
 
 /** Amount validation, rounding and display. */
@@ -16,17 +18,17 @@ final class Money {
     /** Null when the amount is a positive number with at most two decimals, otherwise the reason. */
     static String invalid(double amount) {
         if (Double.isNaN(amount) || Double.isInfinite(amount)) {
-            return "That is not a valid amount";
+            return Messages.get(EconomyText.INVALID_AMOUNT);
         }
         if (amount <= 0) {
-            return "The amount must be more than zero";
+            return Messages.get(EconomyText.AMOUNT_NOT_POSITIVE);
         }
         double cents = amount * 100.0;
         if (Math.abs(cents - Math.rint(cents)) > EPSILON) {
-            return "Amounts can have at most two decimals";
+            return Messages.get(EconomyText.AMOUNT_TWO_DECIMALS);
         }
         if (amount >= 1e12) {
-            return "That amount is too large";
+            return Messages.get(EconomyText.AMOUNT_TOO_LARGE);
         }
         return null;
     }

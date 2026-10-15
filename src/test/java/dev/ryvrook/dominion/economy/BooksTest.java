@@ -3,6 +3,7 @@ package dev.ryvrook.dominion.economy;
 import dev.ryvrook.dominion.api.Result;
 import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.PlayerData;
+import dev.ryvrook.dominion.text.Messages;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -145,7 +146,7 @@ class BooksTest {
         PlayerData p = player(10);
         Faction f = faction(0);
         gone.add(f.id());
-        assertEquals(Books.GONE, books.depositInternal(p.uuid(), f, 5));
+        assertEquals(Messages.get(EconomyText.FACTION_GONE), books.depositInternal(p.uuid(), f, 5));
         assertEquals(10, p.balance());
         assertEquals(0, f.bank());
     }
@@ -157,7 +158,7 @@ class BooksTest {
         w.set(actor, 10);
         Faction f = faction(0);
         gone.add(f.id());
-        assertEquals(Books.GONE, books.depositExternal(w, actor, f, 4));
+        assertEquals(Messages.get(EconomyText.FACTION_GONE), books.depositExternal(w, actor, f, 4));
         assertEquals(10, w.balance(actor));
         assertEquals(0, f.bank());
         assertTrue(severe.isEmpty());
@@ -290,7 +291,7 @@ class BooksTest {
         assertEquals(0, a.bank());
         assertEquals(10, b.bank());
         gone.add(a.id());
-        assertEquals(Books.GONE, books.move(b, a, 1));
+        assertEquals(Messages.get(EconomyText.FACTION_GONE), books.move(b, a, 1));
         assertEquals(10, b.bank());
     }
 
@@ -305,7 +306,7 @@ class BooksTest {
         assertEquals(7.25, books.drain(f));
         assertEquals(0, f.bank());
         gone.add(f.id());
-        assertEquals(Books.GONE, books.credit(f, 1));
+        assertEquals(Messages.get(EconomyText.FACTION_GONE), books.credit(f, 1));
     }
 
     @Test

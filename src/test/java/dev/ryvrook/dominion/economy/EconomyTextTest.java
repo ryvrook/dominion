@@ -1,0 +1,68 @@
+package dev.ryvrook.dominion.economy;
+
+import dev.ryvrook.dominion.text.TextClassCheck;
+import org.junit.jupiter.api.Test;
+
+class EconomyTextTest {
+    @Test
+    void everyIdIsDefinedOnceWithItsPlaceholders() throws Exception {
+        TextClassCheck.check(EconomyText.class, "economy", TextClassCheck.expect(
+                EconomyText.DISABLED, "",
+                EconomyText.FACTION_GONE, "",
+                EconomyText.NEED_HAVE, "amount have",
+                EconomyText.NEED_CARRY, "amount have",
+                EconomyText.PAY_YOURSELF, "",
+                EconomyText.BANK_ONLY_HOLDS, "amount",
+                EconomyText.WITHDRAW_LEFT_TODAY, "amount",
+                EconomyText.BANK_OF_ONLY_HOLDS, "amount faction",
+                EconomyText.CHARGE_BANK_SHORT, "amount cost faction",
+                EconomyText.INVALID_AMOUNT, "",
+                EconomyText.AMOUNT_NOT_POSITIVE, "",
+                EconomyText.AMOUNT_TWO_DECIMALS, "",
+                EconomyText.AMOUNT_TOO_LARGE, "",
+                EconomyText.ITEMS_ONLINE, "",
+                EconomyText.INVENTORY_UNREADABLE, "",
+                EconomyText.INVENTORY_FULL, "amount",
+                EconomyText.WHOLE_AMOUNTS, "",
+                EconomyText.PAYMENT_REFUSED, "",
+                EconomyText.PAYMENT_NOT_ACCEPTED, "",
+                EconomyText.NOT_RESPONDING, "",
+                EconomyText.RECEIVED, "amount",
+                EconomyText.PAID, "amount",
+                EconomyText.SENT, "amount",
+                EconomyText.RANK_NO_DEPOSIT, "",
+                EconomyText.RANK_NO_WITHDRAW, "",
+                EconomyText.NEW_MEMBER_HOLD, "time",
+                EconomyText.DEPOSITED_LOG, "amount",
+                EconomyText.DEPOSITED, "amount",
+                EconomyText.WITHDREW_LOG, "amount",
+                EconomyText.WITHDREW, "amount",
+                EconomyText.NO_FACTION_WITH_TAG, "",
+                EconomyText.PAY_OWN_FACTION, "",
+                EconomyText.PAID_TO, "amount faction",
+                EconomyText.RECEIVED_FROM, "amount faction",
+                EconomyText.NO_FACTION_TO_CHARGE, "",
+                EconomyText.PAID_FOR, "amount reason",
+                EconomyText.PAID_FROM_BANK, "amount faction",
+                EconomyText.NO_FACTION_TO_PAY, "",
+                EconomyText.RECEIVED_FOR, "amount reason",
+                EconomyText.ADDED_TO_BANK, "amount faction",
+                EconomyText.EMPTIED_FOR, "amount reason",
+                EconomyText.BOTH_MUST_EXIST, "",
+                EconomyText.PAY_ITSELF, "",
+                EconomyText.PAID_TO_FOR, "amount faction reason",
+                EconomyText.RECEIVED_FROM_FOR, "amount faction reason",
+                EconomyText.MOVED, "amount from to",
+                EconomyText.UNNAMED_REASON, "",
+                EconomyText.DUES_COLLECTED, "amount",
+                EconomyText.DUES_COLLECTED_ONE_MISSED, "amount",
+                EconomyText.DUES_COLLECTED_MISSED, "amount count",
+                EconomyText.UPKEEP_PAID_ONE, "amount",
+                EconomyText.UPKEEP_PAID, "amount claims",
+                EconomyText.UPKEEP_PARTIAL_ONE_DAY, "amount taken",
+                EconomyText.UPKEEP_PARTIAL, "amount days taken",
+                EconomyText.UPKEEP_UNPAID_ONE_DAY, "amount",
+                EconomyText.UPKEEP_UNPAID, "amount days",
+                EconomyText.INTEREST_EARNED, "amount"));
+    }
+}
