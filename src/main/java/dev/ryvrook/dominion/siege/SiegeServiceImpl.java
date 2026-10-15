@@ -574,8 +574,8 @@ public final class SiegeServiceImpl implements SiegeService {
         publishBreach(siege, true);
         String where = Keys.describe(siege.chunkIndex());
         FactionService fs = ctx.service(FactionService.class);
-        fs.audit(attacker, null, "Server", "siege", Messages.get(SiegeText.AUDIT_BREACHED, "faction", defender.tag(), "chunk", where));
-        fs.audit(defender, null, "Server", "siege", Messages.get(SiegeText.AUDIT_WE_WERE_BREACHED, "faction", attacker.tag(), "chunk", where));
+        fs.audit(attacker, null, Messages.get(SiegeText.SERVER), "siege", Messages.get(SiegeText.AUDIT_BREACHED, "faction", defender.tag(), "chunk", where));
+        fs.audit(defender, null, Messages.get(SiegeText.SERVER), "siege", Messages.get(SiegeText.AUDIT_WE_WERE_BREACHED, "faction", attacker.tag(), "chunk", where));
         phaseChanged(siege, attacker, defender);
     }
 
@@ -629,8 +629,8 @@ public final class SiegeServiceImpl implements SiegeService {
         }
         defender.addStat("siegesDefended", 1);
         FactionService fs = ctx.service(FactionService.class);
-        fs.audit(defender, null, "Server", "siege", Messages.get(SiegeText.AUDIT_HELD_OFF, "faction", attacker.tag()));
-        fs.audit(attacker, null, "Server", "siege", Messages.get(SiegeText.AUDIT_THEY_HELD_OFF, "faction", defender.tag()));
+        fs.audit(defender, null, Messages.get(SiegeText.SERVER), "siege", Messages.get(SiegeText.AUDIT_HELD_OFF, "faction", attacker.tag()));
+        fs.audit(attacker, null, Messages.get(SiegeText.SERVER), "siege", Messages.get(SiegeText.AUDIT_THEY_HELD_OFF, "faction", defender.tag()));
     }
 
     private void expire(Siege siege, Faction attacker, Faction defender) {
@@ -655,9 +655,9 @@ public final class SiegeServiceImpl implements SiegeService {
                 ctx.logger().at(Level.WARNING).withCause(e).log("Progress update for a siege failed");
             }
         }
-        fs.audit(attacker, null, "Server", "siege", Messages.get(SiegeText.AUDIT_WON, "faction", defender.tag(),
+        fs.audit(attacker, null, Messages.get(SiegeText.SERVER), "siege", Messages.get(SiegeText.AUDIT_WON, "faction", defender.tag(),
                 "blocks", siege.blocksBroken(), "containers", siege.containersOpened()));
-        fs.audit(defender, null, "Server", "siege", Messages.get(SiegeText.AUDIT_LOST, "faction", attacker.tag()));
+        fs.audit(defender, null, Messages.get(SiegeText.SERVER), "siege", Messages.get(SiegeText.AUDIT_LOST, "faction", attacker.tag()));
     }
 
     /**

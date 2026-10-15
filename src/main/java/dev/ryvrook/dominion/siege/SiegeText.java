@@ -6,6 +6,7 @@ import dev.ryvrook.dominion.text.Messages;
 public final class SiegeText {
     private SiegeText() {}
 
+    public static final String SERVER = Messages.define("siege.server", "Server");
     public static final String MEMBERS_ONE = Messages.define("siege.membersOne", "{count} member");
     public static final String MEMBERS_MANY = Messages.define("siege.membersMany", "{count} members");
     public static final String ATTACKERS_ONE = Messages.define("siege.attackersOne", "{count} attacker");
