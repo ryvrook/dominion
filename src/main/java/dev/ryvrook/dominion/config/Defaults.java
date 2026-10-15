@@ -1,5 +1,7 @@
 package dev.ryvrook.dominion.config;
 
+import dev.ryvrook.dominion.text.Palette;
+
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -469,6 +471,33 @@ public final class Defaults {
         s.define("ui.maxDots", "Interface", "Most level dots drawn for an upgrade, the markup has ten", 10);
         s.range("ui.maxDots", 1, 10);
         s.define("ui.bannerIcon", "Interface", "Item whose icon decorates the territory banner", "Furniture_Flag_Small_Red");
+
+        colors(s);
+    }
+
+    /** Colours as #rrggbb. Chat, the panel, the sidebar, banners and the world map overlay read them live. */
+    private static void colors(Settings s) {
+        String[][] colors = {
+                {"colors.own", "Your own faction and its land"},
+                {"colors.ally", "Allies"},
+                {"colors.truce", "Truces"},
+                {"colors.neutral", "Neutral factions"},
+                {"colors.enemy", "Enemies"},
+                {"colors.safeZone", "SafeZone land"},
+                {"colors.warZone", "WarZone land"},
+                {"colors.wilderness", "Unclaimed land"},
+                {"colors.accent", "The Dominion prefix in chat"},
+                {"colors.text", "Normal message text"},
+                {"colors.muted", "Hints and secondary text"},
+                {"colors.good", "Success messages"},
+                {"colors.bad", "Refusals and errors"},
+                {"colors.warn", "Warnings"},
+                {"colors.info", "Information"},
+        };
+        for (String[] c : colors) {
+            s.define(c[0], "Colours", c[1] + ", as #rrggbb", Palette.DEFAULTS.get(c[0]));
+            s.pattern(c[0], "#[0-9a-fA-F]{6}", "a colour written as #rrggbb");
+        }
     }
 
     /** Names of the presets in the order the admin page lists them. */

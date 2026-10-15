@@ -14,7 +14,7 @@ import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.model.ClaimEntry;
 import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.FactionType;
-import dev.ryvrook.dominion.text.Msg;
+import dev.ryvrook.dominion.text.Palette;
 import dev.ryvrook.dominion.util.Keys;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
@@ -40,8 +40,6 @@ import java.util.logging.Level;
  * faction changes.
  */
 public final class MapOverlay {
-    static final String SAFEZONE_COLOR = Msg.GOLD;
-    static final String WARZONE_COLOR = "#e0413c";
     static final String FALLBACK_COLOR = "#7fd6ff";
     /** How many refresh ticks later a cleared batch is cleared once more, for images drawn mid change. */
     private static final int ECHO_TICKS = 2;
@@ -173,9 +171,9 @@ public final class MapOverlay {
     static int rgbOf(Faction f) {
         String hex;
         if (f.type() == FactionType.SAFEZONE) {
-            hex = SAFEZONE_COLOR;
+            hex = Palette.safeZone();
         } else if (f.type() == FactionType.WARZONE) {
-            hex = WARZONE_COLOR;
+            hex = Palette.warZone();
         } else {
             String c = f.color();
             hex = c != null && c.matches("#[0-9a-fA-F]{6}") ? c : FALLBACK_COLOR;

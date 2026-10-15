@@ -22,6 +22,7 @@ import dev.ryvrook.dominion.service.RelationService;
 import dev.ryvrook.dominion.service.ShieldService;
 import dev.ryvrook.dominion.storage.Repository;
 import dev.ryvrook.dominion.text.Msg;
+import dev.ryvrook.dominion.text.Palette;
 import dev.ryvrook.dominion.util.Players;
 import dev.ryvrook.dominion.util.Time;
 
@@ -34,9 +35,18 @@ import java.util.logging.Level;
  * when a module is missing. Never resolves a service before it is needed.
  */
 final class Land {
-    static final String WILDERNESS = "#6b7280";
-    static final String SAFEZONE = Msg.GOLD;
-    static final String WARZONE = "#e0413c";
+    // Refreshed from the colors settings by Palette, so they are not final.
+    static volatile String WILDERNESS = Palette.wilderness();
+    static volatile String SAFEZONE = Palette.safeZone();
+    static volatile String WARZONE = Palette.warZone();
+
+    static {
+        Palette.onChange(() -> {
+            WILDERNESS = Palette.wilderness();
+            SAFEZONE = Palette.safeZone();
+            WARZONE = Palette.warZone();
+        });
+    }
     static final String YOU = "#ffffff";
 
     final DominionContext ctx;

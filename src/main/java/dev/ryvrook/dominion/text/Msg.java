@@ -10,13 +10,15 @@ import com.hypixel.hytale.server.core.universe.PlayerRef;
 public final class Msg {
     private Msg() {}
 
-    public static final String GOLD = "#E8A93B";
-    public static final String MUTED = "#96a9be";
-    public static final String TEXT = "#d3d6db";
-    public static final String GOOD = "#5fd37a";
-    public static final String BAD = "#ff6b6b";
-    public static final String WARN = "#ffb347";
-    public static final String INFO = "#7aa7e6";
+    // Not final on purpose. Palette refreshes them from the colors settings, and javac would inline a
+    // final String constant into every caller, which would keep the old colour there.
+    public static volatile String GOLD = Palette.DEFAULTS.get("colors.accent");
+    public static volatile String MUTED = Palette.DEFAULTS.get("colors.muted");
+    public static volatile String TEXT = Palette.DEFAULTS.get("colors.text");
+    public static volatile String GOOD = Palette.DEFAULTS.get("colors.good");
+    public static volatile String BAD = Palette.DEFAULTS.get("colors.bad");
+    public static volatile String WARN = Palette.DEFAULTS.get("colors.warn");
+    public static volatile String INFO = Palette.DEFAULTS.get("colors.info");
 
     public static Message prefix() {
         return Message.raw("Dominion ").color(GOLD).bold(true);
