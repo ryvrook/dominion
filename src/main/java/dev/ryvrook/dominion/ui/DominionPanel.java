@@ -24,6 +24,7 @@ import dev.ryvrook.dominion.service.EconomyService;
 import dev.ryvrook.dominion.service.HomeService;
 import dev.ryvrook.dominion.service.PowerService;
 import dev.ryvrook.dominion.service.RelationService;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.ui.Body.Btn;
 import dev.ryvrook.dominion.util.Keys;
@@ -62,13 +63,13 @@ public final class DominionPanel extends DominionPage {
      * These must match the defaults the rules and combat code read.
      */
     private static final String[][] TOGGLES = {
-            {"open", "false", "Anyone can join without an invite"},
-            {"friendlyFire", "combat.friendlyFireDefault", "Members can hurt each other"},
-            {"allyBuild", "relation.allyBuildDefault", "Allies can build in your land"},
-            {"truceInteract", "relation.truceInteractDefault", "Truces can use doors in your land"},
-            {"allyHome", "false", "Allies can use your home"},
-            {"homeOnDeath", "home.respawnAtHomeDefault", "Respawn at the faction home"},
-            {"loginAlerts", "chat.loginAlerts", "Announce member logins"}
+            {"open", "false", UiText.TOGGLE_OPEN},
+            {"friendlyFire", "combat.friendlyFireDefault", UiText.TOGGLE_FRIENDLY_FIRE},
+            {"allyBuild", "relation.allyBuildDefault", UiText.TOGGLE_ALLY_BUILD},
+            {"truceInteract", "relation.truceInteractDefault", UiText.TOGGLE_TRUCE_INTERACT},
+            {"allyHome", "false", UiText.TOGGLE_ALLY_HOME},
+            {"homeOnDeath", "home.respawnAtHomeDefault", UiText.TOGGLE_HOME_ON_DEATH},
+            {"loginAlerts", "chat.loginAlerts", UiText.TOGGLE_LOGIN_ALERTS}
     };
 
     private String tab;
@@ -130,7 +131,8 @@ public final class DominionPanel extends DominionPage {
         commands.set("#HeaderTag.Text", both ? f.tag() : f.label());
         commands.set("#HeaderTag.Style.TextColor", safeColor(f.color(), "#7fd6ff"));
         commands.set("#HeaderName.Text", both ? f.name() : "");
-        commands.set("#HeaderPower.Text", Msg.number(power.factionPower(f)) + " / " + Msg.number(power.factionMaxPower(f)));
+        commands.set("#HeaderPower.Text", Messages.get(UiText.POWER_OF_MAX,
+                "power", Msg.number(power.factionPower(f)), "max", Msg.number(power.factionMaxPower(f))));
         commands.set("#HeaderRank.Text", f.rankName(rank == null ? Rank.MEMBER : rank));
 
         EconomyService eco = economy();
@@ -155,33 +157,34 @@ public final class DominionPanel extends DominionPage {
 
         Body tabs = new Body(commands, events, "#Tabs");
         int online = onlineCount(f);
-        tabs.tab(OVERVIEW, "Overview", "", OVERVIEW.equals(tab), "tab");
-        tabs.tab(MEMBERS, "Members", online + "/" + f.memberCount(), MEMBERS.equals(tab), "tab");
-        tabs.tab(LAND, "Land", String.valueOf(ctx.service(ClaimService.class).claimCount(f)), LAND.equals(tab), "tab");
+        tabs.tab(OVERVIEW, Messages.get(UiText.TAB_OVERVIEW), "", OVERVIEW.equals(tab), "tab");
+        tabs.tab(MEMBERS, Messages.get(UiText.LABEL_MEMBERS), online + "/" + f.memberCount(), MEMBERS.equals(tab), "tab");
+        tabs.tab(LAND, Messages.get(UiText.LABEL_LAND), String.valueOf(ctx.service(ClaimService.class).claimCount(f)), LAND.equals(tab), "tab");
         int pending = incomingRelationRequests(f).size();
-        tabs.tab(RELATIONS, "Relations", pending > 0 ? pending + " new" : "", RELATIONS.equals(tab), "tab");
+        tabs.tab(RELATIONS, Messages.get(UiText.LABEL_RELATIONS), pending > 0 ? Messages.get(UiText.NEW_COUNT, "count", pending) : "",
+                RELATIONS.equals(tab), "tab");
         if (eco != null) {
-            tabs.tab(BANK, "Bank", "", BANK.equals(tab), "tab");
+            tabs.tab(BANK, Messages.get(UiText.TAB_BANK), "", BANK.equals(tab), "tab");
         }
         if (hasSieges) {
             tabs.tab(SiegeTab.ID, sieges.label(), sieges.count(f), SiegeTab.ID.equals(tab), "tab");
         }
         if (hasMarket) {
-            tabs.tab(MarketTab.ID, "Market", market.count(), MarketTab.ID.equals(tab), "tab");
+            tabs.tab(MarketTab.ID, Messages.get(UiText.MARKET), market.count(), MarketTab.ID.equals(tab), "tab");
         }
         if (hasVault) {
-            tabs.tab(ProgressTabs.VAULT, "Vault", "", ProgressTabs.VAULT.equals(tab), "tab");
+            tabs.tab(ProgressTabs.VAULT, Messages.get(UiText.VAULT), "", ProgressTabs.VAULT.equals(tab), "tab");
         }
         if (hasProgress) {
-            tabs.tab(ProgressTabs.UPGRADES, "Upgrades", "", ProgressTabs.UPGRADES.equals(tab), "tab");
-            tabs.tab(ProgressTabs.MISSIONS, "Missions", "", ProgressTabs.MISSIONS.equals(tab), "tab");
+            tabs.tab(ProgressTabs.UPGRADES, Messages.get(UiText.UPGRADES), "", ProgressTabs.UPGRADES.equals(tab), "tab");
+            tabs.tab(ProgressTabs.MISSIONS, Messages.get(UiText.MISSIONS), "", ProgressTabs.MISSIONS.equals(tab), "tab");
         }
         if (hasEvents) {
-            tabs.tab(EventsTab.ID, "Events", eventsTab.count(), EventsTab.ID.equals(tab), "tab");
+            tabs.tab(EventsTab.ID, Messages.get(UiText.EVENTS), eventsTab.count(), EventsTab.ID.equals(tab), "tab");
         }
-        tabs.tab(SETTINGS, "Settings", "", SETTINGS.equals(tab), "tab");
-        tabs.tab(LOG, "Log", "", LOG.equals(tab), "tab");
-        tabs.tab(HELP, "Help", "", HELP.equals(tab), "tab");
+        tabs.tab(SETTINGS, Messages.get(UiText.SETTINGS_TITLE), "", SETTINGS.equals(tab), "tab");
+        tabs.tab(LOG, Messages.get(UiText.TAB_LOG), "", LOG.equals(tab), "tab");
+        tabs.tab(HELP, Messages.get(UiText.TAB_HELP), "", HELP.equals(tab), "tab");
 
         Body body = new Body(commands, events, "#Body");
         switch (tab) {
@@ -212,33 +215,32 @@ public final class DominionPanel extends DominionPage {
 
     private void buildNoFaction(UICommandBuilder c, UIEventBuilder events) {
         PowerService power = ctx.service(PowerService.class);
-        c.set("#HeaderTag.Text", "Dominion");
+        c.set("#HeaderTag.Text", Messages.get(UiText.HEADER_DOMINION));
         c.set("#HeaderTag.Style.TextColor", Msg.GOLD);
-        c.set("#HeaderName.Text", "You are not in a faction yet");
-        c.set("#HeaderPowerLabel.Text", "Your power");
-        c.set("#HeaderPower.Text", Msg.number(power.powerOf(uuid())) + " / " + Msg.number(power.maxPowerOf(uuid())));
-        c.set("#HeaderRank.Text", "None");
+        c.set("#HeaderName.Text", Messages.get(UiText.HEADER_NO_FACTION));
+        c.set("#HeaderPowerLabel.Text", Messages.get(UiText.HEADER_YOUR_POWER));
+        c.set("#HeaderPower.Text", Messages.get(UiText.POWER_OF_MAX,
+                "power", Msg.number(power.powerOf(uuid())), "max", Msg.number(power.maxPowerOf(uuid()))));
+        c.set("#HeaderRank.Text", Messages.get(UiText.RANK_NONE));
 
         if (!HELP.equals(tab)) {
             tab = START;
         }
         Body tabs = new Body(c, events, "#Tabs");
-        tabs.tab(START, "Join or create", "", START.equals(tab), "tab");
-        tabs.tab(HELP, "Help", "", HELP.equals(tab), "tab");
+        tabs.tab(START, Messages.get(UiText.TAB_JOIN_OR_CREATE), "", START.equals(tab), "tab");
+        tabs.tab(HELP, Messages.get(UiText.TAB_HELP), "", HELP.equals(tab), "tab");
 
         Body body = new Body(c, events, "#Body");
         if (HELP.equals(tab)) {
             buildHelp(c, body);
             return;
         }
-        title(c, "Join or create", "Factions share land, power and a bank");
-        body.text("A faction is a group of players who claim land together. Claimed land is protected from outsiders, "
-                + "and every member adds power that keeps the land safe. Type a short tag below to found your own faction, "
-                + "or join one of the factions listed underneath.");
-        body.field("New faction tag", "", Btn.of("Create", "create"));
-        body.buttons(Btn.of("Tutorial", "tutorial"), Btn.of("Top factions", "top"));
+        title(c, Messages.get(UiText.TAB_JOIN_OR_CREATE), Messages.get(UiText.JOIN_OR_CREATE_HINT));
+        body.text(Messages.get(UiText.JOIN_OR_CREATE_TEXT));
+        body.field(Messages.get(UiText.NEW_FACTION_TAG), "", Btn.of(Messages.get(UiText.CREATE), "create"));
+        body.buttons(Btn.of(Messages.get(UiText.TUTORIAL_BUTTON), "tutorial"), Btn.of(Messages.get(UiText.TOP_FACTIONS), "top"));
 
-        body.section("Factions you can join");
+        body.section(Messages.get(UiText.FACTIONS_YOU_CAN_JOIN));
         long now = Time.now();
         int shown = 0;
         List<Faction> all = new ArrayList<>(factions().all());
@@ -249,65 +251,68 @@ public final class DominionPanel extends DominionPage {
             }
             boolean open = f.setting("open", false);
             boolean invited = f.hasValidInvite(uuid(), now);
-            String state = invited ? "Invited" : open ? "Open" : "Invite only";
-            Btn join = open || invited ? Btn.of("Join", "join", f.tag()) : Btn.of("Request", "request", f.tag());
+            String state = invited ? Messages.get(UiText.INVITED) : open ? Messages.get(UiText.STATE_OPEN) : Messages.get(UiText.INVITE_ONLY);
+            Btn join = open || invited ? Btn.of(Messages.get(UiText.JOIN), "join", f.tag())
+                    : Btn.of(Messages.get(UiText.REQUEST), "request", f.tag());
             body.row(f.label(), safeColor(f.color(), null),
-                    new String[] {f.memberCount() + " members", state, "", ""},
-                    join, Btn.of("Info", "info", f.tag()));
+                    new String[] {Messages.get(UiText.MEMBERS_COUNT, "count", f.memberCount()), state, "", ""},
+                    join, Btn.of(Messages.get(UiText.INFO), "info", f.tag()));
             if (++shown >= 40) {
                 break;
             }
         }
         if (shown == 0) {
-            body.text("No factions exist yet. Be the first to found one.", Msg.MUTED);
+            body.text(Messages.get(UiText.NO_FACTIONS_EXIST), Msg.MUTED);
         }
     }
 
     private void buildOverview(UICommandBuilder c, Body body, Faction f, EconomyService eco) {
         ClaimService claims = ctx.service(ClaimService.class);
-        title(c, "Overview", "Created " + Time.date(f.createdAt()));
+        title(c, Messages.get(UiText.TAB_OVERVIEW), Messages.get(UiText.CREATED_ON, "date", Time.date(f.createdAt())));
         Member leader = f.leader() == null ? null : f.member(f.leader());
-        body.stat(f.rankName(Rank.LEADER), leader == null ? "Nobody" : leader.name());
-        body.stat("Members", onlineCount(f) + " online of " + f.memberCount());
-        body.stat("Land", claims.claimCount(f) + " of " + claims.maxClaims(f) + " chunks");
-        body.stat("Allies", names(f, Relation.ALLY), Relation.ALLY.color());
-        body.stat("Enemies", names(f, Relation.ENEMY), Relation.ENEMY.color());
+        body.stat(f.rankName(Rank.LEADER), leader == null ? Messages.get(UiText.NOBODY) : leader.name());
+        body.stat(Messages.get(UiText.LABEL_MEMBERS), Messages.get(UiText.ONLINE_OF, "online", onlineCount(f), "total", f.memberCount()));
+        body.stat(Messages.get(UiText.LABEL_LAND), Messages.get(UiText.LAND_OF_MAX, "claims", claims.claimCount(f), "max", claims.maxClaims(f)));
+        body.stat(Messages.get(UiText.LABEL_ALLIES), names(f, Relation.ALLY), Relation.ALLY.color());
+        body.stat(Messages.get(UiText.LABEL_ENEMIES), names(f, Relation.ENEMY), Relation.ENEMY.color());
         if (eco != null) {
-            body.stat("Bank", eco.format(f.bank()));
+            body.stat(Messages.get(UiText.TAB_BANK), eco.format(f.bank()));
         }
         progress.overviewStats(body, f);
 
-        body.section("Announcement");
+        body.section(Messages.get(UiText.ANNOUNCEMENT));
         if (f.motd().isBlank()) {
-            body.text("No announcement yet.", Msg.MUTED);
+            body.text(Messages.get(UiText.NO_ANNOUNCEMENT), Msg.MUTED);
         } else {
             body.text(f.motd());
             AuditEntry posted = latestAnnouncement(f);
             if (posted != null) {
-                body.text("Posted " + Time.ago(posted.at()) + (posted.whoName() == null || posted.whoName().isBlank()
-                        ? "." : " by " + posted.whoName() + "."), Msg.MUTED);
+                body.text(posted.whoName() == null || posted.whoName().isBlank()
+                        ? Messages.get(UiText.POSTED, "when", Time.ago(posted.at()))
+                        : Messages.get(UiText.POSTED_BY, "when", Time.ago(posted.at()), "name", posted.whoName()), Msg.MUTED);
             }
         }
         if (factions().can(uuid(), FactionAction.ANNOUNCE)) {
-            body.field("New announcement", "", Btn.of("Post", "announce"));
+            body.field(Messages.get(UiText.NEW_ANNOUNCEMENT), "", Btn.of(Messages.get(UiText.POST), "announce"));
         }
-        body.section("Description");
-        body.text(f.description().isBlank() ? "No description yet. Officers can write one on the settings tab." : f.description());
+        body.section(Messages.get(UiText.DESCRIPTION));
+        body.text(f.description().isBlank() ? Messages.get(UiText.NO_DESCRIPTION_YET) : f.description());
 
         PlayerData me = ctx.player(uuid());
-        body.section("Quick actions");
-        body.buttons(Btn.of("Home", "home"), Btn.of("Map", "tab", LAND),
-                Btn.of("Chat " + channelLabel(me), "channel"),
-                Btn.of(me.alerts() ? "Alerts on" : "Alerts off", "alerts"));
-        body.buttons(Btn.of(me.hud() ? "Sidebar on" : "Sidebar off", "hud"),
-                Btn.of(me.mapHidden() ? "Web map hidden" : "Web map shown", "maphide"),
-                Btn.of("Tutorial", "tutorial"), Btn.of("Top factions", "top"));
+        body.section(Messages.get(UiText.QUICK_ACTIONS));
+        body.buttons(Btn.of(Messages.get(UiText.HOME), "home"), Btn.of(Messages.get(UiText.MAP), "tab", LAND),
+                Btn.of(Messages.get(UiText.CHAT_CHANNEL, "channel", channelLabel(me)), "channel"),
+                Btn.of(me.alerts() ? Messages.get(UiText.ALERTS_ON) : Messages.get(UiText.ALERTS_OFF), "alerts"));
+        body.buttons(Btn.of(me.hud() ? Messages.get(UiText.SIDEBAR_ON) : Messages.get(UiText.SIDEBAR_OFF), "hud"),
+                Btn.of(me.mapHidden() ? Messages.get(UiText.WEB_MAP_HIDDEN) : Messages.get(UiText.WEB_MAP_SHOWN), "maphide"),
+                Btn.of(Messages.get(UiText.TUTORIAL_BUTTON), "tutorial"), Btn.of(Messages.get(UiText.TOP_FACTIONS), "top"));
     }
 
     private void buildMembers(UICommandBuilder c, Body body, Faction f) {
         PowerService power = ctx.service(PowerService.class);
-        title(c, "Members", onlineCount(f) + " online of " + f.memberCount());
-        body.row("Name", Msg.MUTED, new String[] {"Rank", "Power", "Last seen", "Title"});
+        title(c, Messages.get(UiText.LABEL_MEMBERS), Messages.get(UiText.ONLINE_OF, "online", onlineCount(f), "total", f.memberCount()));
+        body.row(Messages.get(UiText.COL_NAME), Msg.MUTED, new String[] {Messages.get(UiText.COL_RANK), Messages.get(UiText.LABEL_POWER),
+                Messages.get(UiText.COL_LAST_SEEN), Messages.get(UiText.COL_TITLE)});
         List<Member> members = new ArrayList<>(f.members());
         UUID leaderId = f.leader();
         members.sort(Comparator.comparing((Member m) -> m.uuid().equals(leaderId) ? Rank.LEADER : m.rank()).reversed()
@@ -319,38 +324,39 @@ public final class DominionPanel extends DominionPage {
             boolean online = Players.isOnline(m.uuid());
             Rank rank = m.uuid().equals(leaderId) ? Rank.LEADER : m.rank();
             String[] cols = {f.rankName(rank), Msg.number(power.powerOf(m.uuid())),
-                    online ? "Online" : Time.ago(m.lastSeen()), m.title()};
+                    online ? Messages.get(UiText.ONLINE) : Time.ago(m.lastSeen()), m.title()};
             String row;
             if (m.uuid().equals(uuid())) {
-                row = body.row(m.name() + "  (you)", rank == Rank.LEADER ? Msg.GOLD : null, cols);
+                row = body.row(Messages.get(UiText.NAME_YOU, "name", m.name()), rank == Rank.LEADER ? Msg.GOLD : null, cols);
             } else {
                 String id = m.uuid().toString();
                 // Buttons only for what the viewer's rank may do. The service still checks every press.
                 boolean leaderRow = rank == Rank.LEADER;
                 row = body.row(m.name(), leaderRow ? Msg.GOLD : null, cols,
-                        canPromote && !leaderRow ? Btn.of("Promote", "promote", id) : null,
-                        canPromote && !leaderRow ? Btn.of("Demote", "demote", id) : null,
-                        canKick && !leaderRow ? Btn.of("Kick", "kick", id) : null);
+                        canPromote && !leaderRow ? Btn.of(Messages.get(UiText.PROMOTE), "promote", id) : null,
+                        canPromote && !leaderRow ? Btn.of(Messages.get(UiText.DEMOTE), "demote", id) : null,
+                        canKick && !leaderRow ? Btn.of(Messages.get(UiText.KICK), "kick", id) : null);
             }
             body.dot(row, online);
         }
 
         if (canInvite) {
-            body.section("Invite");
-            body.field("Player name", "", Btn.of("Invite", "invite"));
+            body.section(Messages.get(UiText.INVITE_SECTION));
+            body.field(Messages.get(UiText.PLAYER_NAME), "", Btn.of(Messages.get(UiText.INVITE), "invite"));
         }
 
-        body.section("Join requests");
+        body.section(Messages.get(UiText.JOIN_REQUESTS));
         List<UUID> requests = f.requests();
         if (requests.isEmpty()) {
-            body.text("No pending requests.", Msg.MUTED);
+            body.text(Messages.get(UiText.NO_PENDING_REQUESTS), Msg.MUTED);
         } else if (!canInvite) {
-            body.text("Ranks with the invite right can accept or decline these.", Msg.MUTED);
+            body.text(Messages.get(UiText.INVITE_RIGHT_HINT), Msg.MUTED);
         }
         for (UUID r : requests) {
             String id = r.toString();
-            body.row(nameOf(r), null, new String[] {"Wants to join", "", "", ""},
-                    canInvite ? Btn.of("Accept", "req_accept", id) : null, canInvite ? Btn.of("Decline", "req_decline", id) : null);
+            body.row(nameOf(r), null, new String[] {Messages.get(UiText.WANTS_TO_JOIN), "", "", ""},
+                    canInvite ? Btn.of(Messages.get(UiText.ACCEPT), "req_accept", id) : null,
+                    canInvite ? Btn.of(Messages.get(UiText.DECLINE), "req_decline", id) : null);
         }
     }
 
@@ -359,32 +365,35 @@ public final class DominionPanel extends DominionPage {
         PlayerData me = ctx.player(uuid());
         String world = Players.worldName(player());
         long chunk = Players.chunkOf(player());
-        title(c, "Land", claims.claimCount(f) + " of " + claims.maxClaims(f) + " chunks claimed");
+        title(c, Messages.get(UiText.LABEL_LAND), Messages.get(UiText.LAND_CLAIMED_OF_MAX, "claims", claims.claimCount(f), "max", claims.maxClaims(f)));
 
         if (world != null && chunk != Long.MIN_VALUE) {
             Faction owner = claims.ownerAt(world, chunk);
             ClaimEntry entry = claims.claimAt(world, chunk);
-            body.stat("You are standing in", "Chunk " + Keys.describe(chunk) + " of " + world);
+            body.stat(Messages.get(UiText.STANDING_IN), Messages.get(UiText.CHUNK_OF_WORLD, "chunk", Keys.describe(chunk), "world", world));
             if (owner == null) {
-                body.stat("Owner", "Wilderness", "#5fd37a");
+                body.stat(Messages.get(UiText.OWNER), Messages.get(UiText.WILDERNESS), "#5fd37a");
             } else {
                 Relation rel = ctx.service(RelationService.class).playerToFaction(uuid(), owner);
-                body.stat("Owner", owner.label(), rel == null ? Msg.TEXT : rel.color());
+                body.stat(Messages.get(UiText.OWNER), owner.label(), rel == null ? Msg.TEXT : rel.color());
                 if (entry != null) {
-                    body.stat("Claimed", Time.ago(entry.claimedAt()) + (entry.claimedBy() == null ? "" : " by " + nameOf(entry.claimedBy())));
+                    body.stat(Messages.get(UiText.CLAIMED), entry.claimedBy() == null ? Time.ago(entry.claimedAt())
+                            : Messages.get(UiText.CLAIMED_BY, "when", Time.ago(entry.claimedAt()), "name", nameOf(entry.claimedBy())));
                 }
             }
         }
         boolean canClaim = can(FactionAction.CLAIM);
-        body.buttons(canClaim ? Btn.of("Claim", "claim") : null,
-                can(FactionAction.UNCLAIM) ? Btn.of("Unclaim", "unclaim") : null,
-                canClaim || me.autoClaim() ? Btn.of(me.autoClaim() ? "Autoclaim on" : "Autoclaim off", "autoclaim") : null,
-                can(FactionAction.SET_HOME) ? Btn.of("Set home", "sethome") : null, Btn.of("Refresh", "refresh"));
+        body.buttons(canClaim ? Btn.of(Messages.get(UiText.CLAIM), "claim") : null,
+                can(FactionAction.UNCLAIM) ? Btn.of(Messages.get(UiText.UNCLAIM), "unclaim") : null,
+                canClaim || me.autoClaim() ? Btn.of(me.autoClaim() ? Messages.get(UiText.AUTOCLAIM_ON)
+                        : Messages.get(UiText.AUTOCLAIM_OFF), "autoclaim") : null,
+                can(FactionAction.SET_HOME) ? Btn.of(Messages.get(UiText.SET_HOME), "sethome") : null,
+                Btn.of(Messages.get(UiText.REFRESH), "refresh"));
         if (!canClaim) {
-            body.text("Your rank cannot claim land. Ask an officer to change the permissions.", Msg.MUTED);
+            body.text(Messages.get(UiText.CANNOT_CLAIM), Msg.MUTED);
         }
 
-        body.section("Nearby chunks");
+        body.section(Messages.get(UiText.NEARBY_CHUNKS));
         int size = GRID_RADIUS * 2 + 1;
         List<String[]> cells;
         try {
@@ -393,7 +402,7 @@ public final class DominionPanel extends DominionPage {
             cells = List.of();
         }
         if (cells == null || cells.size() < size * size) {
-            body.text("The map is not available here.", Msg.MUTED);
+            body.text(Messages.get(UiText.MAP_UNAVAILABLE), Msg.MUTED);
         } else {
             for (int r = 0; r < size; r++) {
                 String[] glyphs = new String[size];
@@ -417,9 +426,7 @@ public final class DominionPanel extends DominionPage {
                 }
                 body.gridRow(glyphs, text, fill);
             }
-            body.text("You are the @ in the middle and north is up. Each square takes the colour of its owner, "
-                    + "green yours, purple allies, blue truces, red enemies, gold safe zones. The letter starts "
-                    + "the owner's tag and dark squares are wilderness.", Msg.MUTED);
+            body.text(Messages.get(UiText.MAP_LEGEND), Msg.MUTED);
         }
     }
 
@@ -434,7 +441,8 @@ public final class DominionPanel extends DominionPage {
     }
 
     private void buildRelations(UICommandBuilder c, Body body, Faction f) {
-        title(c, "Relations", f.countRelation(Relation.ALLY) + " allies and " + f.countRelation(Relation.ENEMY) + " enemies");
+        title(c, Messages.get(UiText.LABEL_RELATIONS), Messages.get(UiText.RELATIONS_COUNT,
+                "allies", f.countRelation(Relation.ALLY), "enemies", f.countRelation(Relation.ENEMY)));
         Map<Relation, List<Faction>> grouped = new LinkedHashMap<>();
         grouped.put(Relation.ALLY, new ArrayList<>());
         grouped.put(Relation.TRUCE, new ArrayList<>());
@@ -446,76 +454,78 @@ public final class DominionPanel extends DominionPage {
                 list.add(other);
             }
         }
-        String[] headings = {"Allies", "Truces", "Enemies"};
+        String[] headings = {UiText.LABEL_ALLIES, UiText.LABEL_TRUCES, UiText.LABEL_ENEMIES};
         int i = 0;
         boolean canRelate = can(FactionAction.RELATIONS);
         for (Map.Entry<Relation, List<Faction>> g : grouped.entrySet()) {
-            body.section(headings[i++]);
+            body.section(Messages.get(headings[i++]));
             if (g.getValue().isEmpty()) {
-                body.text("None.", Msg.MUTED);
+                body.text(Messages.get(UiText.NONE_DOT), Msg.MUTED);
             }
             for (Faction o : g.getValue()) {
-                Btn enemy = g.getKey() == Relation.ENEMY || !canRelate ? null : Btn.of("Enemy", "rel_enemy", o.tag());
+                Btn enemy = g.getKey() == Relation.ENEMY || !canRelate ? null : Btn.of(Messages.get(UiText.ENEMY), "rel_enemy", o.tag());
                 body.row(o.label(), g.getKey().color(),
-                        new String[] {o.memberCount() + " members", "", "", ""},
-                        canRelate ? Btn.of("Neutral", "rel_neutral", o.tag()) : null, enemy, Btn.of("Info", "info", o.tag()));
+                        new String[] {Messages.get(UiText.MEMBERS_COUNT, "count", o.memberCount()), "", "", ""},
+                        canRelate ? Btn.of(Messages.get(UiText.NEUTRAL), "rel_neutral", o.tag()) : null, enemy,
+                        Btn.of(Messages.get(UiText.INFO), "info", o.tag()));
             }
         }
 
         List<Faction> allyHomes = usableAllyHomes(f);
         if (!allyHomes.isEmpty()) {
-            body.section("Ally homes");
+            body.section(Messages.get(UiText.ALLY_HOMES));
             for (Faction o : allyHomes) {
                 body.row(o.label(), Relation.ALLY.color(),
-                        new String[] {"Home open", "", "", ""}, Btn.of("Visit", "ally_home", o.tag()));
+                        new String[] {Messages.get(UiText.HOME_OPEN), "", "", ""}, Btn.of(Messages.get(UiText.VISIT), "ally_home", o.tag()));
             }
         }
 
-        body.section("Requests");
+        body.section(Messages.get(UiText.REQUESTS));
         List<Map.Entry<Faction, Faction.RelationRequest>> incoming = incomingRelationRequests(f);
         List<Map.Entry<Faction, Faction.RelationRequest>> outgoing = outgoingRelationRequests(f);
         if (incoming.isEmpty() && outgoing.isEmpty()) {
-            body.text("No pending requests.", Msg.MUTED);
+            body.text(Messages.get(UiText.NO_PENDING_REQUESTS), Msg.MUTED);
         }
         for (Map.Entry<Faction, Faction.RelationRequest> e : incoming) {
             Faction o = e.getKey();
             body.row(o.label(), e.getValue().type().color(),
-                    new String[] {"Offers " + e.getValue().type().displayName().toLowerCase(Locale.ROOT),
-                            "Expires in " + Time.remaining(e.getValue().expiresAt() - Time.now()), "", ""},
-                    canRelate ? Btn.of("Accept", "rel_accept", o.tag()) : null, canRelate ? Btn.of("Decline", "rel_decline", o.tag()) : null);
+                    new String[] {Messages.get(UiText.OFFERS, "relation", e.getValue().type().displayName().toLowerCase(Locale.ROOT)),
+                            Messages.get(UiText.EXPIRES_IN, "time", Time.remaining(e.getValue().expiresAt() - Time.now())), "", ""},
+                    canRelate ? Btn.of(Messages.get(UiText.ACCEPT), "rel_accept", o.tag()) : null,
+                    canRelate ? Btn.of(Messages.get(UiText.DECLINE), "rel_decline", o.tag()) : null);
         }
         for (Map.Entry<Faction, Faction.RelationRequest> e : outgoing) {
             Faction o = e.getKey();
             body.row(o.label(), e.getValue().type().color(),
-                    new String[] {"You offered " + e.getValue().type().displayName().toLowerCase(Locale.ROOT),
-                            "Expires in " + Time.remaining(e.getValue().expiresAt() - Time.now()), "", ""},
-                    canRelate ? Btn.of("Withdraw", "rel_neutral", o.tag()) : null);
+                    new String[] {Messages.get(UiText.YOU_OFFERED, "relation", e.getValue().type().displayName().toLowerCase(Locale.ROOT)),
+                            Messages.get(UiText.EXPIRES_IN, "time", Time.remaining(e.getValue().expiresAt() - Time.now())), "", ""},
+                    canRelate ? Btn.of(Messages.get(UiText.WITHDRAW), "rel_neutral", o.tag()) : null);
         }
 
         if (canRelate) {
-            body.section("New relation");
-            body.field("Faction tag", "", Btn.of("Ally", "rel_ally"), Btn.of("Truce", "rel_truce"),
-                    Btn.of("Enemy", "rel_enemy_tag"));
+            body.section(Messages.get(UiText.NEW_RELATION));
+            body.field(Messages.get(UiText.FACTION_TAG), "", Btn.of(Messages.get(UiText.ALLY), "rel_ally"),
+                    Btn.of(Messages.get(UiText.TRUCE), "rel_truce"), Btn.of(Messages.get(UiText.ENEMY), "rel_enemy_tag"));
         } else {
-            body.text("Ranks with the relations right can change these.", Msg.MUTED);
+            body.text(Messages.get(UiText.RELATIONS_RIGHT_HINT), Msg.MUTED);
         }
 
         nation.build(body, f);
     }
 
     private void buildBank(UICommandBuilder c, Body body, Faction f, EconomyService eco) {
-        title(c, "Bank", "Shared funds for upkeep and upgrades");
-        body.stat("Faction balance", eco.format(f.bank()), Msg.GOLD);
-        body.stat("Your wallet", eco.format(eco.balance(uuid())));
+        title(c, Messages.get(UiText.TAB_BANK), Messages.get(UiText.BANK_HINT));
+        body.stat(Messages.get(UiText.FACTION_BALANCE), eco.format(f.bank()), Msg.GOLD);
+        body.stat(Messages.get(UiText.YOUR_WALLET), eco.format(eco.balance(uuid())));
         boolean canDeposit = can(FactionAction.DEPOSIT);
         boolean canWithdraw = can(FactionAction.WITHDRAW);
         if (canDeposit || canWithdraw) {
-            body.field("Amount", "", canDeposit ? Btn.of("Deposit", "deposit") : null,
-                    canWithdraw ? Btn.of("Withdraw", "withdraw") : null);
+            body.field(Messages.get(UiText.FIELD_AMOUNT), "", canDeposit ? Btn.of(Messages.get(UiText.DEPOSIT), "deposit") : null,
+                    canWithdraw ? Btn.of(Messages.get(UiText.WITHDRAW), "withdraw") : null);
         } else {
-            body.text("Your rank cannot move money in or out of the bank.", Msg.MUTED);
+            body.text(Messages.get(UiText.CANNOT_MOVE_MONEY), Msg.MUTED);
         }
-        body.section("Recent bank activity");
+        body.section(Messages.get(UiText.RECENT_BANK));
         int shown = 0;
         for (AuditEntry e : f.audit()) {
             if (e.category() == null || !e.category().toLowerCase(Locale.ROOT).contains("bank")) {
@@ -527,43 +537,44 @@ public final class DominionPanel extends DominionPage {
             }
         }
         if (shown == 0) {
-            body.text("No bank activity yet.", Msg.MUTED);
+            body.text(Messages.get(UiText.NO_BANK_ACTIVITY), Msg.MUTED);
         }
     }
 
     private void buildSettings(UICommandBuilder c, Body body, Faction f) {
         boolean canSet = can(FactionAction.SETTINGS);
-        title(c, "Settings", canSet ? "Changes apply at once" : "Your rank can look but not change these");
-        body.section("Rules");
+        title(c, Messages.get(UiText.SETTINGS_TITLE), canSet ? Messages.get(UiText.SETTINGS_APPLY_AT_ONCE) : Messages.get(UiText.SETTINGS_LOOK_ONLY));
+        body.section(Messages.get(UiText.RULES));
         for (String[] t : TOGGLES) {
             boolean on = f.setting(t[0], toggleDefault(t[1]));
-            body.toggle(t[2], t[0], on, "toggle", t[0], canSet);
+            body.toggle(Messages.get(t[2]), t[0], on, "toggle", t[0], canSet);
         }
-        body.section("Identity");
+        body.section(Messages.get(UiText.IDENTITY));
         if (canSet) {
             body.palette(safeColor(f.color(), null), "color");
-            body.field("Name", f.name(), Btn.of("Save", "rename"));
-            body.field("Description", f.description(), Btn.of("Save", "describe"));
-            body.field("Message of the day", f.motd(), Btn.of("Save", "motd"));
+            body.field(Messages.get(UiText.FIELD_NAME), f.name(), Btn.of(Messages.get(UiText.SAVE), "rename"));
+            body.field(Messages.get(UiText.DESCRIPTION), f.description(), Btn.of(Messages.get(UiText.SAVE), "describe"));
+            body.field(Messages.get(UiText.MOTD), f.motd(), Btn.of(Messages.get(UiText.SAVE), "motd"));
         } else {
-            body.stat("Name", f.name());
-            body.stat("Description", f.description().isBlank() ? "None" : f.description());
+            body.stat(Messages.get(UiText.FIELD_NAME), f.name());
+            body.stat(Messages.get(UiText.DESCRIPTION), f.description().isBlank() ? Messages.get(UiText.RANK_NONE) : f.description());
         }
-        body.buttons(Btn.of("Permissions", "perms"));
+        body.buttons(Btn.of(Messages.get(UiText.PERMISSIONS), "perms"));
         zones.buildRankNames(body, f);
         zones.buildZones(body, f);
 
         boolean leader = uuid().equals(f.leader());
         boolean canDisband = can(FactionAction.DISBAND);
-        body.section(leader || canDisband ? "Danger zone" : "Leave");
+        body.section(leader || canDisband ? Messages.get(UiText.DANGER_ZONE) : Messages.get(UiText.LEAVE));
         if (leader || canDisband) {
-            body.text("These cannot be undone. Each one asks you to confirm first.", Msg.WARN);
+            body.text(Messages.get(UiText.CANNOT_BE_UNDONE), Msg.WARN);
         }
         if (leader) {
-            body.field("New leader", "", Btn.of("Transfer", "transfer"));
+            body.field(Messages.get(UiText.NEW_LEADER), "", Btn.of(Messages.get(UiText.TRANSFER), "transfer"));
         }
-        body.buttons(canDisband ? Btn.of("Unclaim all", "unclaimall") : null, canDisband ? Btn.of("Disband", "disband") : null,
-                Btn.of("Leave", "leave"));
+        body.buttons(canDisband ? Btn.of(Messages.get(UiText.UNCLAIM_ALL), "unclaimall") : null,
+                canDisband ? Btn.of(Messages.get(UiText.DISBAND), "disband") : null,
+                Btn.of(Messages.get(UiText.LEAVE), "leave"));
     }
 
     private void buildLog(UICommandBuilder c, Body body, Faction f) {
@@ -582,10 +593,11 @@ public final class DominionPanel extends DominionPage {
         }
         int pages = Math.max(1, (filtered.size() + LOG_PAGE_SIZE - 1) / LOG_PAGE_SIZE);
         logPage = Math.max(0, Math.min(logPage, pages - 1));
-        title(c, "Log", filtered.size() + " entries, page " + (logPage + 1) + " of " + pages);
+        title(c, Messages.get(UiText.TAB_LOG), Messages.get(UiText.LOG_PAGE, "count", filtered.size(), "page", logPage + 1, "pages", pages));
 
         List<Btn> pills = new ArrayList<>();
-        pills.add(Btn.of("all".equals(logFilter) ? "[ All ]" : "All", "log_filter", "all"));
+        String allLabel = Messages.get(UiText.LOG_ALL);
+        pills.add(Btn.of("all".equals(logFilter) ? "[ " + allLabel + " ]" : allLabel, "log_filter", "all"));
         for (String cat : categories) {
             if (pills.size() >= 6) {
                 break;
@@ -602,49 +614,40 @@ public final class DominionPanel extends DominionPage {
                     e.whoName() == null ? "" : e.whoName(), Time.ago(e.at()), ""});
         }
         if (filtered.isEmpty()) {
-            body.text("Nothing logged yet.", Msg.MUTED);
+            body.text(Messages.get(UiText.NOTHING_LOGGED), Msg.MUTED);
         }
-        body.buttons(logPage > 0 ? Btn.of("Previous", "log_prev") : null,
-                logPage < pages - 1 ? Btn.of("Next", "log_next") : null);
+        body.buttons(logPage > 0 ? Btn.of(Messages.get(UiText.PREVIOUS), "log_prev") : null,
+                logPage < pages - 1 ? Btn.of(Messages.get(UiText.NEXT), "log_next") : null);
     }
 
     private void buildHelp(UICommandBuilder c, Body body) {
-        title(c, "Help", "How factions work");
-        body.section("Power");
-        body.text("Every player has power that grows while online and drops when they die. A faction's power is the sum "
-                + "of its members. Power decides how much land the faction can hold.");
-        body.section("Claims");
-        body.text("Stand in a chunk and press Claim on the land tab, or use /f claim. Claimed chunks are protected from "
-                + "outsiders. You can hold more chunks as your power grows. Turn on auto claim to claim as you walk.");
-        body.section("Relations");
-        body.text("Factions can be allies, have a truce, stay neutral or be enemies. Ally and truce need both sides to "
-                + "agree. Enemy and neutral take effect at once. Relations decide who can build, fight and use your home.");
-        body.section("Raiding");
-        body.text("When a faction holds more land than its power can defend it becomes raidable, and enemies can take "
-                + "its chunks. Keep members active and avoid needless deaths to stay safe. Watch the sidebar for warnings.");
+        title(c, Messages.get(UiText.TAB_HELP), Messages.get(UiText.HELP_HINT));
+        body.section(Messages.get(UiText.LABEL_POWER));
+        body.text(Messages.get(UiText.HELP_POWER));
+        body.section(Messages.get(UiText.HELP_CLAIMS_TITLE));
+        body.text(Messages.get(UiText.HELP_CLAIMS));
+        body.section(Messages.get(UiText.LABEL_RELATIONS));
+        body.text(Messages.get(UiText.HELP_RELATIONS));
+        body.section(Messages.get(UiText.HELP_RAIDING_TITLE));
+        body.text(Messages.get(UiText.HELP_RAIDING));
         if (sieges.available()) {
-            body.section("Sieges and shields");
-            body.text("A siege plants a banner on enemy land. If the attackers hold it until the timer ends, the chunk is "
-                    + "breached and opens to them for a while. Each faction picks a daily shield window that blocks sieges "
-                    + "on its core land.");
+            body.section(Messages.get(UiText.HELP_SIEGES_TITLE));
+            body.text(Messages.get(UiText.HELP_SIEGES));
         }
         if (market.available()) {
-            body.section("Market");
-            body.text("Sell the item in your hand, place buy orders, bid in auctions and collect your earnings from the "
-                    + "mailbox on the market tab.");
+            body.section(Messages.get(UiText.MARKET));
+            body.text(Messages.get(UiText.HELP_MARKET));
         }
         if (nation.nations() != null) {
-            body.section("Nations");
-            body.text("Allied factions can join a nation under one tag. Nation members share a chat channel. "
-                    + "Found or join a nation on the relations tab.");
+            body.section(Messages.get(UiText.HELP_NATIONS_TITLE));
+            body.text(Messages.get(UiText.HELP_NATIONS));
         }
         if (eventsTab.available()) {
-            body.section("Events");
-            body.text("Hold a hill to capture it for your faction, keep outposts for their boosts, loot envoy chests "
-                    + "when they drop and claim bounties by defeating marked players. The events tab shows what is running.");
+            body.section(Messages.get(UiText.EVENTS));
+            body.text(Messages.get(UiText.HELP_EVENTS));
         }
-        body.section("Commands");
-        body.text("Open this panel with /f. Use /f help for the full command list.", Msg.MUTED);
+        body.section(Messages.get(UiText.HELP_COMMANDS_TITLE));
+        body.text(Messages.get(UiText.HELP_COMMANDS), Msg.MUTED);
     }
 
     // ---- actions ---------------------------------------------------------
@@ -696,7 +699,7 @@ public final class DominionPanel extends DominionPage {
             }
             case "create" -> {
                 if (text.isEmpty()) {
-                    Msg.send(player(), Msg.bad("Type a tag for your faction first."));
+                    Msg.send(player(), Msg.bad(Messages.get(UiText.FACTION_TAG_NEEDED)));
                     return false;
                 }
                 Result r = factions().create(uuid(), username(), text, text);
@@ -727,18 +730,18 @@ public final class DominionPanel extends DominionPage {
                 ChatService chat = ctx.service(ChatService.class);
                 PlayerData.Channel ch = chat.cycleChannel(uuid());
                 String name = chat instanceof ChatServiceImpl impl ? impl.currentChannelName(uuid())
-                        : ch.name().toLowerCase(Locale.ROOT) + " chat";
-                Msg.send(player(), Msg.good("You now talk in " + name + "."));
+                        : Messages.get(UiText.CHANNEL_CHAT, "channel", ch.name().toLowerCase(Locale.ROOT));
+                Msg.send(player(), Msg.good(Messages.get(UiText.TALK_IN, "channel", name)));
             }
             case "alerts" -> {
                 PlayerData me = ctx.player(uuid());
                 me.setAlerts(!me.alerts());
-                Msg.send(player(), Msg.good(me.alerts() ? "Faction alerts are on." : "Faction alerts are off."));
+                Msg.send(player(), Msg.good(me.alerts() ? Messages.get(UiText.FACTION_ALERTS_ON) : Messages.get(UiText.FACTION_ALERTS_OFF)));
             }
             case "hud" -> {
                 boolean next = !ctx.player(uuid()).hud();
                 ui.setHudVisible(player(), next);
-                Msg.send(player(), Msg.good(next ? "The faction sidebar is on." : "The faction sidebar is off."));
+                Msg.send(player(), Msg.good(next ? Messages.get(UiText.SIDEBAR_NOW_ON) : Messages.get(UiText.SIDEBAR_NOW_OFF)));
             }
             case "maphide" -> {
                 PlayerData me = ctx.player(uuid());
@@ -752,7 +755,8 @@ public final class DominionPanel extends DominionPage {
             case "invite" -> {
                 UUID target = resolvePlayer(text);
                 if (target == null) {
-                    reply(Result.fail(text.isEmpty() ? "Type a player name first." : "No player named " + text + " is known."));
+                    reply(Result.fail(text.isEmpty() ? Messages.get(UiText.PLAYER_NAME_NEEDED)
+                            : Messages.get(UiText.NO_PLAYER_NAMED, "name", text)));
                 } else {
                     reply(factions().invite(uuid(), target, nameOr(target, text)));
                 }
@@ -761,7 +765,7 @@ public final class DominionPanel extends DominionPage {
                 String world = Players.worldName(player());
                 long chunk = Players.chunkOf(player());
                 if (world == null || chunk == Long.MIN_VALUE) {
-                    reply(Result.fail("Your position is not known yet. Try again in a moment."));
+                    reply(Result.fail(Messages.get(UiText.POSITION_UNKNOWN_RETRY)));
                 } else {
                     ClaimService claims = ctx.service(ClaimService.class);
                     reply("claim".equals(e.action) ? claims.claim(uuid(), world, chunk) : claims.unclaim(uuid(), world, chunk));
@@ -770,8 +774,8 @@ public final class DominionPanel extends DominionPage {
             case "autoclaim" -> {
                 PlayerData me = ctx.player(uuid());
                 me.setAutoClaim(!me.autoClaim());
-                Msg.send(player(), Msg.good(me.autoClaim() ? "Auto claim is on. Walk into wilderness to claim it."
-                        : "Auto claim is off."));
+                Msg.send(player(), Msg.good(me.autoClaim() ? Messages.get(UiText.AUTOCLAIM_NOW_ON)
+                        : Messages.get(UiText.AUTOCLAIM_NOW_OFF)));
             }
             case "sethome" -> reply(ctx.service(HomeService.class).setHome(uuid()));
             case "ally_home" -> {
@@ -782,7 +786,7 @@ public final class DominionPanel extends DominionPage {
                     return false;
                 }
             }
-            case "announce" -> reply(text.isEmpty() ? Result.fail("Type the announcement first.")
+            case "announce" -> reply(text.isEmpty() ? Result.fail(Messages.get(UiText.ANNOUNCEMENT_FIRST))
                     : ctx.service(ChatService.class).announce(uuid(), text));
             case "rel_accept" -> reply(ctx.service(RelationService.class).accept(uuid(), v));
             case "rel_decline" -> reply(ctx.service(RelationService.class).decline(uuid(), v));
@@ -790,7 +794,7 @@ public final class DominionPanel extends DominionPage {
             case "rel_enemy" -> reply(ctx.service(RelationService.class).request(uuid(), v, Relation.ENEMY));
             case "rel_ally", "rel_truce", "rel_enemy_tag" -> {
                 if (text.isEmpty()) {
-                    reply(Result.fail("Type a faction tag first."));
+                    reply(Result.fail(Messages.get(UiText.FACTION_TAG_FIRST)));
                 } else {
                     Relation rel = switch (e.action) {
                         case "rel_ally" -> Relation.ALLY;
@@ -803,11 +807,11 @@ public final class DominionPanel extends DominionPage {
             case "deposit", "withdraw" -> {
                 EconomyService eco = economy();
                 if (eco == null) {
-                    reply(Result.fail("The economy is turned off on this server."));
+                    reply(Result.fail(Messages.get(UiText.ECONOMY_OFF)));
                 } else {
                     double amount = parseAmount(text);
                     if (amount <= 0) {
-                        reply(Result.fail("Type a positive amount first."));
+                        reply(Result.fail(Messages.get(UiText.POSITIVE_AMOUNT_FIRST)));
                     } else {
                         reply("deposit".equals(e.action) ? eco.bankDeposit(uuid(), amount) : eco.bankWithdraw(uuid(), amount));
                     }
@@ -827,7 +831,7 @@ public final class DominionPanel extends DominionPage {
                     return true;
                 }
                 // A null tag keeps the current one, the same as /f name.
-                reply(text.isEmpty() ? Result.fail("Type a name first.") : factions().rename(uuid(), null, text));
+                reply(text.isEmpty() ? Result.fail(Messages.get(UiText.NAME_FIRST)) : factions().rename(uuid(), null, text));
             }
             case "describe" -> reply(factions().setDescription(uuid(), text));
             case "motd" -> reply(factions().setMotd(uuid(), text));
@@ -838,12 +842,13 @@ public final class DominionPanel extends DominionPage {
             case "transfer" -> {
                 UUID target = resolvePlayer(text);
                 if (target == null) {
-                    reply(Result.fail(text.isEmpty() ? "Type the new leader's name first." : "No player named " + text + " is known."));
+                    reply(Result.fail(text.isEmpty() ? Messages.get(UiText.NEW_LEADER_FIRST)
+                            : Messages.get(UiText.NO_PLAYER_NAMED, "name", text)));
                     return true;
                 }
                 String name = nameOr(target, text);
-                ui.confirm(player(), "Transfer leadership",
-                        "You will hand the faction to " + name + " and become an officer. Only the new leader can give it back.",
+                ui.confirm(player(), Messages.get(UiText.TRANSFER_TITLE),
+                        Messages.get(UiText.TRANSFER_BODY, "name", name),
                         yes -> {
                             if (yes) {
                                 reply(factions().transferLeader(uuid(), target, true));
@@ -853,8 +858,8 @@ public final class DominionPanel extends DominionPage {
                 return false;
             }
             case "unclaimall" -> {
-                ui.confirm(player(), "Unclaim all land",
-                        "Every chunk your faction owns becomes wilderness. Anyone can build there or claim it.",
+                ui.confirm(player(), Messages.get(UiText.UNCLAIM_ALL_TITLE),
+                        Messages.get(UiText.UNCLAIM_ALL_BODY),
                         yes -> {
                             if (yes) {
                                 reply(ctx.service(ClaimService.class).unclaimAll(uuid(), true));
@@ -864,8 +869,8 @@ public final class DominionPanel extends DominionPage {
                 return false;
             }
             case "disband" -> {
-                ui.confirm(player(), "Disband the faction",
-                        "The faction, its land, its bank and its history are deleted for good. Every member becomes factionless.",
+                ui.confirm(player(), Messages.get(UiText.DISBAND_TITLE),
+                        Messages.get(UiText.DISBAND_BODY),
                         yes -> {
                             if (yes) {
                                 reply(factions().disband(uuid(), true));
@@ -875,8 +880,8 @@ public final class DominionPanel extends DominionPage {
                 return false;
             }
             case "leave" -> {
-                ui.confirm(player(), "Leave the faction",
-                        "You lose access to the faction land, home and bank. You need a new invite to come back.",
+                ui.confirm(player(), Messages.get(UiText.LEAVE_TITLE),
+                        Messages.get(UiText.LEAVE_BODY),
                         yes -> {
                             if (yes) {
                                 reply(factions().leave(uuid()));
@@ -988,7 +993,7 @@ public final class DominionPanel extends DominionPage {
         try {
             return action.apply(UUID.fromString(id));
         } catch (IllegalArgumentException e) {
-            return Result.fail("That player could not be found.");
+            return Result.fail(Messages.get(UiText.PLAYER_NOT_FOUND));
         }
     }
 
@@ -1059,7 +1064,7 @@ public final class DominionPanel extends DominionPage {
                 }
             }
         }
-        return out.isEmpty() ? "None" : String.join(", ", out);
+        return out.isEmpty() ? Messages.get(UiText.RANK_NONE) : String.join(", ", out);
     }
 
     private String nameOf(UUID player) {
@@ -1077,12 +1082,12 @@ public final class DominionPanel extends DominionPage {
                 return m.name();
             }
         }
-        return "Unknown player";
+        return Messages.get(UiText.UNKNOWN_PLAYER);
     }
 
     private String nameOr(UUID player, String fallback) {
         String n = nameOf(player);
-        return "Unknown player".equals(n) ? fallback : n;
+        return Messages.get(UiText.UNKNOWN_PLAYER).equals(n) ? fallback : n;
     }
 
     /**

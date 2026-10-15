@@ -11,6 +11,7 @@ import dev.ryvrook.dominion.service.EconomyService;
 import dev.ryvrook.dominion.service.FactionService;
 import dev.ryvrook.dominion.service.MarketService;
 import dev.ryvrook.dominion.service.RelationService;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.ui.Body.Btn;
 import dev.ryvrook.dominion.util.Time;
@@ -37,7 +38,8 @@ final class MarketTab {
 
     /** Sort keys passed to MarketService.browse, with their pill labels. */
     static final String[][] SORTS = {
-            {"newest", "Newest"}, {"price_asc", "Cheapest"}, {"price_desc", "Priciest"}, {"ending", "Ending soon"}
+            {"newest", UiText.SORT_NEWEST}, {"price_asc", UiText.SORT_CHEAPEST}, {"price_desc", UiText.SORT_PRICIEST},
+            {"ending", UiText.SORT_ENDING}
     };
 
     private final DominionContext ctx;
@@ -67,18 +69,19 @@ final class MarketTab {
             return "";
         }
         int waiting = m.mailbox(panel.uuid()).size();
-        return waiting > 0 || m.mailboxCoins(panel.uuid()) > 0 ? "Mail" : "";
+        return waiting > 0 || m.mailboxCoins(panel.uuid()) > 0 ? Messages.get(UiText.MAIL) : "";
     }
 
     void build(UICommandBuilder c, Body body, Faction f) {
         MarketService m = market();
         if (m == null) {
-            panel.title(c, "Market", "");
-            body.text("The market is closed on this server.", Msg.MUTED);
+            panel.title(c, Messages.get(UiText.MARKET), "");
+            body.text(Messages.get(UiText.MARKET_CLOSED), Msg.MUTED);
             return;
         }
-        body.buttons(pill("Browse", BROWSE), pill("Sell", SELL), pill("Orders", ORDERS), pill("Mine", MINE),
-                pill("Auctions", AUCTIONS), pill("Mailbox", MAILBOX));
+        body.buttons(pill(Messages.get(UiText.TAB_BROWSE), BROWSE), pill(Messages.get(UiText.TAB_SELL), SELL),
+                pill(Messages.get(UiText.TAB_ORDERS), ORDERS), pill(Messages.get(UiText.TAB_MINE), MINE),
+                pill(Messages.get(UiText.TAB_AUCTIONS), AUCTIONS), pill(Messages.get(UiText.TAB_MAILBOX), MAILBOX));
         switch (sub) {
             case SELL -> buildSell(c, body);
             case ORDERS -> buildOrders(c, body, m);
@@ -100,116 +103,119 @@ final class MarketTab {
         int total = m.count(Listing.Kind.SALE, search);
         int pages = Math.max(1, (total + PAGE_SIZE - 1) / PAGE_SIZE);
         page = Math.max(0, Math.min(page, pages - 1));
-        panel.title(c, "Market", total + " listings, page " + (page + 1) + " of " + pages);
-        body.field("Search items", search, Btn.of("Search", "mkt_search"), Btn.of("Clear", "mkt_clear"));
+        panel.title(c, Messages.get(UiText.MARKET), Messages.get(UiText.LISTINGS_PAGE, "total", total, "page", page + 1, "pages", pages));
+        body.field(Messages.get(UiText.SEARCH_ITEMS), search, Btn.of(Messages.get(UiText.SEARCH), "mkt_search"),
+                Btn.of(Messages.get(UiText.CLEAR), "mkt_clear"));
         List<Btn> sorts = new ArrayList<>();
         for (String[] s : SORTS) {
-            sorts.add(Btn.of(s[0].equals(sort) ? "[ " + s[1] + " ]" : s[1], "mkt_sort", s[0]));
+            String label = Messages.get(s[1]);
+            sorts.add(Btn.of(s[0].equals(sort) ? "[ " + label + " ]" : label, "mkt_sort", s[0]));
         }
         body.buttons(sorts.toArray(new Btn[0]));
-        body.itemRow(null, "Item", Msg.MUTED, new String[] {"Amount", "Price each", "Seller"}, null, null, null);
+        body.itemRow(null, Messages.get(UiText.COL_ITEM), Msg.MUTED, new String[] {Messages.get(UiText.COL_AMOUNT),
+                Messages.get(UiText.COL_PRICE_EACH), Messages.get(UiText.COL_SELLER)}, null, null, null);
         List<Listing> rows = m.browse(Listing.Kind.SALE, search, sort, page + 1, PAGE_SIZE);
         for (Listing l : rows) {
             String row = body.itemRow(l.itemId(), ItemNames.of(l.itemId()), null,
                     new String[] {String.valueOf(l.quantity()), money(l.price()), seller(l)},
-                    "", Btn.of("Buy", "mkt_buy", l.id().toString()), null);
+                    "", Btn.of(Messages.get(UiText.BUY), "mkt_buy", l.id().toString()), null);
             colorSeller(c, row, l);
         }
         if (rows.isEmpty()) {
-            body.text(search.isEmpty() ? "Nothing is for sale right now." : "Nothing matches your search.", Msg.MUTED);
+            body.text(search.isEmpty() ? Messages.get(UiText.NOTHING_FOR_SALE) : Messages.get(UiText.NOTHING_MATCHES), Msg.MUTED);
         } else {
-            body.text("Type how many you want in the box next to an item and press Buy. Leave it empty to buy them all.",
-                    Msg.MUTED);
+            body.text(Messages.get(UiText.BROWSE_HINT), Msg.MUTED);
         }
         paging(body, pages);
     }
 
     private void buildSell(UICommandBuilder c, Body body) {
-        panel.title(c, "Sell", "List the item in your hand");
-        body.text("Hold the item you want to sell in your hand, then type a price for each item and press Sell. "
-                + "Leave the amount empty to sell the whole stack. Press Auction instead to put the whole stack up "
-                + "for bids for " + AUCTION_HOURS + " hours. The price is then the starting bid for the whole stack.");
-        body.form(new String[] {"Price", "Amount"}, Btn.of("Sell", "mkt_sell"), Btn.of("Auction", "mkt_auction"));
+        panel.title(c, Messages.get(UiText.TAB_SELL), Messages.get(UiText.SELL_SUBTITLE));
+        body.text(Messages.get(UiText.SELL_HINT, "hours", AUCTION_HOURS));
+        body.form(new String[] {Messages.get(UiText.FIELD_PRICE), Messages.get(UiText.FIELD_AMOUNT)},
+                Btn.of(Messages.get(UiText.TAB_SELL), "mkt_sell"), Btn.of(Messages.get(UiText.AUCTION), "mkt_auction"));
         double tax = ctx.settings().decimal("market.taxPercent") + ctx.settings().decimal("market.serverTaxPercent");
         if (tax > 0) {
-            body.text("Sales pay " + Msg.number(tax) + " percent in tax.", Msg.MUTED);
+            body.text(Messages.get(UiText.SALES_TAX, "percent", Msg.number(tax)), Msg.MUTED);
         }
-        body.text("Listings expire after " + ctx.settings().integer("market.listingHours")
-                + " hours and unsold items come back through your mailbox.", Msg.MUTED);
+        body.text(Messages.get(UiText.LISTINGS_EXPIRE, "hours", ctx.settings().integer("market.listingHours")), Msg.MUTED);
     }
 
     private void buildOrders(UICommandBuilder c, Body body, MarketService m) {
         int total = m.count(Listing.Kind.ORDER, "");
         int pages = Math.max(1, (total + PAGE_SIZE - 1) / PAGE_SIZE);
         page = Math.max(0, Math.min(page, pages - 1));
-        panel.title(c, "Buy orders", total + " open orders, page " + (page + 1) + " of " + pages);
-        body.section("Place an order");
-        body.text("Ask for an item by its id, set the price you pay for each one and how many you want. "
-                + "The coins are held until sellers fill the order.", Msg.MUTED);
-        body.form(new String[] {"Item id", "Price", "Amount"}, Btn.of("Place", "mkt_order"));
-        body.section("Open orders");
-        body.itemRow(null, "Item", Msg.MUTED, new String[] {"Wanted", "Pays each", "Buyer"}, null, null, null);
+        panel.title(c, Messages.get(UiText.BUY_ORDERS), Messages.get(UiText.ORDERS_PAGE, "total", total, "page", page + 1, "pages", pages));
+        body.section(Messages.get(UiText.PLACE_AN_ORDER));
+        body.text(Messages.get(UiText.ORDER_HINT), Msg.MUTED);
+        body.form(new String[] {Messages.get(UiText.FIELD_ITEM_ID), Messages.get(UiText.FIELD_PRICE), Messages.get(UiText.FIELD_AMOUNT)},
+                Btn.of(Messages.get(UiText.PLACE_BUTTON), "mkt_order"));
+        body.section(Messages.get(UiText.OPEN_ORDERS));
+        body.itemRow(null, Messages.get(UiText.COL_ITEM), Msg.MUTED, new String[] {Messages.get(UiText.COL_WANTED),
+                Messages.get(UiText.COL_PAYS_EACH), Messages.get(UiText.COL_BUYER)}, null, null, null);
         List<Listing> rows = m.browse(Listing.Kind.ORDER, "", "newest", page + 1, PAGE_SIZE);
         for (Listing l : rows) {
             String row = body.itemRow(l.itemId(), ItemNames.of(l.itemId()), null,
                     new String[] {String.valueOf(l.quantity()), money(l.price()), seller(l)},
-                    "", Btn.of("Fulfil", "mkt_fulfil", l.id().toString()), null);
+                    "", Btn.of(Messages.get(UiText.FULFIL), "mkt_fulfil", l.id().toString()), null);
             colorSeller(c, row, l);
         }
         if (rows.isEmpty()) {
-            body.text("Nobody is asking for anything right now.", Msg.MUTED);
+            body.text(Messages.get(UiText.NO_ORDERS), Msg.MUTED);
         } else {
-            body.text("Carry the items, type how many you can deliver and press Fulfil. Leave it empty to fill the whole order.",
-                    Msg.MUTED);
+            body.text(Messages.get(UiText.FULFIL_HINT), Msg.MUTED);
         }
         paging(body, pages);
     }
 
     private void buildMine(UICommandBuilder c, Body body, MarketService m) {
         List<Listing> mine = m.mine(panel.uuid());
-        panel.title(c, "Your listings", mine.size() + " of " + ctx.settings().integer("market.maxListingsPerPlayer"));
+        panel.title(c, Messages.get(UiText.YOUR_LISTINGS), Messages.get(UiText.COUNT_OF_MAX, "count", mine.size(),
+                "max", ctx.settings().integer("market.maxListingsPerPlayer")));
         if (mine.isEmpty()) {
-            body.text("You have nothing listed. Use the Sell tab to list the item in your hand.", Msg.MUTED);
+            body.text(Messages.get(UiText.NOTHING_LISTED), Msg.MUTED);
             return;
         }
-        body.itemRow(null, "Item", Msg.MUTED, new String[] {"Amount", "Price", "Ends in"}, null, null, null);
+        body.itemRow(null, Messages.get(UiText.COL_ITEM), Msg.MUTED, new String[] {Messages.get(UiText.COL_AMOUNT),
+                Messages.get(UiText.COL_PRICE), Messages.get(UiText.COL_ENDS_IN)}, null, null, null);
         long now = Time.now();
         for (Listing l : mine) {
             String id = l.id().toString();
             String kind = switch (l.kind()) {
-                case SALE -> l.storefront() ? "Pinned sale" : "Sale";
-                case ORDER -> "Order";
-                case AUCTION -> "Auction";
+                case SALE -> l.storefront() ? Messages.get(UiText.KIND_PINNED_SALE) : Messages.get(UiText.KIND_SALE);
+                case ORDER -> Messages.get(UiText.KIND_ORDER);
+                case AUCTION -> Messages.get(UiText.KIND_AUCTION);
             };
             Btn pin = l.kind() == Listing.Kind.SALE
-                    ? Btn.of(l.storefront() ? "Unpin" : "Pin", "mkt_pin", id) : null;
+                    ? Btn.of(l.storefront() ? Messages.get(UiText.UNPIN) : Messages.get(UiText.PIN), "mkt_pin", id) : null;
             body.itemRow(l.itemId(), kind + "  " + ItemNames.of(l.itemId()), l.storefront() ? Msg.GOLD : null,
                     new String[] {String.valueOf(l.quantity()), money(l.price()), Time.remaining(l.expiresAt() - now)},
-                    null, Btn.of("Cancel", "mkt_cancel", id), pin);
+                    null, Btn.of(Messages.get(UiText.CANCEL), "mkt_cancel", id), pin);
         }
-        body.text("Pinned sales show on your faction storefront, which visitors see on your faction page.", Msg.MUTED);
+        body.text(Messages.get(UiText.PINNED_HINT), Msg.MUTED);
     }
 
     private void buildAuctions(UICommandBuilder c, Body body, MarketService m) {
         int total = m.count(Listing.Kind.AUCTION, "");
         int pages = Math.max(1, (total + PAGE_SIZE - 1) / PAGE_SIZE);
         page = Math.max(0, Math.min(page, pages - 1));
-        panel.title(c, "Auctions", total + " running, page " + (page + 1) + " of " + pages);
-        body.itemRow(null, "Item", Msg.MUTED, new String[] {"Amount", "Top bid", "Ends in"}, null, null, null);
+        panel.title(c, Messages.get(UiText.AUCTIONS), Messages.get(UiText.AUCTIONS_PAGE, "total", total, "page", page + 1, "pages", pages));
+        body.itemRow(null, Messages.get(UiText.COL_ITEM), Msg.MUTED, new String[] {Messages.get(UiText.COL_AMOUNT),
+                Messages.get(UiText.COL_TOP_BID), Messages.get(UiText.COL_ENDS_IN)}, null, null, null);
         long now = Time.now();
         List<Listing> rows = m.browse(Listing.Kind.AUCTION, "", "ending", page + 1, PAGE_SIZE);
         for (Listing l : rows) {
-            String leader = l.topBidderName() == null || l.topBidderName().isBlank() ? "" : "  led by " + l.topBidderName();
-            body.itemRow(l.itemId(), ItemNames.of(l.itemId()) + leader, panel.uuid().equals(l.topBidder()) ? Msg.GOOD : null,
+            String name = l.topBidderName() == null || l.topBidderName().isBlank() ? ItemNames.of(l.itemId())
+                    : Messages.get(UiText.AUCTION_LED_BY, "item", ItemNames.of(l.itemId()), "bidder", l.topBidderName());
+            body.itemRow(l.itemId(), name, panel.uuid().equals(l.topBidder()) ? Msg.GOOD : null,
                     new String[] {String.valueOf(l.quantity()), money(l.price()), Time.remaining(l.expiresAt() - now)},
-                    "", Btn.of("Bid", "mkt_bid", l.id().toString()), null);
+                    "", Btn.of(Messages.get(UiText.BID), "mkt_bid", l.id().toString()), null);
         }
         if (rows.isEmpty()) {
-            body.text("No auctions are running right now.", Msg.MUTED);
+            body.text(Messages.get(UiText.NO_AUCTIONS), Msg.MUTED);
         } else {
             double step = ctx.settings().decimal("market.auctionMinStepPercent");
-            body.text("Type your bid in the box and press Bid. Each bid must beat the top bid by at least "
-                    + Msg.number(step) + " percent. Your coins come back if someone outbids you.", Msg.MUTED);
+            body.text(Messages.get(UiText.BID_HINT, "percent", Msg.number(step)), Msg.MUTED);
         }
         paging(body, pages);
     }
@@ -217,11 +223,11 @@ final class MarketTab {
     private void buildMailbox(UICommandBuilder c, Body body, MarketService m) {
         List<ItemStack> items = m.mailbox(panel.uuid());
         double coins = m.mailboxCoins(panel.uuid());
-        panel.title(c, "Mailbox", items.size() + " stacks waiting");
-        body.stat("Coins waiting", money(coins), Msg.GOLD);
-        body.buttons(Btn.of("Collect", "mkt_collect"));
+        panel.title(c, Messages.get(UiText.MAILBOX), Messages.get(UiText.STACKS_WAITING, "count", items.size()));
+        body.stat(Messages.get(UiText.COINS_WAITING), money(coins), Msg.GOLD);
+        body.buttons(Btn.of(Messages.get(UiText.COLLECT), "mkt_collect"));
         if (items.isEmpty()) {
-            body.text("No items are waiting for you.", Msg.MUTED);
+            body.text(Messages.get(UiText.NO_ITEMS_WAITING), Msg.MUTED);
         }
         int shown = 0;
         for (ItemStack stack : items) {
@@ -231,17 +237,16 @@ final class MarketTab {
             body.itemRow(stack.getItemId(), ItemNames.of(stack.getItemId()), null,
                     new String[] {String.valueOf(stack.getQuantity()), "", ""}, null, null, null);
             if (++shown >= 40) {
-                body.text("More items are waiting. Collect to see the rest.", Msg.MUTED);
+                body.text(Messages.get(UiText.MORE_ITEMS_WAITING), Msg.MUTED);
                 break;
             }
         }
-        body.text("Sold items pay out here, and expired or cancelled listings come back here. "
-                + "Make room in your inventory before you collect.", Msg.MUTED);
+        body.text(Messages.get(UiText.MAILBOX_HINT), Msg.MUTED);
     }
 
     private void paging(Body body, int pages) {
-        body.buttons(page > 0 ? Btn.of("Previous", "mkt_prev") : null,
-                page < pages - 1 ? Btn.of("Next", "mkt_next") : null);
+        body.buttons(page > 0 ? Btn.of(Messages.get(UiText.PREVIOUS), "mkt_prev") : null,
+                page < pages - 1 ? Btn.of(Messages.get(UiText.NEXT), "mkt_next") : null);
     }
 
     /** Handles market buttons. Returns null when the action is not ours. */
@@ -251,7 +256,7 @@ final class MarketTab {
         }
         MarketService m = market();
         if (m == null) {
-            panel.reply(Result.fail("The market is closed on this server."));
+            panel.reply(Result.fail(Messages.get(UiText.MARKET_CLOSED)));
             return true;
         }
         UUID me = panel.uuid();
@@ -278,19 +283,19 @@ final class MarketTab {
             case "mkt_buy" -> {
                 Listing l = listing(m, e.value());
                 if (l == null) {
-                    panel.reply(Result.fail("That listing is gone."));
+                    panel.reply(Result.fail(Messages.get(UiText.LISTING_GONE)));
                 } else {
                     int amount = text.isEmpty() ? l.quantity() : parseInt(text);
-                    panel.reply(amount <= 0 ? Result.fail("Type a whole number of items to buy.") : m.buy(me, l.id(), amount));
+                    panel.reply(amount <= 0 ? Result.fail(Messages.get(UiText.WHOLE_NUMBER_TO_BUY)) : m.buy(me, l.id(), amount));
                 }
             }
             case "mkt_sell", "mkt_auction" -> {
                 double price = parseDouble(text);
                 if (price <= 0) {
-                    panel.reply(Result.fail("Type a price above zero first."));
+                    panel.reply(Result.fail(Messages.get(UiText.PRICE_ABOVE_ZERO)));
                 } else if ("mkt_sell".equals(e.action)) {
                     int amount = e.text2().isEmpty() ? 0 : parseInt(e.text2());
-                    panel.reply(amount < 0 ? Result.fail("Type a whole number of items, or leave the amount empty.")
+                    panel.reply(amount < 0 ? Result.fail(Messages.get(UiText.WHOLE_NUMBER_OR_EMPTY))
                             : m.sellHeld(me, price, amount));
                 } else {
                     panel.reply(m.auctionHeld(me, price, 0, AUCTION_HOURS));
@@ -301,11 +306,11 @@ final class MarketTab {
                 double price = parseDouble(e.text2());
                 int amount = parseInt(e.text3());
                 if (item.isEmpty()) {
-                    panel.reply(Result.fail("Type the id of the item you want."));
+                    panel.reply(Result.fail(Messages.get(UiText.ITEM_ID_FIRST)));
                 } else if (price <= 0) {
-                    panel.reply(Result.fail("Type the price you pay for each item."));
+                    panel.reply(Result.fail(Messages.get(UiText.ORDER_PRICE_FIRST)));
                 } else if (amount <= 0) {
-                    panel.reply(Result.fail("Type how many items you want."));
+                    panel.reply(Result.fail(Messages.get(UiText.ORDER_AMOUNT_FIRST)));
                 } else {
                     panel.reply(m.placeOrder(me, item, price, amount));
                 }
@@ -313,28 +318,28 @@ final class MarketTab {
             case "mkt_fulfil" -> {
                 Listing l = listing(m, e.value());
                 if (l == null) {
-                    panel.reply(Result.fail("That order is gone."));
+                    panel.reply(Result.fail(Messages.get(UiText.ORDER_GONE)));
                 } else {
                     int amount = text.isEmpty() ? l.quantity() : parseInt(text);
-                    panel.reply(amount <= 0 ? Result.fail("Type a whole number of items to deliver.")
+                    panel.reply(amount <= 0 ? Result.fail(Messages.get(UiText.WHOLE_NUMBER_TO_DELIVER))
                             : m.fulfilOrder(me, l.id(), amount));
                 }
             }
             case "mkt_cancel" -> {
                 UUID id = parseId(e.value());
-                panel.reply(id == null ? Result.fail("That listing is gone.") : m.cancel(me, id));
+                panel.reply(id == null ? Result.fail(Messages.get(UiText.LISTING_GONE)) : m.cancel(me, id));
             }
             case "mkt_pin" -> {
                 Listing l = listing(m, e.value());
-                panel.reply(l == null ? Result.fail("That listing is gone.") : m.setStorefront(me, l.id(), !l.storefront()));
+                panel.reply(l == null ? Result.fail(Messages.get(UiText.LISTING_GONE)) : m.setStorefront(me, l.id(), !l.storefront()));
             }
             case "mkt_bid" -> {
                 double amount = parseDouble(text);
                 UUID id = parseId(e.value());
                 if (id == null) {
-                    panel.reply(Result.fail("That auction is over."));
+                    panel.reply(Result.fail(Messages.get(UiText.AUCTION_OVER)));
                 } else if (amount <= 0) {
-                    panel.reply(Result.fail("Type your bid in the box first."));
+                    panel.reply(Result.fail(Messages.get(UiText.BID_FIRST)));
                 } else {
                     panel.reply(m.bid(me, id, amount));
                 }
@@ -359,7 +364,7 @@ final class MarketTab {
         if (f != null) {
             return f.tag();
         }
-        return l.sellerName() == null || l.sellerName().isBlank() ? "Unknown" : l.sellerName();
+        return l.sellerName() == null || l.sellerName().isBlank() ? Messages.get(UiText.UNKNOWN_SELLER) : l.sellerName();
     }
 
     /** Colours the seller column of a row by the viewer's relation to the seller's faction. */

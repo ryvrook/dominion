@@ -9,6 +9,7 @@ import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.ryvrook.dominion.DominionContext;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.util.Players;
 
 import java.util.concurrent.TimeUnit;
@@ -34,7 +35,7 @@ public final class ConfirmPage extends DominionPage {
     public ConfirmPage(PlayerRef player, DominionContext ctx, UiServiceImpl ui, String title, String consequence,
                        Consumer<Boolean> onDecision) {
         super(player, ctx, ui);
-        this.title = title == null || title.isBlank() ? "Are you sure" : title;
+        this.title = title == null || title.isBlank() ? Messages.get(UiText.CONFIRM_DEFAULT_TITLE) : title;
         this.consequence = consequence == null ? "" : consequence;
         this.onDecision = onDecision;
     }
@@ -46,7 +47,7 @@ public final class ConfirmPage extends DominionPage {
         commands.set("#Consequence.Text", consequence);
         boolean locked = System.currentTimeMillis() < unlockAt;
         commands.set("#Confirm.Disabled", locked);
-        commands.set("#Wait.Text", locked ? "Read this first. Confirm unlocks in a few seconds." : "");
+        commands.set("#Wait.Text", locked ? Messages.get(UiText.CONFIRM_WAIT) : "");
         Body.on(events, "#Confirm", "confirm", "");
         Body.on(events, "#Cancel", "cancel", "");
         if (locked && scheduled.compareAndSet(false, true)) {

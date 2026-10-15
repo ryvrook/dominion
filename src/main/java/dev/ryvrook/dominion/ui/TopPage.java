@@ -13,6 +13,7 @@ import dev.ryvrook.dominion.service.ClaimService;
 import dev.ryvrook.dominion.service.NationService;
 import dev.ryvrook.dominion.service.PowerService;
 import dev.ryvrook.dominion.service.ProgressService;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.ui.Body.Btn;
 
@@ -72,17 +73,19 @@ public final class TopPage extends DominionPage {
     @Override
     protected void render(Ref<EntityStore> ref, UICommandBuilder c, UIEventBuilder events, Store<EntityStore> store) {
         c.append(FactionInfoPage.PAGE);
-        c.set("#PageTitle.Text", "Top factions");
-        c.set("#Heading.Text", "Top factions");
+        c.set("#PageTitle.Text", Messages.get(UiText.TOP_FACTIONS));
+        c.set("#Heading.Text", Messages.get(UiText.TOP_FACTIONS));
         ProgressService progress = ctx.serviceOrNull(ProgressService.class);
-        c.set("#Subheading.Text", progress != null ? "Ranked by faction value" : "Score blends land, members, power, kills and bank");
+        c.set("#Subheading.Text", progress != null ? Messages.get(UiText.TOP_BY_VALUE) : Messages.get(UiText.TOP_BY_SCORE));
         c.set("#F1.Visible", true);
-        c.set("#F1.Text", "Your panel");
+        c.set("#F1.Text", Messages.get(UiText.YOUR_PANEL));
         Body.on(events, "#F1", "panel", "");
 
         Body body = new Body(c, events, "#Body");
         List<Scored> ranking = ranking(ctx);
-        body.row("Faction", Msg.MUTED, new String[] {progress != null ? "Value" : "Score", "Members", "Land", "Power"});
+        body.row(Messages.get(UiText.COL_FACTION), Msg.MUTED, new String[] {
+                progress != null ? Messages.get(UiText.COL_VALUE) : Messages.get(UiText.COL_SCORE),
+                Messages.get(UiText.LABEL_MEMBERS), Messages.get(UiText.LABEL_LAND), Messages.get(UiText.LABEL_POWER)});
         Faction mine = factions().factionOf(uuid());
         int myPlace = -1;
         for (int i = 0; i < ranking.size(); i++) {
@@ -95,20 +98,20 @@ public final class TopPage extends DominionPage {
             }
         }
         if (ranking.isEmpty()) {
-            body.text("No factions yet.", Msg.MUTED);
+            body.text(Messages.get(UiText.NO_FACTIONS_YET), Msg.MUTED);
         }
         if (mine != null && myPlace >= 0) {
-            body.section("Your faction");
+            body.section(Messages.get(UiText.YOUR_FACTION));
             row(body, myPlace + 1, ranking.get(myPlace));
         } else if (mine != null && !mine.isSystem() && progress != null) {
-            body.section("Your faction");
+            body.section(Messages.get(UiText.YOUR_FACTION));
             row(body, progress.rank(mine), new Scored(mine, progress.value(mine),
                     ctx.service(ClaimService.class).claimCount(mine), ctx.service(PowerService.class).factionPower(mine)));
         }
         if (mine != null && progress != null) {
             Map<String, Double> parts = progress.valueBreakdown(mine);
             if (parts != null && !parts.isEmpty()) {
-                body.section("Where your value comes from");
+                body.section(Messages.get(UiText.VALUE_SOURCES));
                 for (Map.Entry<String, Double> e : parts.entrySet()) {
                     body.stat(partName(e.getKey()), Msg.number(Math.round(e.getValue() == null ? 0 : e.getValue())));
                 }
@@ -119,11 +122,12 @@ public final class TopPage extends DominionPage {
     private void row(Body body, int place, Scored s) {
         Faction f = s.faction();
         String nation = nationTag(f);
-        body.row((place > 0 ? place + ".  " : "") + f.label() + (nation == null ? "" : "  of " + nation),
+        String name = nation == null ? f.label() : Messages.get(UiText.FACTION_OF_NATION, "faction", f.label(), "nation", nation);
+        body.row((place > 0 ? place + ".  " : "") + name,
                 safeColor(f.color(), null),
                 new String[] {Msg.number(Math.round(s.score())), String.valueOf(f.memberCount()), String.valueOf(s.claims()),
                         Msg.number(s.power())},
-                Btn.of("Info", "info", f.tag()));
+                Btn.of(Messages.get(UiText.INFO), "info", f.tag()));
     }
 
     /** The tag of the faction's nation, or null without one or without the nation service. */
@@ -143,7 +147,7 @@ public final class TopPage extends DominionPage {
     /** Turns a breakdown key such as claims or bankPer100 into a readable label. */
     static String partName(String key) {
         if (key == null || key.isBlank()) {
-            return "Other";
+            return Messages.get(UiText.VALUE_PART_OTHER);
         }
         String k = key.startsWith("weight") ? key.substring(6) : key;
         StringBuilder out = new StringBuilder();

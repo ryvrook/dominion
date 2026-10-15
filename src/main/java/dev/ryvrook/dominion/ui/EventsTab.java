@@ -6,6 +6,7 @@ import dev.ryvrook.dominion.api.Result;
 import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.service.EconomyService;
 import dev.ryvrook.dominion.service.EventsService;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.ui.Body.Btn;
 
@@ -49,28 +50,28 @@ final class EventsTab {
             return "";
         }
         int bounties = safe(s::bounties).size();
-        return bounties > 0 ? bounties + " bounties" : "";
+        return bounties > 0 ? Messages.get(UiText.BOUNTIES_COUNT, "count", bounties) : "";
     }
 
     void build(UICommandBuilder c, Body body, Faction f) {
         EventsService s = events();
         if (s == null) {
-            panel.title(c, "Events", "Events are not running");
-            body.text("Events are turned off on this server.", Msg.MUTED);
+            panel.title(c, Messages.get(UiText.EVENTS), Messages.get(UiText.EVENTS_NOT_RUNNING));
+            body.text(Messages.get(UiText.EVENTS_OFF), Msg.MUTED);
             return;
         }
-        panel.title(c, "Events", "Hills, outposts, envoys and bounties");
+        panel.title(c, Messages.get(UiText.EVENTS), Messages.get(UiText.EVENTS_SUBTITLE));
 
         String season = text(s::seasonStatus);
         if (!season.isBlank()) {
-            body.section("Season");
+            body.section(Messages.get(UiText.SEASON));
             live(body, body.text(season), s::seasonStatus);
         }
 
-        body.section("King of the hill");
+        body.section(Messages.get(UiText.KING_OF_THE_HILL));
         List<String> hills = names(s::hillNames, s::koths, "Hill ");
         if (hills.isEmpty()) {
-            body.text("No hills are set up.", Msg.MUTED);
+            body.text(Messages.get(UiText.NO_HILLS), Msg.MUTED);
         }
         int shown = 0;
         for (String name : hills) {
@@ -81,10 +82,10 @@ final class EventsTab {
             live(body, body.text(statusOr(s.kothStatus(name)), Msg.MUTED), () -> statusOr(s.kothStatus(name)));
         }
 
-        body.section("Outposts");
+        body.section(Messages.get(UiText.OUTPOSTS));
         List<String> outposts = names(s::outpostNames, s::outposts, "Outpost ");
         if (outposts.isEmpty()) {
-            body.text("No outposts are set up.", Msg.MUTED);
+            body.text(Messages.get(UiText.NO_OUTPOSTS), Msg.MUTED);
         }
         shown = 0;
         for (String name : outposts) {
@@ -93,15 +94,16 @@ final class EventsTab {
             }
             Faction holder = holder(s, name);
             boolean ours = holder != null && f != null && holder.id().equals(f.id());
-            body.row(name + (holder == null ? "  unheld" : "  held by " + holder.tag()), ours ? Msg.GOOD : Msg.GOLD,
-                    new String[] {"", "", "", ""}, holder == null ? null : Btn.of("Holder", "info", holder.tag()));
+            body.row(holder == null ? Messages.get(UiText.OUTPOST_UNHELD, "name", name)
+                            : Messages.get(UiText.OUTPOST_HELD_BY, "name", name, "tag", holder.tag()), ours ? Msg.GOOD : Msg.GOLD,
+                    new String[] {"", "", "", ""}, holder == null ? null : Btn.of(Messages.get(UiText.HOLDER), "info", holder.tag()));
             live(body, body.text(statusOr(s.outpostStatus(name)), Msg.MUTED), () -> statusOr(s.outpostStatus(name)));
         }
 
         List<String> envoys = safe(s::envoys);
-        body.section("Envoys");
+        body.section(Messages.get(UiText.ENVOYS));
         if (envoys.isEmpty()) {
-            body.text("No envoy drops are scheduled.", Msg.MUTED);
+            body.text(Messages.get(UiText.NO_ENVOYS), Msg.MUTED);
         }
         shown = 0;
         for (String line : envoys) {
@@ -111,10 +113,10 @@ final class EventsTab {
             body.text(line);
         }
 
-        body.section("Bounties");
+        body.section(Messages.get(UiText.BOUNTIES));
         List<String> bounties = safe(s::bounties);
         if (bounties.isEmpty()) {
-            body.text("Nobody has a bounty on their head.", Msg.MUTED);
+            body.text(Messages.get(UiText.NO_BOUNTIES), Msg.MUTED);
         }
         shown = 0;
         for (String line : bounties) {
@@ -125,10 +127,10 @@ final class EventsTab {
         }
         EconomyService eco = ctx.serviceOrNull(EconomyService.class);
         double min = ctx.settings().decimal("events.bountyMin");
-        body.text("Place a bounty on a player. Whoever kills them collects it. The smallest bounty is "
-                + (eco != null ? eco.format(min) : Msg.number(min)) + ".", Msg.MUTED);
-        body.form(new String[] {"Player", "Amount"}, Btn.of("Place bounty", "ev_bounty"));
-        body.buttons(Btn.of("Refresh", "refresh"));
+        body.text(Messages.get(UiText.BOUNTY_HINT, "min", eco != null ? eco.format(min) : Msg.number(min)), Msg.MUTED);
+        body.form(new String[] {Messages.get(UiText.FIELD_PLAYER), Messages.get(UiText.FIELD_AMOUNT)},
+                Btn.of(Messages.get(UiText.PLACE_BOUNTY), "ev_bounty"));
+        body.buttons(Btn.of(Messages.get(UiText.REFRESH), "refresh"));
     }
 
     /** Handles events tab buttons. Returns null when the action is not ours. */
@@ -138,17 +140,17 @@ final class EventsTab {
         }
         EventsService s = events();
         if (s == null) {
-            panel.reply(Result.fail("Events are not available on this server."));
+            panel.reply(Result.fail(Messages.get(UiText.EVENTS_UNAVAILABLE)));
             return true;
         }
         String name = e.text();
         if (name.isEmpty()) {
-            panel.reply(Result.fail("Type the player's name first."));
+            panel.reply(Result.fail(Messages.get(UiText.PLAYER_NAME_FIRST)));
             return true;
         }
         UUID target = panel.resolvePlayer(name);
         if (target == null) {
-            panel.reply(Result.fail("No player named " + name + " is known."));
+            panel.reply(Result.fail(Messages.get(UiText.NO_PLAYER_NAMED, "name", name)));
             return true;
         }
         double amount;
@@ -158,7 +160,7 @@ final class EventsTab {
             amount = -1;
         }
         if (!(amount > 0) || !Double.isFinite(amount)) {
-            panel.reply(Result.fail("Type a positive amount for the bounty."));
+            panel.reply(Result.fail(Messages.get(UiText.BOUNTY_POSITIVE)));
             return true;
         }
         panel.reply(s.bountyPlace(panel.uuid(), target, amount));
@@ -216,7 +218,7 @@ final class EventsTab {
     }
 
     private static String statusOr(String status) {
-        return status == null || status.isBlank() ? "Waiting." : status;
+        return status == null || status.isBlank() ? Messages.get(UiText.WAITING) : status;
     }
 
     private static String text(Supplier<String> supplier) {

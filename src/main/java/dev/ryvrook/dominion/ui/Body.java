@@ -6,6 +6,7 @@ import com.hypixel.hytale.server.core.ui.Value;
 import com.hypixel.hytale.server.core.ui.builder.EventData;
 import com.hypixel.hytale.server.core.ui.builder.UICommandBuilder;
 import com.hypixel.hytale.server.core.ui.builder.UIEventBuilder;
+import dev.ryvrook.dominion.text.Messages;
 
 /**
  * Appends reusable row templates into one scrolling container and binds their buttons.
@@ -168,10 +169,10 @@ final class Body {
         String s = add(TOGGLE);
         commands.set(s + " #Label.Text", label);
         commands.set(s + " #Key.Text", key == null ? "" : key);
-        commands.set(s + " #State.Text", on ? "On" : "Off");
+        commands.set(s + " #State.Text", on ? Messages.get(UiText.STATE_ON) : Messages.get(UiText.STATE_OFF));
         commands.set(s + " #State.Style.TextColor", on ? "#5fd37a" : "#878e9c");
         if (editable) {
-            commands.set(s + " #Button.Text", on ? "Turn off" : "Turn on");
+            commands.set(s + " #Button.Text", on ? Messages.get(UiText.TURN_OFF) : Messages.get(UiText.TURN_ON));
             bind(s + " #Button", action, value);
         } else {
             commands.set(s + " #Button.Visible", false);
@@ -203,7 +204,7 @@ final class Body {
 
     String palette(String current, String action) {
         String s = add(PALETTE);
-        commands.set(s + " #Current.Text", current == null ? "" : "Now " + current);
+        commands.set(s + " #Current.Text", current == null ? "" : Messages.get(UiText.PALETTE_NOW, "color", current));
         if (current != null) {
             commands.set(s + " #Current.Style.TextColor", current);
         }

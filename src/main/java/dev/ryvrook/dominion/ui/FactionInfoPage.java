@@ -21,6 +21,7 @@ import dev.ryvrook.dominion.service.NationService;
 import dev.ryvrook.dominion.service.ShopService;
 import dev.ryvrook.dominion.service.PowerService;
 import dev.ryvrook.dominion.service.RelationService;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.ui.Body.Btn;
 import dev.ryvrook.dominion.util.Players;
@@ -47,19 +48,19 @@ public final class FactionInfoPage extends DominionPage {
     @Override
     protected void render(Ref<EntityStore> ref, UICommandBuilder c, UIEventBuilder events, Store<EntityStore> store) {
         c.append(PAGE);
-        c.set("#PageTitle.Text", "Faction info");
+        c.set("#PageTitle.Text", Messages.get(UiText.FACTION_INFO_TITLE));
         c.set("#F1.Visible", true);
-        c.set("#F1.Text", "Top factions");
+        c.set("#F1.Text", Messages.get(UiText.TOP_FACTIONS));
         Body.on(events, "#F1", "top", "");
         c.set("#F2.Visible", true);
-        c.set("#F2.Text", "Your panel");
+        c.set("#F2.Text", Messages.get(UiText.YOUR_PANEL));
         Body.on(events, "#F2", "panel", "");
 
         Body body = new Body(c, events, "#Body");
         Faction f = factions().byTag(tag);
         if (f == null) {
-            c.set("#Heading.Text", "Unknown faction");
-            body.text("No faction uses the tag " + tag + ".", Msg.MUTED);
+            c.set("#Heading.Text", Messages.get(UiText.UNKNOWN_FACTION));
+            body.text(Messages.get(UiText.NO_FACTION_WITH_TAG, "tag", tag), Msg.MUTED);
             return;
         }
         PowerService power = ctx.service(PowerService.class);
@@ -69,7 +70,7 @@ public final class FactionInfoPage extends DominionPage {
         ShopService shops = ctx.serviceOrNull(ShopService.class);
         if (shops != null && !f.isSystem()) {
             c.set("#F3.Visible", true);
-            c.set("#F3.Text", "Open shop");
+            c.set("#F3.Text", Messages.get(UiText.OPEN_SHOP));
             Body.on(events, "#F3", "shop", f.tag());
         }
         Relation rel = ctx.service(RelationService.class).playerToFaction(uuid(), f);
@@ -78,28 +79,30 @@ public final class FactionInfoPage extends DominionPage {
             c.set("#Subheading.Style.TextColor", rel.color());
         }
 
-        body.text(f.description().isBlank() ? "This faction has no description." : f.description());
-        body.stat("Founded", Time.date(f.createdAt()));
+        body.text(f.description().isBlank() ? Messages.get(UiText.NO_DESCRIPTION) : f.description());
+        body.stat(Messages.get(UiText.LABEL_FOUNDED), Time.date(f.createdAt()));
         NationService nations = ctx.serviceOrNull(NationService.class);
         Nation nation = nations == null ? null : nations.nationOf(f);
         if (nation != null) {
-            body.stat("Nation", nation.label(), safeColor(nation.color(), Msg.GOLD));
+            body.stat(Messages.get(UiText.LABEL_NATION), nation.label(), safeColor(nation.color(), Msg.GOLD));
         }
-        body.stat("Power", Msg.number(power.factionPower(f)) + " / " + Msg.number(power.factionMaxPower(f)));
-        body.stat("Land", claims.claimCount(f) + " chunks");
+        body.stat(Messages.get(UiText.LABEL_POWER), Messages.get(UiText.POWER_OF_MAX,
+                "power", Msg.number(power.factionPower(f)), "max", Msg.number(power.factionMaxPower(f))));
+        body.stat(Messages.get(UiText.LABEL_LAND), Messages.get(UiText.CHUNKS, "count", claims.claimCount(f)));
         int online = 0;
         for (Member m : f.members()) {
             if (Players.isOnline(m.uuid())) {
                 online++;
             }
         }
-        body.stat("Members", online + " online of " + f.memberCount());
-        body.stat("Joining", f.setting("open", false) ? "Open to everyone" : "Invite only");
+        body.stat(Messages.get(UiText.LABEL_MEMBERS), Messages.get(UiText.ONLINE_OF, "online", online, "total", f.memberCount()));
+        body.stat(Messages.get(UiText.LABEL_JOINING), f.setting("open", false)
+                ? Messages.get(UiText.OPEN_TO_EVERYONE) : Messages.get(UiText.INVITE_ONLY));
         if (claims.raidable(f)) {
-            body.stat("Status", "Raidable", Msg.BAD);
+            body.stat(Messages.get(UiText.LABEL_STATUS), Messages.get(UiText.RAIDABLE), Msg.BAD);
         }
 
-        body.section("Relations");
+        body.section(Messages.get(UiText.LABEL_RELATIONS));
         boolean any = false;
         for (Map.Entry<UUID, Relation> e : f.relations().entrySet()) {
             Faction o = factions().byId(e.getKey());
@@ -108,13 +111,13 @@ public final class FactionInfoPage extends DominionPage {
             }
             any = true;
             body.row(o.label(), e.getValue().color(),
-                    new String[] {e.getValue().displayName(), "", "", ""}, Btn.of("Info", "info", o.tag()));
+                    new String[] {e.getValue().displayName(), "", "", ""}, Btn.of(Messages.get(UiText.INFO), "info", o.tag()));
         }
         if (!any) {
-            body.text("Neutral with everyone.", Msg.MUTED);
+            body.text(Messages.get(UiText.NEUTRAL_WITH_EVERYONE), Msg.MUTED);
         }
 
-        body.section("Members");
+        body.section(Messages.get(UiText.LABEL_MEMBERS));
         List<Member> members = new ArrayList<>(f.members());
         UUID leader = f.leader();
         members.sort(Comparator.comparing((Member m) -> m.uuid().equals(leader) ? Rank.LEADER : m.rank()).reversed()
@@ -123,8 +126,8 @@ public final class FactionInfoPage extends DominionPage {
             boolean on = Players.isOnline(m.uuid());
             Rank rank = m.uuid().equals(leader) ? Rank.LEADER : m.rank();
             String row = body.row(m.name(), rank == Rank.LEADER ? Msg.GOLD : null,
-                    new String[] {f.rankName(rank), Msg.number(power.powerOf(m.uuid())) + " power",
-                            on ? "Online" : Time.ago(m.lastSeen()), m.title()});
+                    new String[] {f.rankName(rank), Messages.get(UiText.POWER_AMOUNT, "power", Msg.number(power.powerOf(m.uuid()))),
+                            on ? Messages.get(UiText.ONLINE) : Time.ago(m.lastSeen()), m.title()});
             body.dot(row, on);
         }
 
@@ -132,7 +135,7 @@ public final class FactionInfoPage extends DominionPage {
         if (market != null && market.enabled()) {
             List<Listing> shelf = market.storefront(f);
             if (!shelf.isEmpty()) {
-                body.section("Storefront");
+                body.section(Messages.get(UiText.LABEL_STOREFRONT));
                 EconomyService eco = ctx.serviceOrNull(EconomyService.class);
                 for (Listing l : shelf) {
                     if (l.closed()) {
@@ -140,10 +143,10 @@ public final class FactionInfoPage extends DominionPage {
                     }
                     String price = eco != null ? eco.format(l.price()) : Msg.number(l.price());
                     body.itemRow(l.itemId(), ItemNames.of(l.itemId()), null,
-                            new String[] {String.valueOf(l.quantity()), price + " each", l.sellerName()},
-                            "", Btn.of("Buy", "store_buy", l.id().toString()), null);
+                            new String[] {String.valueOf(l.quantity()), Messages.get(UiText.PRICE_EACH, "price", price), l.sellerName()},
+                            "", Btn.of(Messages.get(UiText.BUY), "store_buy", l.id().toString()), null);
                 }
-                body.text("Type how many you want next to an item and press Buy. Leave it empty to buy them all.", Msg.MUTED);
+                body.text(Messages.get(UiText.STOREFRONT_HINT), Msg.MUTED);
             }
         }
     }
@@ -156,9 +159,9 @@ public final class FactionInfoPage extends DominionPage {
                 ShopService shops = ctx.serviceOrNull(ShopService.class);
                 Faction f = factions().byTag(e.value());
                 if (shops == null) {
-                    reply(Result.fail("Shops are not available on this server."));
+                    reply(Result.fail(Messages.get(UiText.SHOPS_UNAVAILABLE)));
                 } else if (f == null) {
-                    reply(Result.fail("That faction no longer exists."));
+                    reply(Result.fail(Messages.get(UiText.FACTION_GONE)));
                 } else {
                     shops.openFactionShop(player(), f);
                 }
@@ -174,7 +177,7 @@ public final class FactionInfoPage extends DominionPage {
                     l = null;
                 }
                 if (l == null || l.closed()) {
-                    reply(Result.fail("That item is no longer for sale."));
+                    reply(Result.fail(Messages.get(UiText.ITEM_NOT_FOR_SALE)));
                 } else {
                     int amount;
                     try {
@@ -182,7 +185,7 @@ public final class FactionInfoPage extends DominionPage {
                     } catch (NumberFormatException ex) {
                         amount = -1;
                     }
-                    reply(amount <= 0 ? Result.fail("Type a whole number of items to buy.") : market.buy(uuid(), l.id(), amount));
+                    reply(amount <= 0 ? Result.fail(Messages.get(UiText.WHOLE_NUMBER_TO_BUY)) : market.buy(uuid(), l.id(), amount));
                 }
                 return true;
             }

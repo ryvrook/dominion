@@ -8,6 +8,7 @@ import dev.ryvrook.dominion.model.Mission;
 import dev.ryvrook.dominion.service.EconomyService;
 import dev.ryvrook.dominion.service.ProgressService;
 import dev.ryvrook.dominion.service.VaultService;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.ui.Body.Btn;
 import dev.ryvrook.dominion.util.Time;
@@ -52,10 +53,10 @@ final class ProgressTabs {
         if (p == null) {
             return;
         }
-        body.stat("Faction value", Msg.number(Math.round(p.value(f))), Msg.GOLD);
+        body.stat(Messages.get(UiText.FACTION_VALUE), Msg.number(Math.round(p.value(f))), Msg.GOLD);
         int rank = p.rank(f);
-        body.stat("Leaderboard", rank > 0 ? "Place " + rank : "Not ranked yet");
-        body.stat("Level", "Level " + p.level(f) + " with " + Msg.number(p.points(f)) + " points");
+        body.stat(Messages.get(UiText.LEADERBOARD), rank > 0 ? Messages.get(UiText.PLACE, "place", rank) : Messages.get(UiText.NOT_RANKED));
+        body.stat(Messages.get(UiText.LEVEL), Messages.get(UiText.LEVEL_WITH_POINTS, "level", p.level(f), "points", Msg.number(p.points(f))));
     }
 
     // ---- vault -----------------------------------------------------------
@@ -63,16 +64,15 @@ final class ProgressTabs {
     void buildVault(UICommandBuilder c, Body body, Faction f) {
         VaultService v = vault();
         int pages = v == null ? 0 : Math.max(0, Math.min(MAX_VAULT_PAGES, v.pages(f)));
-        panel.title(c, "Vault", pages == 1 ? "1 page" : pages + " pages");
-        body.text("The vault is a shared chest for your faction. Pick a page to open it. "
-                + "Opening the vault needs the vault permission.");
+        panel.title(c, Messages.get(UiText.VAULT), pages == 1 ? Messages.get(UiText.PAGE_ONE) : Messages.get(UiText.PAGES_COUNT, "count", pages));
+        body.text(Messages.get(UiText.VAULT_EXPLAINED));
         if (pages == 0) {
-            body.text("Your faction has no vault pages yet. Buy the vault upgrade to unlock more.", Msg.MUTED);
+            body.text(Messages.get(UiText.VAULT_NO_PAGES), Msg.MUTED);
             return;
         }
         List<Btn> row = new ArrayList<>();
         for (int i = 1; i <= pages; i++) {
-            row.add(Btn.of("Page " + i, "vault_open", String.valueOf(i)));
+            row.add(Btn.of(Messages.get(UiText.PAGE_BUTTON, "page", i), "vault_open", String.valueOf(i)));
             if (row.size() == 6) {
                 body.buttons(row.toArray(new Btn[0]));
                 row.clear();
@@ -81,7 +81,7 @@ final class ProgressTabs {
         if (!row.isEmpty()) {
             body.buttons(row.toArray(new Btn[0]));
         }
-        body.text("Each page holds " + ctx.settings().integer("vault.slotsPerPage") + " slots.", Msg.MUTED);
+        body.text(Messages.get(UiText.VAULT_SLOTS, "slots", ctx.settings().integer("vault.slotsPerPage")), Msg.MUTED);
     }
 
     // ---- upgrades --------------------------------------------------------
@@ -90,10 +90,10 @@ final class ProgressTabs {
         ProgressService p = progress();
         boolean coins = ctx.settings().bool("upgrades.useCoins");
         EconomyService eco = ctx.serviceOrNull(EconomyService.class);
-        panel.title(c, "Upgrades", coins && eco != null ? "Bank " + eco.format(f.bank())
-                : Msg.number(p.points(f)) + " points to spend");
-        body.text(coins ? "Upgrades are paid from the faction bank and need the settings permission."
-                : "Upgrades are paid with faction points and need the settings permission.", Msg.MUTED);
+        panel.title(c, Messages.get(UiText.UPGRADES), coins && eco != null ? Messages.get(UiText.BANK_AMOUNT, "amount", eco.format(f.bank()))
+                : Messages.get(UiText.POINTS_TO_SPEND, "points", Msg.number(p.points(f))));
+        body.text(coins ? Messages.get(UiText.UPGRADES_PAID_COINS)
+                : Messages.get(UiText.UPGRADES_PAID_POINTS), Msg.MUTED);
         for (String key : p.upgradeKeys()) {
             int level = p.upgradeLevel(f, key);
             int max = p.upgradeMaxLevel(key);
@@ -101,14 +101,14 @@ final class ProgressTabs {
             String desc = p.upgradeDescription(key, level);
             String cost;
             if (maxed) {
-                cost = "Maxed";
+                cost = Messages.get(UiText.MAXED);
             } else {
                 double amount = p.upgradeCost(f, key);
                 // Points are charged rounded up, matching the progress service.
-                cost = coins ? (eco != null ? eco.format(amount) : Msg.number(amount)) : Msg.number((long) Math.ceil(amount)) + " points";
+                cost = coins ? (eco != null ? eco.format(amount) : Msg.number(amount)) : Messages.get(UiText.POINTS_AMOUNT, "points", Msg.number((long) Math.ceil(amount)));
             }
             body.upgrade(prettyKey(key), desc, level, max, cost,
-                    maxed ? null : Btn.of("Buy", "upgrade_buy", key));
+                    maxed ? null : Btn.of(Messages.get(UiText.BUY), "upgrade_buy", key));
         }
     }
 
@@ -129,7 +129,7 @@ final class ProgressTabs {
                 done++;
             }
         }
-        panel.title(c, "Missions", done + " of " + (daily.size() + weekly.size()) + " complete");
+        panel.title(c, Messages.get(UiText.MISSIONS), Messages.get(UiText.MISSIONS_COMPLETE, "done", done, "total", daily.size() + weekly.size()));
         // Missions rotate at midnight UTC and weekly on Monday at midnight UTC.
         ZoneId zone = ZoneOffset.UTC;
         LocalDate today = LocalDate.now(zone);
@@ -137,17 +137,16 @@ final class ProgressTabs {
         long dayEnds = today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli();
         long weekEnds = today.with(TemporalAdjusters.next(DayOfWeek.MONDAY)).atStartOfDay(zone).toInstant().toEpochMilli();
 
-        body.section("Daily missions");
-        cards(body, f, p, daily, "New missions in " + Time.remaining(dayEnds - now));
-        body.section("Weekly missions");
-        cards(body, f, p, weekly, "New missions in " + Time.remaining(weekEnds - now));
-        body.text("Every member helps. Progress counts while you play and rewards go to the faction when a mission is done.",
-                Msg.MUTED);
+        body.section(Messages.get(UiText.DAILY_MISSIONS));
+        cards(body, f, p, daily, Messages.get(UiText.NEW_MISSIONS_IN, "time", Time.remaining(dayEnds - now)));
+        body.section(Messages.get(UiText.WEEKLY_MISSIONS));
+        cards(body, f, p, weekly, Messages.get(UiText.NEW_MISSIONS_IN, "time", Time.remaining(weekEnds - now)));
+        body.text(Messages.get(UiText.MISSIONS_HINT), Msg.MUTED);
     }
 
     private void cards(Body body, Faction f, ProgressService p, List<Mission> missions, String timer) {
         if (missions.isEmpty()) {
-            body.text("No missions are active right now.", Msg.MUTED);
+            body.text(Messages.get(UiText.NO_MISSIONS), Msg.MUTED);
             return;
         }
         EconomyService eco = ctx.serviceOrNull(EconomyService.class);
@@ -157,14 +156,18 @@ final class ProgressTabs {
             boolean done = p.missionDone(f, m);
             List<String> rewards = new ArrayList<>();
             if (m.rewardCoins() > 0) {
-                rewards.add(eco != null ? eco.format(m.rewardCoins()) : Msg.number(m.rewardCoins()) + " coins");
+                rewards.add(eco != null ? eco.format(m.rewardCoins()) : Messages.get(UiText.COINS_AMOUNT, "amount", Msg.number(m.rewardCoins())));
             }
             if (m.rewardPoints() > 0) {
-                rewards.add(m.rewardPoints() + " points");
+                rewards.add(Messages.get(UiText.POINTS_AMOUNT, "points", m.rewardPoints()));
             }
-            String reward = rewards.isEmpty() ? "" : "Reward " + String.join(" and ", rewards);
+            String reward = rewards.isEmpty() ? ""
+                    : rewards.size() == 1 ? Messages.get(UiText.REWARD, "reward", rewards.get(0))
+                    : Messages.get(UiText.REWARD_BOTH, "coins", rewards.get(0), "points", rewards.get(1));
             String card = body.card(m.icon(), m.name(), m.description(), reward, progress / (float) target,
-                    done ? "Complete" : Msg.number(progress) + " of " + Msg.number(target), done ? "" : timer);
+                    done ? Messages.get(UiText.COMPLETE)
+                            : Messages.get(UiText.PROGRESS_OF, "progress", Msg.number(progress), "target", Msg.number(target)),
+                    done ? "" : timer);
             if (done) {
                 body.commands().set(card + " #Value.Style.TextColor", Msg.GOOD);
             }
@@ -179,14 +182,14 @@ final class ProgressTabs {
             case "vault_open" -> {
                 VaultService v = vault();
                 if (v == null) {
-                    panel.reply(Result.fail("The vault is not available on this server."));
+                    panel.reply(Result.fail(Messages.get(UiText.VAULT_UNAVAILABLE)));
                     return true;
                 }
                 int page;
                 try {
                     page = Integer.parseInt(e.value());
                 } catch (NumberFormatException ex) {
-                    panel.reply(Result.fail("That page could not be read."));
+                    panel.reply(Result.fail(Messages.get(UiText.PAGE_UNREADABLE)));
                     return true;
                 }
                 Result r = v.open(panel.uuid(), page);
@@ -200,7 +203,7 @@ final class ProgressTabs {
             }
             case "upgrade_buy" -> {
                 ProgressService p = progress();
-                panel.reply(p == null ? Result.fail("Upgrades are not available on this server.") : p.buyUpgrade(panel.uuid(), e.value()));
+                panel.reply(p == null ? Result.fail(Messages.get(UiText.UPGRADES_UNAVAILABLE)) : p.buyUpgrade(panel.uuid(), e.value()));
             }
             default -> {
                 return null;
@@ -211,18 +214,18 @@ final class ProgressTabs {
 
     static String prettyKey(String key) {
         String k = switch (key == null ? "" : key.toLowerCase(Locale.ROOT)) {
-            case "members" -> "Member slots";
-            case "regen" -> "Power regeneration";
-            case "maxpower" -> "Max power";
-            case "warps" -> "Warps";
-            case "vault" -> "Vault pages";
-            case "shield" -> "Shield";
-            case "immunity" -> "Siege immunity";
+            case "members" -> Messages.get(UiText.UPGRADE_MEMBERS);
+            case "regen" -> Messages.get(UiText.UPGRADE_REGEN);
+            case "maxpower" -> Messages.get(UiText.UPGRADE_MAX_POWER);
+            case "warps" -> Messages.get(UiText.UPGRADE_WARPS);
+            case "vault" -> Messages.get(UiText.UPGRADE_VAULT);
+            case "shield" -> Messages.get(UiText.UPGRADE_SHIELD);
+            case "immunity" -> Messages.get(UiText.UPGRADE_IMMUNITY);
             default -> null;
         };
         if (k != null) {
             return k;
         }
-        return key == null || key.isEmpty() ? "Upgrade" : Character.toUpperCase(key.charAt(0)) + key.substring(1);
+        return key == null || key.isEmpty() ? Messages.get(UiText.UPGRADE) : Character.toUpperCase(key.charAt(0)) + key.substring(1);
     }
 }

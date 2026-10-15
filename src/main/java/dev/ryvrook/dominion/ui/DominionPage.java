@@ -14,6 +14,7 @@ import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.Member;
 import dev.ryvrook.dominion.model.PlayerData;
 import dev.ryvrook.dominion.service.FactionService;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Players;
 
@@ -57,7 +58,7 @@ public abstract class DominionPage extends InteractiveCustomUIPage<PageEvent> {
             render(ref, commands, events, store);
         } catch (Exception e) {
             ctx.logger().at(Level.WARNING).withCause(e).log("Dominion page %s failed to render", getClass().getSimpleName());
-            Msg.send(playerRef, Msg.bad("Part of this page could not be shown. Try again in a moment."));
+            Msg.send(playerRef, Msg.bad(Messages.get(UiText.PAGE_RENDER_FAILED)));
         }
     }
 
@@ -74,7 +75,7 @@ public abstract class DominionPage extends InteractiveCustomUIPage<PageEvent> {
             refresh = onAction(data);
         } catch (Exception e) {
             ctx.logger().at(Level.WARNING).withCause(e).log("Dominion page action %s failed", data.action);
-            Msg.send(playerRef, Msg.bad("Something went wrong with that button. Try again in a moment."));
+            Msg.send(playerRef, Msg.bad(Messages.get(UiText.BUTTON_FAILED)));
             refresh = true;
         }
         if (refresh) {
@@ -100,7 +101,7 @@ public abstract class DominionPage extends InteractiveCustomUIPage<PageEvent> {
             return;
         }
         String text = result.message() == null || result.message().isBlank()
-                ? (result.success() ? "Done." : "That did not work.")
+                ? (result.success() ? Messages.get(UiText.DONE) : Messages.get(UiText.DID_NOT_WORK))
                 : result.message();
         Msg.send(playerRef, result.success() ? Msg.good(text) : Msg.bad(text));
     }

@@ -20,6 +20,7 @@ import dev.ryvrook.dominion.service.ClaimService;
 import dev.ryvrook.dominion.service.RelationService;
 import dev.ryvrook.dominion.model.PlayerData;
 import dev.ryvrook.dominion.service.UiService;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Players;
 
@@ -315,11 +316,11 @@ public final class UiServiceImpl implements UiService {
             Message tag = chat instanceof ChatServiceImpl impl ? impl.factionTag(viewer, owner)
                     : Message.raw(owner.tag() + " ").color(rel.color());
             String phrase = switch (rel) {
-                case OWN -> "Your land";
-                case ALLY -> "Ally land";
-                case TRUCE -> "Truce land";
-                case ENEMY -> "Enemy land";
-                default -> "Neutral land";
+                case OWN -> Messages.get(UiText.BANNER_OWN);
+                case ALLY -> Messages.get(UiText.BANNER_ALLY);
+                case TRUCE -> Messages.get(UiText.BANNER_TRUCE);
+                case ENEMY -> Messages.get(UiText.BANNER_ENEMY);
+                default -> Messages.get(UiText.BANNER_NEUTRAL);
             };
             String rest = subtitle == null || subtitle.isBlank() ? "" : "  " + subtitle;
             return Message.join(tag, Message.raw(phrase).color(rel.color()), Message.raw(rest).color(Msg.MUTED));
