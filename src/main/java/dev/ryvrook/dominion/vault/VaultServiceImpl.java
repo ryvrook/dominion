@@ -18,6 +18,8 @@ import dev.ryvrook.dominion.model.Siege;
 import dev.ryvrook.dominion.service.FactionService;
 import dev.ryvrook.dominion.service.MarketService;
 import dev.ryvrook.dominion.service.SiegeService;
+import dev.ryvrook.dominion.text.CommonText;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Players;
 import dev.ryvrook.dominion.util.Time;
@@ -74,28 +76,28 @@ public final class VaultServiceImpl implements dev.ryvrook.dominion.service.Vaul
         FactionService factions = ctx.service(FactionService.class);
         Faction f = factions.factionOf(player);
         if (f == null) {
-            return Result.fail("You are not in a faction.");
+            return Result.fail(Messages.get(CommonText.NOT_IN_FACTION));
         }
         Member m = f.member(player);
         if (m != null && m.onHold(Time.now())) {
-            return Result.fail("New members cannot open the vault yet. Try again in " + Time.remaining(m.holdUntil() - Time.now()) + ".");
+            return Result.fail(Messages.get(VaultText.NEW_MEMBER_HOLD, "time", Time.remaining(m.holdUntil() - Time.now())));
         }
         if (!factions.can(player, FactionAction.VAULT)) {
-            return Result.fail("Your rank cannot open the faction vault.");
+            return Result.fail(Messages.get(VaultText.RANK_CANNOT_OPEN));
         }
         int total = pages(f);
         if (page < 1 || page > total) {
-            return Result.fail(total == 1 ? "Your vault has one page." : "Your vault has pages 1 to " + total + ".");
+            return Result.fail(total == 1 ? Messages.get(VaultText.ONE_PAGE) : Messages.get(VaultText.PAGE_RANGE, "total", total));
         }
         if (page >= 2 && (m == null || !m.rank().atLeast(Rank.OFFICER))) {
-            return Result.fail("Only officers and the leader can open vault page " + page + ".");
+            return Result.fail(Messages.get(VaultText.OFFICER_PAGE, "page", page));
         }
         if (breached(f.id())) {
-            return Result.fail("The vault is sealed while your land is breached.");
+            return Result.fail(Messages.get(VaultText.SEALED));
         }
         PlayerRef p = Players.online(player);
         if (p == null) {
-            return Result.fail("You need to be online to open the vault.");
+            return Result.fail(Messages.get(VaultText.MUST_BE_ONLINE));
         }
         SimpleItemContainer container = page(f, page);
         String name = p.getUsername();
@@ -117,18 +119,18 @@ public final class VaultServiceImpl implements dev.ryvrook.dominion.service.Vaul
         });
         if (opened.isDone()) {
             Boolean ok = opened.getNow(false);
-            return Boolean.TRUE.equals(ok) ? Result.pass("Opened vault page " + page + ".")
-                    : Result.fail("The vault could not be opened right now.");
+            return Boolean.TRUE.equals(ok) ? Result.pass(Messages.get(VaultText.OPENED, "page", page))
+                    : Result.fail(Messages.get(VaultText.OPEN_FAILED));
         }
         opened.whenComplete((ok, err) -> {
             if (err != null) {
                 ctx.logger().at(Level.WARNING).withCause(err).log("Dominion vault window failed to open");
             }
             if (!Boolean.TRUE.equals(ok)) {
-                Msg.send(p, Msg.bad("The vault could not be opened right now."));
+                Msg.send(p, Msg.bad(Messages.get(VaultText.OPEN_FAILED)));
             }
         });
-        return Result.pass("Opening vault page " + page + ".");
+        return Result.pass(Messages.get(VaultText.OPENING, "page", page));
     }
 
     @Override
@@ -172,7 +174,7 @@ public final class VaultServiceImpl implements dev.ryvrook.dominion.service.Vaul
         if (actor != null) {
             try {
                 ctx.service(FactionService.class).audit(faction, actor, null, "vault",
-                        "Took " + taken.getQuantity() + " " + taken.getItemId() + " from vault page " + page + " slot " + slot);
+                        Messages.get(VaultText.AUDIT_TOOK, "count", taken.getQuantity(), "item", taken.getItemId(), "page", page, "slot", slot));
             } catch (RuntimeException e) {
                 ctx.logger().at(Level.WARNING).withCause(e).log("Dominion vault audit failed");
             }
@@ -206,7 +208,7 @@ public final class VaultServiceImpl implements dev.ryvrook.dominion.service.Vaul
         }
         save(f.id());
         try {
-            ctx.service(FactionService.class).audit(f, player, name, "vault", "Opened vault page " + page);
+            ctx.service(FactionService.class).audit(f, player, name, "vault", Messages.get(VaultText.AUDIT_OPENED, "page", page));
         } catch (RuntimeException e) {
             ctx.logger().at(Level.WARNING).withCause(e).log("Dominion vault audit failed");
         }
@@ -226,7 +228,7 @@ public final class VaultServiceImpl implements dev.ryvrook.dominion.service.Vaul
         MarketService market = ctx.serviceOrNull(MarketService.class);
         if (market != null) {
             market.mail(player, stacks, 0);
-            Msg.send(Players.online(player), Msg.info("The items left in the vault of " + f.tag() + " went to your market mailbox."));
+            Msg.send(Players.online(player), Msg.info(Messages.get(VaultText.RESCUED, "faction", f.tag())));
         } else {
             keep(f.id(), stacks);
         }
@@ -265,7 +267,7 @@ public final class VaultServiceImpl implements dev.ryvrook.dominion.service.Vaul
             MarketService market = ctx.serviceOrNull(MarketService.class);
             if (leader != null && market != null) {
                 market.mail(leader, stacks, 0);
-                Msg.send(Players.online(leader), Msg.info("The faction vault was emptied into your market mailbox."));
+                Msg.send(Players.online(leader), Msg.info(Messages.get(VaultText.EMPTIED_TO_MAILBOX)));
             } else {
                 // Nobody can receive the items, so they are kept on disk for an admin instead of being destroyed.
                 keep(faction.id(), stacks);
@@ -393,7 +395,7 @@ public final class VaultServiceImpl implements dev.ryvrook.dominion.service.Vaul
                     ctx.logger().at(Level.WARNING).withCause(err).log("Dominion could not close a vault window during a breach");
                 }
             });
-            Msg.send(p, Msg.warn("Your land was breached, so the faction vault was closed. It stays sealed until the breach ends."));
+            Msg.send(p, Msg.warn(Messages.get(VaultText.CLOSED_BY_BREACH)));
         }
     }
 
