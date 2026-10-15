@@ -437,4 +437,69 @@ class CoinageEconomyTest {
         assertEquals(0.0, eco.bankDrain(f, "disband"));
         assertEquals(0.0, f.bank());
     }
+
+    @Test
+    void duesAndUpkeepRoundUpOnAWholeCoinCurrency() {
+        coinage.coins = new dev.ryvrook.coinage.api.Currency("coins", "Coin", "Coins", "$", false, 0, 100,
+                dev.ryvrook.coinage.api.Currency.DEFAULT_MAX_BALANCE, true, true, 0);
+        Faction f = fx.faction("ABC");
+        UUID lead = f.leader();
+        coinage.give(lead, 10);
+        assertTrue(eco.bankCredit(f, 5, "start").success());
+        int[] missed = {0};
+        assertEquals(3.0, eco.coinageBanks().dues(f, List.of(lead), 2.5, missed), "2.5 dues take 3 whole coins");
+        assertEquals(0, missed[0]);
+        assertEquals(7, coinage.bal(lead));
+        Books.Upkeep u = eco.coinageBanks().upkeep(f, 0.4);
+        assertTrue(u.paid());
+        assertEquals(1.0, u.taken(), "an upkeep under one coin is charged one coin, not nothing");
+        assertEquals(7.0, f.bank());
+    }
+
+    @Test
+    void theAllowanceIsBookedAtTheVetoAndGivenBackWhenTheMoveFails() throws Exception {
+        Faction f = fx.faction("ABC");
+        UUID off = fx.member(f, "Off", Rank.OFFICER);
+        assertTrue(eco.bankCredit(f, 100, "start").success());
+        UUID acc = account(f);
+        fx.set("eco.withdrawDailyLimitOfficer", 30.0);
+        eco.coinageTick();
+        coinage.accountsApi.player(off);
+
+        assertNull(eco.coinageVeto(acc, off, 2000));
+        String[] other = new String[1];
+        Thread t = new Thread(() -> other[0] = eco.coinageVeto(acc, off, 2000));
+        t.start();
+        t.join();
+        assertEquals(Messages.get(EconomyText.WITHDRAW_LEFT_TODAY, "amount", eco.format(10)), other[0],
+                "a second withdrawal on another thread sees the first one booked");
+        eco.releaseStaleHolds(System.currentTimeMillis() + EconomyServiceImpl.HELD_MILLIS + 1);
+        eco.releaseStaleHolds(System.currentTimeMillis() + EconomyServiceImpl.HELD_MILLIS + 1);
+
+        coinage.accountsApi.setStatus(acc, AccountStatus.FROZEN, Initiator.server());
+        var r = coinage.ledgerApi.transfer(Request.transfer(acc, off, null, 2500).by(Initiator.player(off, "Off")).plugin("Coinage"));
+        assertFalse(r.ok());
+        coinage.accountsApi.setStatus(acc, AccountStatus.ACTIVE, Initiator.server());
+        r = coinage.ledgerApi.transfer(Request.transfer(acc, off, null, 3000).by(Initiator.player(off, "Off")).plugin("Coinage"));
+        assertTrue(r.ok(), "the failed move gave its booking back, " + r.message());
+        assertEquals(Messages.get(EconomyText.WITHDRAW_LEFT_TODAY, "amount", eco.format(0)), eco.bankWithdraw(off, 1).message(),
+                "the move that went through is counted once");
+    }
+
+    @Test
+    void aFactionAccountDeletedInCoinageIsOpenedAgainEmpty() {
+        Faction f = fx.faction("ABC");
+        assertTrue(eco.bankCredit(f, 12, "start").success());
+        UUID acc = account(f);
+        coinage.ledgerApi.withdraw(Request.withdraw(acc, null, 1200).by(Initiator.server()).plugin("Coinage"));
+        assertTrue(coinage.accountsApi.delete(acc, Initiator.server(), "Coinage"));
+        assertEquals(0.0, f.bank());
+
+        assertTrue(eco.bankCredit(f, 5, "after").success(), "the bank takes money again");
+        assertEquals(500, coinage.bal(account(f)));
+        assertEquals(5.0, f.bank());
+        assertEquals("dominion:" + f.id(), f.coinageAccount());
+        long seeds = coinage.log.stream().filter(t -> t.reason().equals(Messages.get(EconomyText.REASON_BANK_TO_COINAGE))).count();
+        assertEquals(0, seeds, "nothing is seeded into the new account");
+    }
 }

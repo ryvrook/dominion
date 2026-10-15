@@ -117,16 +117,20 @@ final class LedgerMigration {
     static Step moveOne(PlayerData p, Object lock, Predicate<PlayerData> live, Predicate<PlayerData> save, BalanceProvider external,
                         double startingBalance) {
         double amount;
+        // A provider in whole coins or tenths takes what fits, the fraction stays in the ledger instead of failing the
+        // whole balance on every run.
+        double step = external.step();
         synchronized (lock) {
             synchronized (p) {
                 if (!live.test(p)) {
                     return new Step(Outcome.SKIPPED, 0, null);
                 }
-                amount = Money.round(p.balance());
+                double held = Money.round(p.balance());
+                amount = step > 0.01 ? DailyEconomy.payable(held, step) : held;
                 if (amount < CENT || untouched(p, startingBalance)) {
                     return new Step(Outcome.SKIPPED, 0, null);
                 }
-                p.setBalance(0);
+                p.setBalance(Money.round(held - amount));
             }
         }
         if (!save.test(p)) {

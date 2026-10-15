@@ -255,6 +255,8 @@ How Dominion uses it.
   `auto` takes Coinage when linked, else VaultUnlocked when found, else internal. `CoinageAmounts` converts both ways,
   refusing amounts with more decimals than the currency has and rounding minor units down to cents. `LedgerMigration`
   runs into Coinage the same way it runs into VaultUnlocked, with its own summary file `economy/coinage-migrated.json`.
+  On a currency with 0 or 1 decimals it moves the part of a balance the currency can hold and leaves the fraction in
+  the internal ledger, so a balance of 12.34 moves 12 coins instead of failing every day.
   Both skip an untouched balance. `PlayerData` persists the flag as `BalanceTouched`, false for a record made by
   this version that never moved money, which is skipped whatever `eco.startingBalance` says now, and absent in older
   files, which are skipped only while they still equal `eco.startingBalance`. `DominionContext.newPlayer` grants the
@@ -269,8 +271,16 @@ How Dominion uses it.
   sends each bank move to `Books`, to `CoinageBanks`, or refuses it while a bank that lives in Coinage cannot be
   reached. The minute tick also sets the owner to the leader, gives members the rights their rank and hold allow,
   and moves banks back when Coinage banks are turned off. The listener vetoes player withdrawals from a faction
-  account that `/f withdraw` would refuse, records them against the daily allowance, and writes moves made outside
-  Dominion to the faction log.
+  account that `/f withdraw` would refuse and writes moves made outside Dominion to the faction log. The veto books
+  the amount against the daily allowance under the ledger lock, so two withdrawals at once cannot both fit, and
+  remembers the booking by thread. Coinage runs the veto and the after listener on the same thread, so the after
+  listener settles the booking, and a booking whose move failed is given back on the next veto of that thread or
+  after 10 seconds on the minute tick.
+  Dues and upkeep round up to the smallest unit of the currency, the same as the whole unit VaultUnlocked path, so
+  an upkeep of 0.4 on a whole coin currency costs one coin instead of nothing. Interest rounds down.
+  When Coinage answers but no longer knows a faction's handle, an admin deleted the account in Coinage. Coinage only
+  deletes an account with money when the server asks, so Dominion sets the bank to zero, logs one warning and opens a
+  new empty account under the same handle on the next move or minute tick, instead of refusing every move.
 - Disband. `bankDrain` transfers the account to the faction's leader, not the account owner, which follows a new
   leader only on the minute tick, or to `Accounts.SERVER` with `eco.coinageDisbandTo` on `server`, deletes it and
   returns zero, so `FactionSupport` pays nothing twice. Only when Coinage refuses the transfer to the leader is the

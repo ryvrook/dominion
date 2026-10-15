@@ -45,7 +45,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * and deletion of empty accounts only, and records every transaction.
  */
 final class FakeCoinage extends CoinageApi {
-    final Currency coins = Currency.coins();
+    volatile Currency coins = Currency.coins();
     final Map<UUID, Acc> accounts = new ConcurrentHashMap<>();
     final List<Transaction> log = new CopyOnWriteArrayList<>();
     final List<EconomyListener> listeners = new CopyOnWriteArrayList<>();

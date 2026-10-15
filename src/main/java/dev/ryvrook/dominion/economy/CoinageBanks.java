@@ -92,18 +92,25 @@ final class CoinageBanks {
         }
         String handle = handle(f);
         if (moved(f)) {
-            UUID id = p.account(handle);
+            UUID id = p.account(f.coinageAccount());
             if (id != null) {
                 owners.put(id, f.id());
+                return id;
             }
-            return id;
+            if (!lost(f, p)) {
+                return null;
+            }
         }
         if (gone.test(f)) {
             return null;
         }
         synchronized (seedLock) {
             if (moved(f)) {
-                return account(f);
+                UUID id = p.account(f.coinageAccount());
+                if (id != null) {
+                    owners.put(id, f.id());
+                }
+                return id;
             }
             int d = p.decimals(wallets.currency());
             if (d < 0) {
@@ -139,6 +146,39 @@ final class CoinageBanks {
             mirror(f, p.balance(id, wallets.currency()), d);
             return id;
         }
+    }
+
+    /**
+     * Forgets the account of a faction whose handle Coinage no longer knows, which happens when an admin deleted it
+     * in Coinage. Coinage only deletes an account with money when the server asks, so the bank is now empty. The next
+     * call opens a new empty account under the same handle instead of refusing every move. False when Coinage does
+     * not answer, so a stopped Coinage is never taken for a deleted account.
+     */
+    private boolean lost(Faction f, CoinagePort p) {
+        if (!p.bound() || p.decimals(wallets.currency()) < 0) {
+            return false;
+        }
+        String handle;
+        synchronized (seedLock) {
+            handle = f.coinageAccount();
+            if (handle == null || p.account(handle) != null) {
+                return true;
+            }
+            owners.entrySet().removeIf(e -> {
+                if (e.getValue().equals(f.id())) {
+                    labels.remove(e.getKey());
+                    return true;
+                }
+                return false;
+            });
+            synchronized (f) {
+                f.setBank(0);
+                f.setCoinageAccount(null);
+            }
+        }
+        warn.accept("The Coinage account " + handle + " of " + f.tag()
+                + " was deleted in Coinage, so Dominion opens a new empty one for its bank");
+        return true;
     }
 
     /**
@@ -215,6 +255,8 @@ final class CoinageBanks {
         if (id != null) {
             owners.put(id, f.id());
             mirror(f, p.balance(id, wallets.currency()), p.decimals(wallets.currency()));
+        } else if (lost(f, p)) {
+            account(f);
         }
     }
 
@@ -507,7 +549,8 @@ final class CoinageBanks {
             missed[0] += payers.size();
             return 0;
         }
-        long owed = CoinageAmounts.floorMinor(dues, d);
+        // Rounded up like the whole unit VaultUnlocked path, so 2.5 dues on a whole coin currency take 3, not 2.
+        long owed = CoinageAmounts.ceilMinor(dues, d);
         long total = 0;
         for (UUID m : payers) {
             long have = p.balance(m, wallets.currency());
@@ -536,7 +579,8 @@ final class CoinageBanks {
         if (id == null || d < 0) {
             return null;
         }
-        long want = CoinageAmounts.floorMinor(cost, d);
+        // Rounded up so an upkeep under one coin on a whole coin currency is still charged.
+        long want = CoinageAmounts.ceilMinor(cost, d);
         long bal = p.balance(id, wallets.currency());
         long take = Math.max(0, Math.min(bal, want));
         if (take > 0) {

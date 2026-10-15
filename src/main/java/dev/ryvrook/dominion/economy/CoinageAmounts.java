@@ -39,6 +39,18 @@ final class CoinageAmounts {
         return minor.compareTo(BigDecimal.valueOf(Long.MAX_VALUE)) > 0 ? Long.MAX_VALUE : minor.longValue();
     }
 
+    /**
+     * The minor units of a charge rounded up to what the currency can hold, so a fraction of a coin is charged as a
+     * whole coin instead of nothing. Zero for nothing or a bad amount.
+     */
+    static long ceilMinor(double amount, int decimals) {
+        if (Double.isNaN(amount) || Double.isInfinite(amount) || amount <= 0 || decimals < 0) {
+            return 0;
+        }
+        BigDecimal minor = BigDecimal.valueOf(Money.round(amount)).movePointRight(decimals).setScale(0, RoundingMode.UP);
+        return minor.compareTo(BigDecimal.valueOf(Long.MAX_VALUE)) > 0 ? Long.MAX_VALUE : minor.longValue();
+    }
+
     /** A Dominion amount for minor units, rounded towards zero to whole cents so Dominion never shows more than is held. */
     static double toAmount(long minor, int decimals) {
         if (decimals < 0) {

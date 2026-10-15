@@ -49,6 +49,17 @@ public final class EconomyServiceImpl implements EconomyService {
     private final CoinageBanks coinageBanks;
     private final LedgerMigration coinageMigration;
     private volatile boolean coinageWarned;
+    /**
+     * Allowance booked by {@link #coinageVeto} for a withdrawal a player started in Coinage, by the thread that runs
+     * it. Coinage calls the veto and, when the move went through, the after listener on that same thread, so
+     * {@link #coinageMoved} settles the booking. A booking that is still here when its thread asks again, or after
+     * {@link #HELD_MILLIS}, belongs to a move that failed after the veto and is given back.
+     */
+    private final Map<Long, Held> held = new java.util.concurrent.ConcurrentHashMap<>();
+    static final long HELD_MILLIS = 10_000L;
+
+    private record Held(Faction faction, UUID player, double amount, long at) {}
+
     /** Player to faction for the Coinage net worth part, rebuilt every minute so the part reads memory only. */
     private volatile Map<UUID, UUID> memberIndex = Map.of();
 
@@ -530,6 +541,7 @@ public final class EconomyServiceImpl implements EconomyService {
      * were turned off. Also rebuilds the member index of the net worth part.
      */
     void coinageTick() {
+        releaseStaleHolds(System.currentTimeMillis());
         if (coinage.live() == null || !enabled()) {
             return;
         }
@@ -608,8 +620,36 @@ public final class EconomyServiceImpl implements EconomyService {
             return null;
         }
         double amount = CoinageAmounts.toAmount(minor, Math.max(0, coinage.decimals()));
+        long thread = Thread.currentThread().threadId();
         synchronized (lock) {
-            return CoinageBanks.limitDenied(f, player, amount, limit, this::format);
+            release(held.remove(thread));
+            // Booked now, under the same lock as the check, so two withdrawals at once cannot both fit the allowance.
+            String over = CoinageBanks.limitDenied(f, player, amount, limit, this::format);
+            if (over == null) {
+                WithdrawLimits.record(f, player, amount);
+                held.put(thread, new Held(f, player, amount, System.currentTimeMillis()));
+            }
+            return over;
+        }
+    }
+
+    /** Gives back allowance booked for a move that never happened. Caller holds the ledger lock. */
+    private static void release(Held h) {
+        if (h != null) {
+            WithdrawLimits.record(h.faction(), h.player(), -h.amount());
+        }
+    }
+
+    /** Gives back bookings older than {@link #HELD_MILLIS}, from the minute tick. */
+    void releaseStaleHolds(long now) {
+        synchronized (lock) {
+            held.values().removeIf(h -> {
+                if (now - h.at() > HELD_MILLIS) {
+                    release(h);
+                    return true;
+                }
+                return false;
+            });
         }
     }
 
@@ -646,16 +686,31 @@ public final class EconomyServiceImpl implements EconomyService {
         if (payer != null) {
             bankChanged(payer, player, Messages.get(EconomyText.COINAGE_OUT_LOG, "amount", money, "to", named(toName), "reason", why));
             if (player != null && payer.isMember(player)) {
-                long limit = limitCents(payer, player);
-                if (limit > 0) {
-                    synchronized (lock) {
-                        WithdrawLimits.record(payer, player, CoinageAmounts.toAmount(amount, d));
-                    }
-                }
+                settle(payer, player, CoinageAmounts.toAmount(amount, d));
             }
         }
         if (payee != null) {
             bankChanged(payee, player, Messages.get(EconomyText.COINAGE_IN_LOG, "amount", money, "from", named(fromName), "reason", why));
+        }
+    }
+
+    /**
+     * Counts a member's Coinage withdrawal against the allowance. The veto already booked it on this thread, so only
+     * a change of amount by another listener is added, and a move with no booking is counted in full.
+     */
+    private void settle(Faction payer, UUID player, double amount) {
+        Held h = held.remove(Thread.currentThread().threadId());
+        synchronized (lock) {
+            if (h != null && h.faction() == payer && h.player().equals(player)) {
+                if (Money.cents(amount) != Money.cents(h.amount())) {
+                    WithdrawLimits.record(payer, player, amount - h.amount());
+                }
+                return;
+            }
+            release(h);
+            if (limitCents(payer, player) > 0) {
+                WithdrawLimits.record(payer, player, amount);
+            }
         }
     }
 

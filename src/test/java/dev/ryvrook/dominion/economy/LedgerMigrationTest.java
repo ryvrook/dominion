@@ -147,4 +147,21 @@ class LedgerMigrationTest {
             assertEquals(before, BooksTest.cents(p.balance()) + w.total());
         }
     }
+
+    @Test
+    void aWholeCoinWalletTakesTheWholePartAndTheFractionStays() {
+        PlayerData p = player(12.34);
+        BooksTest.FakeWallets w = new BooksTest.FakeWallets() {
+            @Override
+            public boolean wholeUnits() {
+                return true;
+            }
+        };
+        LedgerMigration.Step s = LedgerMigration.moveOne(p, lock, pd -> true, pd -> true, w);
+        assertEquals(LedgerMigration.Outcome.MOVED, s.outcome());
+        assertEquals(12.0, s.amount());
+        assertEquals(0.34, p.balance(), 1e-9);
+        assertEquals(LedgerMigration.Outcome.SKIPPED, LedgerMigration.moveOne(p, lock, pd -> true, pd -> true, w).outcome(),
+                "a fraction under one coin is left alone");
+    }
 }
