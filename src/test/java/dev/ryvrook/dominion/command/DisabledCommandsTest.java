@@ -35,4 +35,17 @@ class DisabledCommandsTest {
         assertEquals("clan", root.getName());
         assertTrue(root.getAliases().containsAll(Set.of("c", "guild")));
     }
+
+    @Test
+    void anAliasInTheListLeavesItsCommandOutAndNamesItsTab() {
+        PlayerCmd root = new PlayerCmd("f", "Root.");
+        PlayerCmd market = root.sub(new PlayerCmd("market", "Market."));
+        market.addAliases("m");
+        root.sub(new PlayerCmd("claim", "Claim."));
+        root.skip(Set.of("m"));
+        assertTrue(PlayerCmd.skipped(market, Set.of("m")));
+        assertEquals(Set.of("m", "market"), root.skippedNames());
+        root.seal();
+        assertEquals(Set.of("claim"), root.getSubCommands().keySet());
+    }
 }

@@ -80,10 +80,33 @@ public final class PlayerCmd extends AbstractPlayerCommand implements Sealable {
         return this;
     }
 
-    /** True when seal leaves this child out. */
+    /** True when seal leaves this child out, named by its name or one of its aliases. */
     static boolean skipped(AbstractCommand child, Set<String> names) {
         String name = child.getName();
-        return name != null && names.contains(name.toLowerCase(java.util.Locale.ROOT));
+        if (name != null && names.contains(name.toLowerCase(java.util.Locale.ROOT))) {
+            return true;
+        }
+        Set<String> aliases = child.getAliases();
+        for (String alias : aliases == null ? Set.<String>of() : aliases) {
+            if (alias != null && names.contains(alias.toLowerCase(java.util.Locale.ROOT))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * The names given to skip plus the name of every sub command they leave out, so an alias in
+     * commands.disabled also hides the panel tab of its command.
+     */
+    public Set<String> skippedNames() {
+        Set<String> out = new java.util.LinkedHashSet<>(skipped);
+        for (AbstractCommand child : children) {
+            if (child.getName() != null && skipped(child, skipped)) {
+                out.add(child.getName().toLowerCase(java.util.Locale.ROOT));
+            }
+        }
+        return out;
     }
 
     /** Records a sub command. It is attached in seal once it is complete. */

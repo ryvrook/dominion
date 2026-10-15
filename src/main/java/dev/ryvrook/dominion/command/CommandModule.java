@@ -66,6 +66,8 @@ public final class CommandModule implements DominionModule {
             s.register(root);
         }
         root.gateChildren(gates(ctx));
+        // Again with the names an alias in commands.disabled stands for, so the panel hides the right tabs.
+        CommandNames.registeredRoot(rootName, root.skippedNames());
 
         // Children attach bottom up before the root is registered and finalised.
         root.seal();
