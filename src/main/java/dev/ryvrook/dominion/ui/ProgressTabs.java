@@ -40,7 +40,7 @@ final class ProgressTabs {
     }
 
     VaultService vault() {
-        return ctx.serviceOrNull(VaultService.class);
+        return ctx.settings().bool("vault.enabled") ? ctx.serviceOrNull(VaultService.class) : null;
     }
 
     // ---- overview --------------------------------------------------------

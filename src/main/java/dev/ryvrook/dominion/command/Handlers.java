@@ -1,14 +1,26 @@
 package dev.ryvrook.dominion.command;
 
 import dev.ryvrook.dominion.DominionPlugin;
+import dev.ryvrook.dominion.text.CommonText;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 
 /** Runs command handlers so one failing command never leaks a stack trace to the player. */
 final class Handlers {
     private Handlers() {}
+
+    /** Runs the handler unless the gate says the feature is off, which answers with the common feature off sentence. */
+    static void run(Consumer<Call> handler, Call call, BooleanSupplier gate) {
+        if (gate != null && !gate.getAsBoolean()) {
+            call.send(Msg.bad(Messages.get(CommonText.FEATURE_OFF)));
+            return;
+        }
+        run(handler, call);
+    }
 
     static void run(Consumer<Call> handler, Call call) {
         if (handler == null) {

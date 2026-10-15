@@ -215,7 +215,7 @@ public final class DominionPanel extends DominionPage {
 
     /**
      * Tabs left out of the sidebar. A tab goes when the sub command of the same name is in
-     * commands.disabled. Overview and help always stay.
+     * commands.disabled or its feature switch is off. Overview and help always stay.
      */
     Set<String> hiddenTabs() {
         Set<String> out = new HashSet<>(CommandNames.disabled());
@@ -224,7 +224,27 @@ public final class DominionPanel extends DominionPage {
         if (out.contains("siege")) {
             out.add(SiegeTab.ID);
         }
+        if (!ctx.settings().bool("upgrades.enabled")) {
+            out.add(ProgressTabs.UPGRADES);
+        }
+        if (!ctx.settings().bool("missions.enabled")) {
+            out.add(ProgressTabs.MISSIONS);
+        }
+        if (!ctx.settings().bool("vault.enabled")) {
+            out.add(ProgressTabs.VAULT);
+        }
         return out;
+    }
+
+    /** The feature switch behind a panel action, or null when the action has none. */
+    static String switchOf(String action) {
+        return switch (action == null ? "" : action) {
+            case "home", "sethome", "ally_home" -> "home.enabled";
+            case "channel" -> "chat.enabled";
+            case "hud" -> "hud.enabled";
+            case "top" -> "top.enabled";
+            default -> null;
+        };
     }
 
     void title(UICommandBuilder c, String title, String hint) {
@@ -677,8 +697,9 @@ public final class DominionPanel extends DominionPage {
     protected boolean onAction(PageEvent e) {
         String v = e.value();
         String text = e.text();
-        if (!"tab".equals(e.action) && CommandNames.disabled(e.action)) {
-            // A button whose action is a sub command that commands.disabled left out is refused like the command.
+        String feature = switchOf(e.action);
+        if ((!"tab".equals(e.action) && CommandNames.disabled(e.action)) || (feature != null && !ctx.settings().bool(feature))) {
+            // A button for a sub command that commands.disabled left out, or for a feature that is off, is refused like the command.
             reply(Result.fail(Messages.get(CommonText.FEATURE_OFF)));
             return true;
         }

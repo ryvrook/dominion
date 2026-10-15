@@ -74,7 +74,7 @@ public final class MapModule implements DominionModule {
 
     private void register(World world) {
         overlay.install(world);
-        if (world == null || !ctx.settings().bool("map.markers")) {
+        if (world == null || !(ctx.settings().bool("map.enabled") && ctx.settings().bool("map.markers"))) {
             return;
         }
         try {

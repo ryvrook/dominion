@@ -14,6 +14,8 @@ import dev.ryvrook.dominion.service.EventsService;
 import dev.ryvrook.dominion.service.FactionService;
 import dev.ryvrook.dominion.service.PowerService;
 import dev.ryvrook.dominion.service.ProgressService;
+import dev.ryvrook.dominion.text.CommonText;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Time;
 
@@ -214,6 +216,9 @@ public final class ProgressServiceImpl implements ProgressService {
 
     @Override
     public Result buyUpgrade(UUID actor, String key) {
+        if (!ctx.settings().bool("upgrades.enabled")) {
+            return Result.fail(Messages.get(CommonText.FEATURE_OFF));
+        }
         FactionService factions = ctx.service(FactionService.class);
         Faction f = factions.factionOf(actor);
         if (f == null) {
@@ -284,6 +289,9 @@ public final class ProgressServiceImpl implements ProgressService {
 
     @Override
     public List<Mission> activeMissions(boolean weekly) {
+        if (!ctx.settings().bool("missions.enabled")) {
+            return new ArrayList<>();
+        }
         int count = ctx.settings().integer(weekly ? "missions.weekly" : "missions.daily");
         double coins = ctx.settings().decimal("missions.rewardCoins");
         int points = ctx.settings().integer("missions.rewardPoints");
@@ -322,7 +330,7 @@ public final class ProgressServiceImpl implements ProgressService {
 
     @Override
     public void advance(UUID player, String kind, long amount) {
-        if (player == null || kind == null || amount <= 0) {
+        if (player == null || kind == null || amount <= 0 || !ctx.settings().bool("missions.enabled")) {
             return;
         }
         FactionService factions = ctx.serviceOrNull(FactionService.class);

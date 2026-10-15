@@ -30,12 +30,15 @@ final class SiegeTab {
         this.panel = panel;
     }
 
+    /** The siege service while raid.enabled and raid.modeSiege are on, otherwise null. */
     private SiegeService sieges() {
-        return ctx.serviceOrNull(SiegeService.class);
+        boolean on = ctx.settings().bool("raid.enabled") && ctx.settings().bool("raid.modeSiege");
+        return on ? ctx.serviceOrNull(SiegeService.class) : null;
     }
 
+    /** The shield service while shield.enabled is on, otherwise null. */
     private ShieldService shields() {
-        return ctx.serviceOrNull(ShieldService.class);
+        return ctx.settings().bool("shield.enabled") ? ctx.serviceOrNull(ShieldService.class) : null;
     }
 
     boolean available() {

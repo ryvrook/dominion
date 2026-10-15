@@ -69,7 +69,7 @@ public final class MapOverlay {
 
     /** True when the overlay is on and drawing this world's map. */
     public boolean active(World world) {
-        if (!ctx.settings().bool("map.overlay")) {
+        if (!(ctx.settings().bool("map.enabled") && ctx.settings().bool("map.overlay"))) {
             return false;
         }
         try {
@@ -82,7 +82,7 @@ public final class MapOverlay {
 
     /** Wraps the world's map generator once. Runs the swap on the world thread. */
     public void install(World world) {
-        if (world == null || !ctx.settings().bool("map.overlay")) {
+        if (world == null || !(ctx.settings().bool("map.enabled") && ctx.settings().bool("map.overlay"))) {
             return;
         }
         try {
@@ -125,7 +125,7 @@ public final class MapOverlay {
     private void swapIn(World world) {
         try {
             WorldMapManager manager = world.getWorldMapManager();
-            if (manager == null || !ctx.settings().bool("map.overlay") || !wrappable(world, manager)) {
+            if (manager == null || !(ctx.settings().bool("map.enabled") && ctx.settings().bool("map.overlay")) || !wrappable(world, manager)) {
                 return;
             }
             IWorldMap previous = manager.getGenerator();
@@ -216,7 +216,7 @@ public final class MapOverlay {
             return;
         }
         Map<Long, Painted> drawn = painted.computeIfAbsent(worldName, w -> new ConcurrentHashMap<>());
-        if (!ctx.settings().bool("map.overlay")) {
+        if (!(ctx.settings().bool("map.enabled") && ctx.settings().bool("map.overlay"))) {
             for (long index : chunks.keySet()) {
                 drawn.remove(index);
             }
@@ -268,7 +268,7 @@ public final class MapOverlay {
      * engine on each world thread to draw them again and send them to the players who see them.
      */
     public void tick() {
-        String look = ctx.settings().bool("map.overlay") + "/" + ctx.settings().integer("map.overlayOpacity")
+        String look = (ctx.settings().bool("map.enabled") && ctx.settings().bool("map.overlay")) + "/" + ctx.settings().integer("map.overlayOpacity")
                 + "/" + ctx.settings().integer("map.overlayBorder");
         if (lastLook != null && !lastLook.equals(look)) {
             redrawEverything();

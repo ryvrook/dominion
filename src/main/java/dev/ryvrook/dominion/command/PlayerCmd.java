@@ -11,7 +11,9 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
 /**
@@ -26,6 +28,8 @@ public final class PlayerCmd extends AbstractPlayerCommand implements Sealable {
     private boolean sealed;
     /** Sub command names left out when sealing, from commands.disabled. */
     private Set<String> skipped = Set.of();
+    /** The feature switch of this command, passed down to its variants and sub commands when sealing. */
+    private BooleanSupplier gate;
 
     public PlayerCmd(String name, String description) {
         super(name, description);
@@ -51,6 +55,23 @@ public final class PlayerCmd extends AbstractPlayerCommand implements Sealable {
     public PlayerCmd aliases(String... aliases) {
         addAliases(aliases);
         return this;
+    }
+
+    /** Refuses the command, its variants and sub commands with the feature off sentence while the gate is false. */
+    public PlayerCmd gate(BooleanSupplier enabled) {
+        gate = enabled;
+        return this;
+    }
+
+    /** Gates the sub commands named in the map, by lower case name. Call before seal. */
+    public void gateChildren(Map<String, BooleanSupplier> gates) {
+        for (AbstractCommand child : children) {
+            String name = child.getName();
+            BooleanSupplier g = name == null ? null : gates.get(name.toLowerCase(java.util.Locale.ROOT));
+            if (g != null && child instanceof PlayerCmd p && p.gate == null) {
+                p.gate = g;
+            }
+        }
     }
 
     /** Leaves out the sub commands with these lower case names when sealing. */
@@ -84,12 +105,18 @@ public final class PlayerCmd extends AbstractPlayerCommand implements Sealable {
         }
         sealed = true;
         for (PlayerCmd v : variants) {
+            if (v.gate == null) {
+                v.gate = gate;
+            }
             v.seal();
             addUsageVariant(v);
         }
         for (AbstractCommand child : children) {
             if (skipped(child, skipped)) {
                 continue;
+            }
+            if (child instanceof PlayerCmd p && p.gate == null) {
+                p.gate = gate;
             }
             if (child instanceof Sealable s) {
                 s.seal();
@@ -102,6 +129,6 @@ public final class PlayerCmd extends AbstractPlayerCommand implements Sealable {
     protected void execute(CommandContext context, Store<EntityStore> store, Ref<EntityStore> ref,
                            PlayerRef playerRef, World world) {
         Call call = new Call(context, store, ref, playerRef, world);
-        Handlers.run(handler, call);
+        Handlers.run(handler, call, gate);
     }
 }

@@ -94,7 +94,7 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
     }
 
     private void draw(World world, Player player, MarkersCollector collector) {
-        if (!ctx.settings().bool("map.markers")) {
+        if (!(ctx.settings().bool("map.enabled") && ctx.settings().bool("map.markers"))) {
             return;
         }
         PlayerRef ref = viewerOf(world, player);

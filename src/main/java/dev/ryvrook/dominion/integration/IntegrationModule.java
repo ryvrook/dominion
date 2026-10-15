@@ -37,9 +37,11 @@ public final class IntegrationModule implements DominionModule {
     public void start(DominionContext ctx) {
         stats = new StatFanout(new ContextFacts(ctx));
         ctx.bus().subscribe(stats);
+        // integrations.enabled off counts as never for every sibling, so /fa integrations still lists them as off.
+        boolean all = ctx.settings().bool("integrations.enabled");
         for (Sibling sibling : Sibling.values()) {
-            Choice choice = Choice.decide(sibling, Mode.parse(ctx.settings().text(sibling.settingKey())),
-                    Presence.ENGINE.find(sibling));
+            Mode mode = all ? Mode.parse(ctx.settings().text(sibling.settingKey())) : Mode.NEVER;
+            Choice choice = Choice.decide(sibling, mode, Presence.ENGINE.find(sibling));
             Binding binding = new Binding(choice, Presence.ENGINE);
             bindings.add(binding);
             ctx.logger().at(choice.warn() ? Level.WARNING : Level.INFO).log("%s", choice.startLine());

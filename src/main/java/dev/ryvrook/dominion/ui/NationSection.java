@@ -21,8 +21,9 @@ final class NationSection {
         this.panel = panel;
     }
 
+    /** The nation service while nation.enabled is on, otherwise null. */
     NationService nations() {
-        return ctx.serviceOrNull(NationService.class);
+        return ctx.settings().bool("nation.enabled") ? ctx.serviceOrNull(NationService.class) : null;
     }
 
     private FactionService factions() {

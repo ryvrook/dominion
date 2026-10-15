@@ -18,6 +18,8 @@ import dev.ryvrook.dominion.service.EconomyService;
 import dev.ryvrook.dominion.service.FactionService;
 import dev.ryvrook.dominion.service.HomeService;
 import dev.ryvrook.dominion.service.RelationService;
+import dev.ryvrook.dominion.text.CommonText;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Keys;
 import dev.ryvrook.dominion.util.Players;
@@ -40,6 +42,11 @@ import java.util.regex.Pattern;
 public final class HomeServiceImpl implements HomeService {
     private static final Pattern WARP_NAME = Pattern.compile("[A-Za-z0-9_-]{1,16}");
 
+    /** home.enabled, the switch for homes, warps, ally homes, /f stuck and home respawns. */
+    private boolean enabled() {
+        return ctx.settings().bool("home.enabled");
+    }
+
     /** What a warmup teleports to once it ends. The target is resolved then, not when it starts. */
     private record Target(String label, Supplier<Location> target, boolean homeCooldown) {}
 
@@ -58,6 +65,9 @@ public final class HomeServiceImpl implements HomeService {
 
     @Override
     public Result setHome(UUID actor) {
+        if (!enabled()) {
+            return Result.fail(Messages.get(CommonText.FEATURE_OFF));
+        }
         FactionService fs = factions();
         Faction faction = fs.factionOf(actor);
         if (faction == null) {
@@ -81,6 +91,9 @@ public final class HomeServiceImpl implements HomeService {
 
     @Override
     public Result delHome(UUID actor) {
+        if (!enabled()) {
+            return Result.fail(Messages.get(CommonText.FEATURE_OFF));
+        }
         FactionService fs = factions();
         Faction faction = fs.factionOf(actor);
         if (faction == null) {
@@ -100,6 +113,9 @@ public final class HomeServiceImpl implements HomeService {
 
     @Override
     public Result home(UUID player) {
+        if (!enabled()) {
+            return Result.fail(Messages.get(CommonText.FEATURE_OFF));
+        }
         FactionService fs = factions();
         Faction faction = fs.factionOf(player);
         if (faction == null) {
@@ -130,6 +146,9 @@ public final class HomeServiceImpl implements HomeService {
 
     @Override
     public Result setWarp(UUID actor, String name, String password) {
+        if (!enabled()) {
+            return Result.fail(Messages.get(CommonText.FEATURE_OFF));
+        }
         FactionService fs = factions();
         Faction faction = fs.factionOf(actor);
         if (faction == null) {
@@ -174,6 +193,9 @@ public final class HomeServiceImpl implements HomeService {
 
     @Override
     public Result delWarp(UUID actor, String name) {
+        if (!enabled()) {
+            return Result.fail(Messages.get(CommonText.FEATURE_OFF));
+        }
         FactionService fs = factions();
         Faction faction = fs.factionOf(actor);
         if (faction == null) {
@@ -192,6 +214,9 @@ public final class HomeServiceImpl implements HomeService {
 
     @Override
     public Result warp(UUID player, String name, String password) {
+        if (!enabled()) {
+            return Result.fail(Messages.get(CommonText.FEATURE_OFF));
+        }
         FactionService fs = factions();
         Faction faction = fs.factionOf(player);
         if (faction == null) {
@@ -230,6 +255,9 @@ public final class HomeServiceImpl implements HomeService {
 
     @Override
     public Result stuck(UUID player) {
+        if (!enabled()) {
+            return Result.fail(Messages.get(CommonText.FEATURE_OFF));
+        }
         PlayerRef ref = Players.online(player);
         String world = Players.worldName(ref);
         long chunk = Players.chunkOf(ref);
@@ -514,6 +542,9 @@ public final class HomeServiceImpl implements HomeService {
 
     @Override
     public Result allyHome(UUID player, String allyTag) {
+        if (!enabled()) {
+            return Result.fail(Messages.get(CommonText.FEATURE_OFF));
+        }
         FactionService fs = factions();
         Faction own = fs.factionOf(player);
         if (own == null) {
@@ -562,6 +593,9 @@ public final class HomeServiceImpl implements HomeService {
 
     @Override
     public Location respawnLocation(UUID player) {
+        if (!enabled()) {
+            return null;
+        }
         Faction faction = factions().factionOf(player);
         if (faction == null || faction.isSystem()) {
             return null;

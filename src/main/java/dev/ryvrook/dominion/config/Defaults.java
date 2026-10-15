@@ -474,6 +474,23 @@ public final class Defaults {
 
         colors(s);
         commands(s);
+        switches(s);
+    }
+
+    /**
+     * Feature switches that were missing. Off hides the panel tab, refuses the commands with the feature
+     * off sentence and skips the timers. Every one defaults to on.
+     */
+    private static void switches(Settings s) {
+        s.define("vault.enabled", "Market", "Faction vaults enabled", true);
+        s.define("missions.enabled", "Progression", "Missions enabled, off also stops mission credit", true);
+        s.define("upgrades.enabled", "Progression", "Upgrades can be bought, levels already bought keep working", true);
+        s.define("home.enabled", "Homes", "Faction homes, warps, ally homes, /f stuck and home respawns enabled", true);
+        s.define("chat.enabled", "Chat", "Faction, ally and nation chat channels enabled", true);
+        s.define("hud.enabled", "Map", "Sidebar available on this server", true);
+        s.define("map.enabled", "Map", "The /f map chat map and the world map claims, markers and overlay", true);
+        s.define("top.enabled", "Progression", "The /f top leaderboard and top page", true);
+        s.define("integrations.enabled", "Integrations", "Links to TrackerAPI, Feats and Atlas at all, read at start", true);
     }
 
     /** Command names and permission nodes. Both apply at the next start or /plugin reload. */

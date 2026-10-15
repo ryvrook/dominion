@@ -18,6 +18,8 @@ import dev.ryvrook.dominion.model.Siege;
 import dev.ryvrook.dominion.service.FactionService;
 import dev.ryvrook.dominion.service.MarketService;
 import dev.ryvrook.dominion.service.SiegeService;
+import dev.ryvrook.dominion.text.CommonText;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Players;
 import dev.ryvrook.dominion.util.Time;
@@ -71,6 +73,9 @@ public final class VaultServiceImpl implements dev.ryvrook.dominion.service.Vaul
 
     @Override
     public Result open(UUID player, int page) {
+        if (!ctx.settings().bool("vault.enabled")) {
+            return Result.fail(Messages.get(CommonText.FEATURE_OFF));
+        }
         FactionService factions = ctx.service(FactionService.class);
         Faction f = factions.factionOf(player);
         if (f == null) {

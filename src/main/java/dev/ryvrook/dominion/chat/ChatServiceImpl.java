@@ -18,6 +18,8 @@ import dev.ryvrook.dominion.service.FactionService;
 import dev.ryvrook.dominion.service.NationService;
 import dev.ryvrook.dominion.model.Nation;
 import dev.ryvrook.dominion.service.RelationService;
+import dev.ryvrook.dominion.text.CommonText;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Players;
 
@@ -61,6 +63,10 @@ public final class ChatServiceImpl implements ChatService {
         }
         PlayerRef sender = event.getSender();
         if (sender == null) {
+            return;
+        }
+        if (!ctx.settings().bool("chat.enabled")) {
+            // With the channels off every line is public chat, and the prefixes are plain text.
             return;
         }
         // Fail closed. A line from a player who talks in a private channel is cancelled before any
@@ -390,6 +396,9 @@ public final class ChatServiceImpl implements ChatService {
 
     @Override
     public Result setChannel(UUID player, PlayerData.Channel channel) {
+        if (!ctx.settings().bool("chat.enabled")) {
+            return Result.fail(Messages.get(CommonText.FEATURE_OFF));
+        }
         if (channel == null) {
             return Result.fail("Channels are public, faction, ally, nation and officer.");
         }

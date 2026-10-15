@@ -6,8 +6,11 @@ import dev.ryvrook.dominion.config.CommandNames;
 import dev.ryvrook.dominion.config.Settings;
 import dev.ryvrook.dominion.service.UiService;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
 
 /** Registers /f with every sub command, plus /balance, /pay and /baltop. */
 public final class CommandModule implements DominionModule {
@@ -61,6 +64,7 @@ public final class CommandModule implements DominionModule {
         for (Section s : sections) {
             s.register(root);
         }
+        root.gateChildren(gates(ctx));
 
         // Children attach bottom up before the root is registered and finalised.
         root.seal();
@@ -69,10 +73,42 @@ public final class CommandModule implements DominionModule {
             if (PlayerCmd.skipped(cmd, off)) {
                 continue;
             }
+            cmd.gate(() -> settings.bool("eco.enabled"));
             cmd.seal();
             ctx.plugin().getCommandRegistry().registerCommand(cmd);
         }
         ctx.everyMinute(confirmations::sweep);
         ctx.onPlayerQuit(confirmations::clear);
+    }
+
+    /** The feature switch behind each sub command of the player root, read on every use. */
+    static Map<String, BooleanSupplier> gates(DominionContext ctx) {
+        Settings s = ctx.settings();
+        Map<String, BooleanSupplier> g = new HashMap<>();
+        BooleanSupplier eco = () -> s.bool("eco.enabled");
+        BooleanSupplier market = () -> s.bool("market.enabled") && s.bool("eco.enabled");
+        BooleanSupplier home = () -> s.bool("home.enabled");
+        for (String name : List.of("bank", "deposit", "withdraw", "pay")) {
+            g.put(name, eco);
+        }
+        for (String name : List.of("market", "auction", "storefront")) {
+            g.put(name, market);
+        }
+        for (String name : List.of("home", "sethome", "delhome", "allyhome", "warp", "setwarp", "delwarp", "warps", "stuck")) {
+            g.put(name, home);
+        }
+        g.put("shop", () -> s.bool("shop.factionEnabled") && s.bool("eco.enabled"));
+        g.put("vault", () -> s.bool("vault.enabled"));
+        g.put("missions", () -> s.bool("missions.enabled"));
+        g.put("upgrade", () -> s.bool("upgrades.enabled"));
+        g.put("upgrades", () -> s.bool("upgrades.enabled"));
+        g.put("chat", () -> s.bool("chat.enabled"));
+        g.put("hud", () -> s.bool("hud.enabled"));
+        g.put("map", () -> s.bool("map.enabled"));
+        g.put("top", () -> s.bool("top.enabled"));
+        g.put("nation", () -> s.bool("nation.enabled"));
+        g.put("shield", () -> s.bool("shield.enabled"));
+        g.put("siege", () -> s.bool("raid.enabled") && s.bool("raid.modeSiege"));
+        return g;
     }
 }
