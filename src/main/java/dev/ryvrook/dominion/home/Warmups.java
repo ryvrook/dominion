@@ -17,6 +17,13 @@ import java.util.function.Predicate;
 final class Warmups<T> {
     static final double MOVE_TOLERANCE = 1.0;
 
+    /** Blocks a player may move before the warmup is cancelled, home.warmupMoveTolerance. */
+    private volatile double tolerance = MOVE_TOLERANCE;
+
+    void tolerance(double blocks) {
+        tolerance = blocks >= 0 ? blocks : MOVE_TOLERANCE;
+    }
+
     /** Where a player stands. */
     record Pos(String world, double x, double y, double z) {
         double distance(Pos o) {
@@ -78,7 +85,7 @@ final class Warmups<T> {
             Kind end = null;
             if (now == null) {
                 end = Kind.OFFLINE;
-            } else if (!p.start.world().equals(now.world()) || now.distance(p.start) > MOVE_TOLERANCE) {
+            } else if (!p.start.world().equals(now.world()) || now.distance(p.start) > tolerance) {
                 end = Kind.MOVED;
             } else if (inCombat.test(id)) {
                 end = Kind.COMBAT;

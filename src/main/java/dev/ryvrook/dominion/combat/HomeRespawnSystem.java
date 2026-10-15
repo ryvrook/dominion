@@ -32,13 +32,11 @@ import java.util.logging.Level;
  * the saved world config, and PlayerRespawnPointData is the bed list players manage themselves.
  * Neither is a per player hook, so this system listens for the RespawnEvent that
  * DeathComponent.respawn fires just before the controller moves the player, then teleports the
- * player to the home one second later, once the vanilla respawn has finished. If the player is
- * still dead at that point the move is retried a few times before giving up.
+ * player to the home combat.homeRespawnDelayMillis later (one second by default), once the vanilla
+ * respawn has finished. If the player is still dead at that point the move is retried up to
+ * combat.homeRespawnAttempts times before giving up.
  */
 final class HomeRespawnSystem extends EntityEventSystem<EntityStore, RespawnEvent> {
-    private static final long DELAY_MILLIS = 1000;
-    private static final int ATTEMPTS = 5;
-
     private final DominionContext ctx;
 
     HomeRespawnSystem(DominionContext ctx) {
@@ -65,7 +63,7 @@ final class HomeRespawnSystem extends EntityEventSystem<EntityStore, RespawnEven
             }
             Location home = homes.respawnLocation(player.getUuid());
             if (home != null) {
-                schedule(player, home, ATTEMPTS);
+                schedule(player, home, ctx.settings().integer("combat.homeRespawnAttempts"));
             }
         } catch (RuntimeException e) {
             ctx.logger().at(Level.WARNING).withCause(e).log("Dominion home respawn failed");
@@ -82,7 +80,7 @@ final class HomeRespawnSystem extends EntityEventSystem<EntityStore, RespawnEven
             if (now != null) {
                 now.execute(() -> move(player, home, attemptsLeft));
             }
-        }, DELAY_MILLIS, TimeUnit.MILLISECONDS);
+        }, ctx.settings().integer("combat.homeRespawnDelayMillis"), TimeUnit.MILLISECONDS);
     }
 
     /** Runs on the world thread that owns the player entity. */

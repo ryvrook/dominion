@@ -108,4 +108,15 @@ class SafeZoneGuardTest {
         assertEquals(Verdict.ALLOW, guard.observe(p, at(33, 10), true, true, () -> true));
         assertEquals(Verdict.ALLOW, guard.observe(null, at(33, 10), true, true, () -> true));
     }
+
+    @Test
+    void theStepLimitIsASetting() {
+        Spot in = at(0, 0);
+        assertEquals(Verdict.ALLOW, SafeZoneGuard.decide(true, true, true, at(20, 0), in, 10));
+        assertEquals(Verdict.PUSH_BACK, SafeZoneGuard.decide(true, true, true, at(10, 0), in, 10));
+        SafeZoneGuard g = new SafeZoneGuard();
+        g.maxStep(10);
+        g.observe(p, at(20, 0), false, true, () -> true);
+        assertEquals(Verdict.ALLOW, g.observe(p, at(0, 0), true, true, () -> true));
+    }
 }

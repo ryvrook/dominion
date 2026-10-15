@@ -12,6 +12,7 @@ import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.api.DominionEvent;
 import dev.ryvrook.dominion.api.PointOfInterest;
 import dev.ryvrook.dominion.api.Result;
+import dev.ryvrook.dominion.config.Perms;
 import dev.ryvrook.dominion.config.Settings;
 import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.FactionType;
@@ -1651,8 +1652,9 @@ public final class EventsServiceImpl implements EventsService {
     public Result payoutsRun(UUID admin) {
         if (admin != null) {
             PlayerRef ref = Players.online(admin);
-            if (ref == null || !ref.hasPermission(EventsCommands.PAYOUTS)) {
-                return Result.fail(Messages.get(EventsText.PAYOUTS_PERMISSION, "permission", EventsCommands.PAYOUTS));
+            // The node comes from permissions.adminPayouts, Perms.payouts() names the one in use.
+            if (ref == null || !ref.hasPermission(Perms.payouts())) {
+                return Result.fail(Messages.get(EventsText.PAYOUTS_PERMISSION, "permission", Perms.payouts()));
             }
         }
         List<String[]> targets = payoutTargets();

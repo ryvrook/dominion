@@ -1,6 +1,7 @@
 package dev.ryvrook.dominion.config;
 
 import dev.ryvrook.dominion.storage.JsonFiles;
+import dev.ryvrook.dominion.text.Palette;
 import org.bson.Document;
 
 import java.nio.file.Path;
@@ -12,6 +13,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Consumer;
+import java.util.regex.Pattern;
 
 /**
  * Flat key value settings with typed defaults. Every rule in the spec has a key here so the
@@ -43,6 +47,11 @@ public final class Settings {
     private final Map<String, Range> ranges = new LinkedHashMap<>();
     private final Map<String, List<String>> choices = new LinkedHashMap<>();
     private final Set<String> fileOnly = new HashSet<>();
+    /** Text settings that must match a pattern, with a few words that say what is expected. */
+    private final Map<String, Pattern> patterns = new LinkedHashMap<>();
+    private final Map<String, String> patternHints = new LinkedHashMap<>();
+    /** Run after every load, reload, set and preset, on the thread that made the change. */
+    private final List<Consumer<Settings>> listeners = new CopyOnWriteArrayList<>();
     /** Pairs of keys where the first must not be above the second, such as a minimum and a maximum. */
     private final List<String[]> ordered = new ArrayList<>();
     private volatile Map<String, Object> values = Map.of();
@@ -54,7 +63,41 @@ public final class Settings {
         this.files = files;
         this.file = file;
         Defaults.register(this);
+        Perms.bind(this);
         load();
+    }
+
+    /**
+     * Calls the listener after every change from config.json, /fa set, the settings page or a preset.
+     * The colour palette is refreshed before any listener runs.
+     */
+    public void onChange(Consumer<Settings> listener) {
+        if (listener != null) {
+            listeners.add(listener);
+        }
+    }
+
+    /** Refreshes the palette and tells the listeners. A failing listener never stops the others. */
+    private void changed() {
+        Palette.refresh(this::text);
+        for (Consumer<Settings> l : listeners) {
+            try {
+                l.accept(this);
+            } catch (RuntimeException e) {
+                // A listener that fails must not undo or block the change.
+            }
+        }
+    }
+
+    /** Limits a text setting to values that match the regular expression. hint says what is expected. */
+    public void pattern(String key, String regex, String hint) {
+        patterns.put(key, Pattern.compile(regex));
+        patternHints.put(key, hint);
+    }
+
+    /** The pattern hint of a key, or null when it has none. */
+    public String patternOf(String key) {
+        return patternHints.get(key);
     }
 
     public void define(String key, String group, String label, Object defaultValue) {
@@ -256,6 +299,7 @@ public final class Settings {
         }
         values = Collections.unmodifiableMap(next);
         save();
+        changed();
         return null;
     }
 
@@ -275,6 +319,7 @@ public final class Settings {
         repairOrder(next, values, refused);
         values = Collections.unmodifiableMap(next);
         save();
+        changed();
         return refused;
     }
 
@@ -293,6 +338,10 @@ public final class Settings {
         List<String> allowed = choices.get(key);
         if (allowed != null && !allowed.contains(value.toString().toLowerCase(Locale.ROOT))) {
             return key + " must be one of " + String.join(", ", allowed) + ".";
+        }
+        Pattern p = patterns.get(key);
+        if (p != null && !p.matcher(value.toString()).matches()) {
+            return key + " must be " + patternHints.get(key) + ".";
         }
         return null;
     }
@@ -372,6 +421,7 @@ public final class Settings {
         values = Collections.unmodifiableMap(read);
         save();
         lastLoad = new LoadReport(true, List.copyOf(problems));
+        changed();
         return lastLoad;
     }
 
@@ -404,6 +454,7 @@ public final class Settings {
         }
         repairOrder(next, values, problems);
         values = Collections.unmodifiableMap(next);
+        changed();
         if (!problems.isEmpty()) {
             // Leave the admin's file alone so the bad line can be found and fixed.
             return new LoadReport(true, problems);

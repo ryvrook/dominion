@@ -5,6 +5,7 @@ import com.hypixel.hytale.server.core.ui.builder.UIEventBuilder;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.api.Result;
+import dev.ryvrook.dominion.config.Perms;
 import dev.ryvrook.dominion.shop.ShopBody.Btn;
 import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
@@ -14,6 +15,7 @@ import java.util.List;
 
 /** The admin shop editor. Categories on the left, entries with price fields on the right. */
 final class AdminEditorPage extends ShopPage {
+    /** The shipped node. The node in use comes from Perms.admin(), set by permissions.admin. */
     static final String PERMISSION = "dominion.admin";
 
     private String category;
@@ -92,7 +94,7 @@ final class AdminEditorPage extends ShopPage {
 
     @Override
     protected boolean onAction(PageEvent event) {
-        if (!playerRef.hasPermission(PERMISSION)) {
+        if (!playerRef.hasPermission(Perms.admin())) {
             reply(Result.fail(Messages.get(ShopText.EDITOR_NO_PERMISSION)));
             close();
             return false;

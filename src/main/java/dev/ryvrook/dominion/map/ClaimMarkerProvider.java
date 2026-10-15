@@ -15,6 +15,7 @@ import com.hypixel.hytale.server.core.universe.world.worldmap.markers.MapMarkerB
 import com.hypixel.hytale.server.core.universe.world.worldmap.markers.MarkersCollector;
 import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.api.PointOfInterest;
+import dev.ryvrook.dominion.config.CommandNames;
 import dev.ryvrook.dominion.model.ClaimEntry;
 import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.FactionAction;
@@ -94,7 +95,7 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
     }
 
     private void draw(World world, Player player, MarkersCollector collector) {
-        if (!ctx.settings().bool("map.markers")) {
+        if (!(ctx.settings().bool("map.enabled") && ctx.settings().bool("map.markers"))) {
             return;
         }
         PlayerRef ref = viewerOf(world, player);
@@ -128,7 +129,7 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
                     new Transform(x, y, z))
                     .withName(Message.raw(f.label()).color(colorOf(f)))
                     .withComponent(new TintComponent(tint(colorOf(f))))
-                    .withContextMenuItem(new ContextMenuItem(Messages.get(MapText.MENU_FACTION_INFO), "/f who " + f.tag()));
+                    .withContextMenuItem(new ContextMenuItem(Messages.get(MapText.MENU_FACTION_INFO), "/" + CommandNames.root() + " who " + f.tag()));
             // No unclaim entry here. /f unclaim acts on the chunk the player stands in, not the
             // chunk that was clicked, so offering it on a distant marker would unclaim the wrong land.
             collector.add(b.build());
@@ -141,7 +142,7 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
                     new Transform(new Vector3d(home.x(), home.y(), home.z())))
                     .withName(Message.raw(Messages.get(MapText.HOME, "faction", mine.tag())).color(colorOf(mine)))
                     .withComponent(new TintComponent(tint(colorOf(mine))))
-                    .withContextMenuItem(new ContextMenuItem(Messages.get(MapText.MENU_FACTION_INFO), "/f who " + mine.tag()))
+                    .withContextMenuItem(new ContextMenuItem(Messages.get(MapText.MENU_FACTION_INFO), "/" + CommandNames.root() + " who " + mine.tag()))
                     .build());
         }
 
@@ -172,7 +173,7 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
                     .withComponent(new TintComponent(tint(color)));
             Faction owner = p.ownerId() == null ? null : ctx.repo().faction(p.ownerId());
             if (owner != null) {
-                b.withContextMenuItem(new ContextMenuItem(Messages.get(MapText.MENU_HOLDER_INFO), "/f who " + owner.tag()));
+                b.withContextMenuItem(new ContextMenuItem(Messages.get(MapText.MENU_HOLDER_INFO), "/" + CommandNames.root() + " who " + owner.tag()));
             }
             collector.add(b.build());
         }
@@ -227,7 +228,7 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
                     new Transform(new Vector3d(home.x(), home.y(), home.z())))
                     .withName(Message.raw(Messages.get(MapText.ALLY_HOME, "faction", ally.tag())).color(Relation.ALLY.color()))
                     .withComponent(new TintComponent(tint(Relation.ALLY.color())))
-                    .withContextMenuItem(new ContextMenuItem(Messages.get(MapText.MENU_FACTION_INFO), "/f who " + ally.tag()))
+                    .withContextMenuItem(new ContextMenuItem(Messages.get(MapText.MENU_FACTION_INFO), "/" + CommandNames.root() + " who " + ally.tag()))
                     .build());
         }
     }
@@ -241,7 +242,7 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
                     new Transform(new Vector3d(m.x(), m.y(), m.z())))
                     .withName(Message.raw(m.label()).color(m.color()))
                     .withComponent(new TintComponent(tint(m.color())))
-                    .withContextMenuItem(new ContextMenuItem(Messages.get(MapText.MENU_ATTACKER_INFO), "/f who " + m.attackerTag()))
+                    .withContextMenuItem(new ContextMenuItem(Messages.get(MapText.MENU_ATTACKER_INFO), "/" + CommandNames.root() + " who " + m.attackerTag()))
                     .build());
         }
     }

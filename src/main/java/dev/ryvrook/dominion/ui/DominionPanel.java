@@ -10,6 +10,7 @@ import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.api.Result;
 import dev.ryvrook.dominion.chat.ChatServiceImpl;
 import dev.ryvrook.dominion.command.PlayerToggles;
+import dev.ryvrook.dominion.config.CommandNames;
 import dev.ryvrook.dominion.model.AuditEntry;
 import dev.ryvrook.dominion.model.ClaimEntry;
 import dev.ryvrook.dominion.model.Faction;
@@ -24,6 +25,7 @@ import dev.ryvrook.dominion.service.EconomyService;
 import dev.ryvrook.dominion.service.HomeService;
 import dev.ryvrook.dominion.service.PowerService;
 import dev.ryvrook.dominion.service.RelationService;
+import dev.ryvrook.dominion.text.CommonText;
 import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.ui.Body.Btn;
@@ -33,6 +35,7 @@ import dev.ryvrook.dominion.util.Time;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -44,7 +47,7 @@ import java.util.UUID;
 /** The /f panel. Tabs on the left, the selected tab on the right, or a join and create view. */
 public final class DominionPanel extends DominionPage {
     private static final String PAGE = "Pages/Dominion_Panel.ui";
-    private static final int LOG_PAGE_SIZE = 25;
+    /** Most chunks on each side of the grid, Dominion_GridRow.ui has 15 cells. */
     private static final int GRID_RADIUS = 7;
 
     static final String OVERVIEW = "overview";
@@ -154,8 +157,12 @@ public final class DominionPanel extends DominionPage {
                 || (EventsTab.ID.equals(tab) && !hasEvents)) {
             tab = OVERVIEW;
         }
+        Set<String> hidden = hiddenTabs();
+        if (hidden.contains(tab)) {
+            tab = OVERVIEW;
+        }
 
-        Body tabs = new Body(commands, events, "#Tabs");
+        Body tabs = new Body(commands, events, "#Tabs").hide(hidden);
         int online = onlineCount(f);
         tabs.tab(OVERVIEW, Messages.get(UiText.TAB_OVERVIEW), "", OVERVIEW.equals(tab), "tab");
         tabs.tab(MEMBERS, Messages.get(UiText.LABEL_MEMBERS), online + "/" + f.memberCount(), MEMBERS.equals(tab), "tab");
@@ -206,6 +213,40 @@ public final class DominionPanel extends DominionPage {
                 buildOverview(commands, body, f, eco);
             }
         }
+    }
+
+    /**
+     * Tabs left out of the sidebar. A tab goes when the sub command of the same name is in
+     * commands.disabled or its feature switch is off. Overview and help always stay.
+     */
+    Set<String> hiddenTabs() {
+        Set<String> out = new HashSet<>(CommandNames.disabled());
+        out.remove(OVERVIEW);
+        out.remove(HELP);
+        if (out.contains("siege")) {
+            out.add(SiegeTab.ID);
+        }
+        if (!ctx.settings().bool("upgrades.enabled")) {
+            out.add(ProgressTabs.UPGRADES);
+        }
+        if (!ctx.settings().bool("missions.enabled")) {
+            out.add(ProgressTabs.MISSIONS);
+        }
+        if (!ctx.settings().bool("vault.enabled")) {
+            out.add(ProgressTabs.VAULT);
+        }
+        return out;
+    }
+
+    /** The feature switch behind a panel action, or null when the action has none. */
+    static String switchOf(String action) {
+        return switch (action == null ? "" : action) {
+            case "home", "sethome", "ally_home" -> "home.enabled";
+            case "channel" -> "chat.enabled";
+            case "hud" -> "hud.enabled";
+            case "top" -> "top.enabled";
+            default -> null;
+        };
     }
 
     void title(UICommandBuilder c, String title, String hint) {
@@ -394,10 +435,11 @@ public final class DominionPanel extends DominionPage {
         }
 
         body.section(Messages.get(UiText.NEARBY_CHUNKS));
-        int size = GRID_RADIUS * 2 + 1;
+        int gridRadius = Math.max(2, Math.min(GRID_RADIUS, ctx.settings().integer("ui.gridRadius")));
+        int size = gridRadius * 2 + 1;
         List<String[]> cells;
         try {
-            cells = claims.gridMap(uuid(), GRID_RADIUS);
+            cells = claims.gridMap(uuid(), gridRadius);
         } catch (Exception e) {
             cells = List.of();
         }
@@ -413,7 +455,7 @@ public final class DominionPanel extends DominionPage {
                     String color = cell != null && cell.length > 0 ? safeColor(cell[0], null) : null;
                     String tag = cell != null && cell.length > 1 && cell[1] != null ? cell[1].trim() : "";
                     String flags = cell != null && cell.length > 2 && cell[2] != null ? cell[2] : "";
-                    boolean centre = r == GRID_RADIUS && col == GRID_RADIUS;
+                    boolean centre = r == gridRadius && col == gridRadius;
                     boolean claimed = !tag.isEmpty() && color != null;
                     glyphs[col] = centre ? "@" : claimed ? tag.substring(0, 1).toUpperCase(Locale.ROOT) : "";
                     text[col] = centre ? "#ffffff" : "#f2f4f7";
@@ -591,7 +633,8 @@ public final class DominionPanel extends DominionPage {
                 filtered.add(e);
             }
         }
-        int pages = Math.max(1, (filtered.size() + LOG_PAGE_SIZE - 1) / LOG_PAGE_SIZE);
+        int logPageSize = Math.max(1, ctx.settings().integer("ui.logPageSize"));
+        int pages = Math.max(1, (filtered.size() + logPageSize - 1) / logPageSize);
         logPage = Math.max(0, Math.min(logPage, pages - 1));
         title(c, Messages.get(UiText.TAB_LOG), Messages.get(UiText.LOG_PAGE, "count", filtered.size(), "page", logPage + 1, "pages", pages));
 
@@ -606,8 +649,8 @@ public final class DominionPanel extends DominionPage {
         }
         body.buttons(pills.toArray(new Btn[0]));
 
-        int from = logPage * LOG_PAGE_SIZE;
-        int to = Math.min(filtered.size(), from + LOG_PAGE_SIZE);
+        int from = logPage * logPageSize;
+        int to = Math.min(filtered.size(), from + logPageSize);
         for (int i = from; i < to; i++) {
             AuditEntry e = filtered.get(i);
             body.row(e.text(), null, new String[] {e.category() == null ? "" : e.category(),
@@ -656,6 +699,12 @@ public final class DominionPanel extends DominionPage {
     protected boolean onAction(PageEvent e) {
         String v = e.value();
         String text = e.text();
+        String feature = switchOf(e.action);
+        if ((!"tab".equals(e.action) && CommandNames.disabled(e.action)) || (feature != null && !ctx.settings().bool(feature))) {
+            // A button for a sub command that commands.disabled left out, or for a feature that is off, is refused like the command.
+            reply(Result.fail(Messages.get(CommonText.FEATURE_OFF)));
+            return true;
+        }
         Faction f = factions().factionOf(uuid());
         Boolean handled = sieges.handle(e);
         if (handled == null) {

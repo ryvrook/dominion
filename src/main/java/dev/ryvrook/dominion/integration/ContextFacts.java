@@ -62,6 +62,7 @@ final class ContextFacts implements StatMapper.Facts {
             return null;
         }
         long age = System.currentTimeMillis() - f.createdAt();
-        return age >= -StatMapper.FOUNDED_WINDOW_MILLIS && age <= StatMapper.FOUNDED_WINDOW_MILLIS ? f.leader() : null;
+        long window = ctx.settings().integer("integrations.foundedWindowSeconds") * 1000L;
+        return age >= -window && age <= window ? f.leader() : null;
     }
 }

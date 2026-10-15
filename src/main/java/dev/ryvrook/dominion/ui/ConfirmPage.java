@@ -23,12 +23,11 @@ import java.util.logging.Level;
  */
 public final class ConfirmPage extends DominionPage {
     private static final String PAGE = "Pages/Dominion_Confirm.ui";
-    private static final long LOCK_MILLIS = 3000;
 
     private final String title;
     private final String consequence;
     private final Consumer<Boolean> onDecision;
-    private final long unlockAt = System.currentTimeMillis() + LOCK_MILLIS;
+    private final long unlockAt;
     private final AtomicBoolean decided = new AtomicBoolean();
     private final AtomicBoolean scheduled = new AtomicBoolean();
 
@@ -38,6 +37,7 @@ public final class ConfirmPage extends DominionPage {
         this.title = title == null || title.isBlank() ? Messages.get(UiText.CONFIRM_DEFAULT_TITLE) : title;
         this.consequence = consequence == null ? "" : consequence;
         this.onDecision = onDecision;
+        this.unlockAt = System.currentTimeMillis() + ctx.settings().integer("ui.confirmLockMillis");
     }
 
     @Override

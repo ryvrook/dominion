@@ -41,7 +41,11 @@ import java.util.regex.Pattern;
  */
 public final class HomeServiceImpl implements HomeService {
     private static final Pattern WARP_NAME = Pattern.compile("[A-Za-z0-9_-]{1,16}");
-    private static final int STUCK_SEARCH_RADIUS = 32;
+
+    /** home.enabled, the switch for homes, warps, ally homes, /f stuck and home respawns. */
+    private boolean enabled() {
+        return ctx.settings().bool("home.enabled");
+    }
 
     /** What a warmup teleports to once it ends. The target is resolved then, not when it starts. */
     private record Target(String label, Supplier<Location> target, boolean homeCooldown) {}
@@ -61,6 +65,9 @@ public final class HomeServiceImpl implements HomeService {
 
     @Override
     public Result setHome(UUID actor) {
+        if (!enabled()) {
+            return Result.fail(Messages.get(CommonText.FEATURE_OFF));
+        }
         FactionService fs = factions();
         Faction faction = fs.factionOf(actor);
         if (faction == null) {
@@ -84,6 +91,9 @@ public final class HomeServiceImpl implements HomeService {
 
     @Override
     public Result delHome(UUID actor) {
+        if (!enabled()) {
+            return Result.fail(Messages.get(CommonText.FEATURE_OFF));
+        }
         FactionService fs = factions();
         Faction faction = fs.factionOf(actor);
         if (faction == null) {
@@ -103,6 +113,9 @@ public final class HomeServiceImpl implements HomeService {
 
     @Override
     public Result home(UUID player) {
+        if (!enabled()) {
+            return Result.fail(Messages.get(CommonText.FEATURE_OFF));
+        }
         FactionService fs = factions();
         Faction faction = fs.factionOf(player);
         if (faction == null) {
@@ -133,6 +146,9 @@ public final class HomeServiceImpl implements HomeService {
 
     @Override
     public Result setWarp(UUID actor, String name, String password) {
+        if (!enabled()) {
+            return Result.fail(Messages.get(CommonText.FEATURE_OFF));
+        }
         FactionService fs = factions();
         Faction faction = fs.factionOf(actor);
         if (faction == null) {
@@ -181,6 +197,9 @@ public final class HomeServiceImpl implements HomeService {
 
     @Override
     public Result delWarp(UUID actor, String name) {
+        if (!enabled()) {
+            return Result.fail(Messages.get(CommonText.FEATURE_OFF));
+        }
         FactionService fs = factions();
         Faction faction = fs.factionOf(actor);
         if (faction == null) {
@@ -199,6 +218,9 @@ public final class HomeServiceImpl implements HomeService {
 
     @Override
     public Result warp(UUID player, String name, String password) {
+        if (!enabled()) {
+            return Result.fail(Messages.get(CommonText.FEATURE_OFF));
+        }
         FactionService fs = factions();
         Faction faction = fs.factionOf(player);
         if (faction == null) {
@@ -237,6 +259,9 @@ public final class HomeServiceImpl implements HomeService {
 
     @Override
     public Result stuck(UUID player) {
+        if (!enabled()) {
+            return Result.fail(Messages.get(CommonText.FEATURE_OFF));
+        }
         PlayerRef ref = Players.online(player);
         String world = Players.worldName(ref);
         long chunk = Players.chunkOf(ref);
@@ -276,7 +301,8 @@ public final class HomeServiceImpl implements HomeService {
         ClaimService cs = claims();
         int cx = Keys.chunkX(center);
         int cz = Keys.chunkZ(center);
-        for (int r = 1; r <= STUCK_SEARCH_RADIUS; r++) {
+        int radius = ctx.settings().integer("home.stuckSearchRadius");
+        for (int r = 1; r <= radius; r++) {
             long best = Long.MIN_VALUE;
             int bestDist = Integer.MAX_VALUE;
             for (int dx = -r; dx <= r; dx++) {
@@ -388,6 +414,7 @@ public final class HomeServiceImpl implements HomeService {
             return;
         }
         List<Warmups.Step<Target>> steps;
+        warmups.tolerance(ctx.settings().decimal("home.warmupMoveTolerance"));
         try {
             steps = warmups.tick(id -> where(Players.online(id)), this::inCombat);
         } catch (RuntimeException ex) {
@@ -521,6 +548,9 @@ public final class HomeServiceImpl implements HomeService {
 
     @Override
     public Result allyHome(UUID player, String allyTag) {
+        if (!enabled()) {
+            return Result.fail(Messages.get(CommonText.FEATURE_OFF));
+        }
         FactionService fs = factions();
         Faction own = fs.factionOf(player);
         if (own == null) {
@@ -569,6 +599,9 @@ public final class HomeServiceImpl implements HomeService {
 
     @Override
     public Location respawnLocation(UUID player) {
+        if (!enabled()) {
+            return null;
+        }
         Faction faction = factions().factionOf(player);
         if (faction == null || faction.isSystem()) {
             return null;

@@ -73,6 +73,9 @@ public final class VaultServiceImpl implements dev.ryvrook.dominion.service.Vaul
 
     @Override
     public Result open(UUID player, int page) {
+        if (!ctx.settings().bool("vault.enabled")) {
+            return Result.fail(Messages.get(CommonText.FEATURE_OFF));
+        }
         FactionService factions = ctx.service(FactionService.class);
         Faction f = factions.factionOf(player);
         if (f == null) {
@@ -89,7 +92,7 @@ public final class VaultServiceImpl implements dev.ryvrook.dominion.service.Vaul
         if (page < 1 || page > total) {
             return Result.fail(total == 1 ? Messages.get(VaultText.ONE_PAGE) : Messages.get(VaultText.PAGE_RANGE, "total", total));
         }
-        if (page >= 2 && (m == null || !m.rank().atLeast(Rank.OFFICER))) {
+        if (page > ctx.settings().integer("vault.memberPages") && (m == null || !m.rank().atLeast(Rank.OFFICER))) {
             return Result.fail(Messages.get(VaultText.OFFICER_PAGE, "page", page));
         }
         if (breached(f.id())) {

@@ -7,6 +7,9 @@ import com.hypixel.hytale.server.core.ui.builder.EventData;
 import com.hypixel.hytale.server.core.ui.builder.UICommandBuilder;
 import com.hypixel.hytale.server.core.ui.builder.UIEventBuilder;
 import dev.ryvrook.dominion.text.Messages;
+import dev.ryvrook.dominion.config.CommandNames;
+
+import java.util.Set;
 
 /**
  * Appends reusable row templates into one scrolling container and binds their buttons.
@@ -29,6 +32,8 @@ final class Body {
     static final String UPGRADE = "Pages/Dominion_Upgrade.ui";
     static final String CARD = "Pages/Dominion_Card.ui";
     static final int MAX_DOTS = 10;
+    /** Level dots drawn per upgrade, ui.maxDots, never more than the markup holds. */
+    private int maxDots = MAX_DOTS;
 
     /** A button label with the action and value it sends. */
     record Btn(String label, String action, String value) {
@@ -82,13 +87,14 @@ final class Body {
 
     String section(String text) {
         String s = add(SECTION);
-        commands.set(s + " #Text.Text", text);
+        commands.set(s + " #Text.Text", CommandNames.localize(text));
         return s;
     }
 
     String text(String text) {
         String s = add(TEXT);
-        commands.set(s + " #Text.Text", text);
+        // root command name comes from commands.root
+        commands.set(s + " #Text.Text", CommandNames.localize(text));
         return s;
     }
 
@@ -233,8 +239,19 @@ final class Body {
         return s;
     }
 
-    /** A sidebar tab in the Feats style. */
+    /** Tab ids that tab leaves out, for disabled commands and features that are off. */
+    private Set<String> hiddenTabs = Set.of();
+
+    Body hide(Set<String> tabIds) {
+        hiddenTabs = tabIds == null ? Set.of() : Set.copyOf(tabIds);
+        return this;
+    }
+
+    /** A sidebar tab in the Feats style. Returns null without adding anything for a hidden tab. */
     String tab(String id, String label, String count, boolean selected, String action) {
+        if (hiddenTabs.contains(id)) {
+            return null;
+        }
         String s = add(TAB);
         commands.set(s + " #Button.Text", label);
         commands.set(s + " #Selected.Text", label);
@@ -336,12 +353,16 @@ final class Body {
         return s;
     }
 
+    void maxDots(int dots) {
+        maxDots = Math.max(0, Math.min(MAX_DOTS, dots));
+    }
+
     /** An upgrade with a description, level dots, a cost and an optional buy button. */
     String upgrade(String name, String description, int level, int max, String cost, Btn buy) {
         String s = add(UPGRADE);
         commands.set(s + " #Name.Text", name);
         commands.set(s + " #Desc.Text", description == null ? "" : description);
-        int dots = Math.min(MAX_DOTS, Math.max(0, max));
+        int dots = Math.min(maxDots, Math.max(0, max));
         for (int i = 0; i < dots; i++) {
             commands.set(s + (i < level ? " #On" : " #Off") + i + ".Visible", true);
         }

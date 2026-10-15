@@ -68,7 +68,7 @@ class MapOverlayTest {
         assertEquals(0x7fd6ff, MapOverlay.rgbOf(blue));
         Faction safe = new Faction(UUID.randomUUID(), "SafeZone", "Safe", null, 1L);
         safe.setType(FactionType.SAFEZONE);
-        assertEquals(Integer.parseInt(MapOverlay.SAFEZONE_COLOR.substring(1), 16), MapOverlay.rgbOf(safe));
+        assertEquals(Integer.parseInt(dev.ryvrook.dominion.text.Palette.safeZone().substring(1), 16), MapOverlay.rgbOf(safe));
         Faction war = new Faction(UUID.randomUUID(), "WarZone", "War", null, 1L);
         war.setType(FactionType.WARZONE);
         assertEquals(0xe0413c, MapOverlay.rgbOf(war));

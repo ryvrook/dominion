@@ -24,7 +24,6 @@ import java.util.Map;
 
 /** Leaderboard of factions by a blended score. The viewer's faction is pinned at the bottom. */
 public final class TopPage extends DominionPage {
-    private static final int LIMIT = 30;
     private static final int TOP_FETCH = 500;
 
     record Scored(Faction faction, double score, int claims, double power) {}
@@ -93,7 +92,7 @@ public final class TopPage extends DominionPage {
             if (mine != null && s.faction().id().equals(mine.id())) {
                 myPlace = i;
             }
-            if (i < LIMIT) {
+            if (i < ctx.settings().integer("ui.topLimit")) {
                 row(body, i + 1, s);
             }
         }

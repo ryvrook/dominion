@@ -14,7 +14,7 @@ import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.model.ClaimEntry;
 import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.FactionType;
-import dev.ryvrook.dominion.text.Msg;
+import dev.ryvrook.dominion.text.Palette;
 import dev.ryvrook.dominion.util.Keys;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
@@ -40,8 +40,6 @@ import java.util.logging.Level;
  * faction changes.
  */
 public final class MapOverlay {
-    static final String SAFEZONE_COLOR = Msg.GOLD;
-    static final String WARZONE_COLOR = "#e0413c";
     static final String FALLBACK_COLOR = "#7fd6ff";
     /** How many refresh ticks later a cleared batch is cleared once more, for images drawn mid change. */
     private static final int ECHO_TICKS = 2;
@@ -71,7 +69,7 @@ public final class MapOverlay {
 
     /** True when the overlay is on and drawing this world's map. */
     public boolean active(World world) {
-        if (!ctx.settings().bool("map.overlay")) {
+        if (!(ctx.settings().bool("map.enabled") && ctx.settings().bool("map.overlay"))) {
             return false;
         }
         try {
@@ -84,7 +82,7 @@ public final class MapOverlay {
 
     /** Wraps the world's map generator once. Runs the swap on the world thread. */
     public void install(World world) {
-        if (world == null || !ctx.settings().bool("map.overlay")) {
+        if (world == null || !(ctx.settings().bool("map.enabled") && ctx.settings().bool("map.overlay"))) {
             return;
         }
         try {
@@ -127,7 +125,7 @@ public final class MapOverlay {
     private void swapIn(World world) {
         try {
             WorldMapManager manager = world.getWorldMapManager();
-            if (manager == null || !ctx.settings().bool("map.overlay") || !wrappable(world, manager)) {
+            if (manager == null || !(ctx.settings().bool("map.enabled") && ctx.settings().bool("map.overlay")) || !wrappable(world, manager)) {
                 return;
             }
             IWorldMap previous = manager.getGenerator();
@@ -173,9 +171,9 @@ public final class MapOverlay {
     static int rgbOf(Faction f) {
         String hex;
         if (f.type() == FactionType.SAFEZONE) {
-            hex = SAFEZONE_COLOR;
+            hex = Palette.safeZone();
         } else if (f.type() == FactionType.WARZONE) {
-            hex = WARZONE_COLOR;
+            hex = Palette.warZone();
         } else {
             String c = f.color();
             hex = c != null && c.matches("#[0-9a-fA-F]{6}") ? c : FALLBACK_COLOR;
@@ -218,7 +216,7 @@ public final class MapOverlay {
             return;
         }
         Map<Long, Painted> drawn = painted.computeIfAbsent(worldName, w -> new ConcurrentHashMap<>());
-        if (!ctx.settings().bool("map.overlay")) {
+        if (!(ctx.settings().bool("map.enabled") && ctx.settings().bool("map.overlay"))) {
             for (long index : chunks.keySet()) {
                 drawn.remove(index);
             }
@@ -270,7 +268,7 @@ public final class MapOverlay {
      * engine on each world thread to draw them again and send them to the players who see them.
      */
     public void tick() {
-        String look = ctx.settings().bool("map.overlay") + "/" + ctx.settings().integer("map.overlayOpacity")
+        String look = (ctx.settings().bool("map.enabled") && ctx.settings().bool("map.overlay")) + "/" + ctx.settings().integer("map.overlayOpacity")
                 + "/" + ctx.settings().integer("map.overlayBorder");
         if (lastLook != null && !lastLook.equals(look)) {
             redrawEverything();

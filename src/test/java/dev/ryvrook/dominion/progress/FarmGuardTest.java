@@ -154,4 +154,20 @@ class FarmGuardTest {
         assertEquals(4, g.ownDrops(bob, "Fish_Salmon_Item", 4, 10));
         assertEquals(2, g.ownDrops(alice, "Fish_Salmon_Item", 10, 10));
     }
+
+    @Test
+    void dropCapAndMemoryAreSettings() {
+        int[] cap = {4};
+        long[] memory = {1000};
+        FarmGuard g = new FarmGuard(() -> HOUR, factions::get, 10, () -> cap[0], () -> memory[0]);
+        for (int i = 0; i < 10; i++) {
+            g.dropped(alice, "Fish_Salmon_Item", 1, 100);
+        }
+        assertEquals(4, g.ownDrops(alice, "Fish_Salmon_Item", 10, 100));
+        g.dropped(alice, "Fish_Salmon_Item", 3, 100);
+        assertEquals(0, g.ownDrops(alice, "Fish_Salmon_Item", 3, 1101), "older than the drop memory");
+        memory[0] = 5000;
+        g.dropped(alice, "Fish_Salmon_Item", 3, 2000);
+        assertEquals(3, g.ownDrops(alice, "Fish_Salmon_Item", 3, 6000));
+    }
 }

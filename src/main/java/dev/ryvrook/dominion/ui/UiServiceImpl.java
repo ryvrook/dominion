@@ -20,6 +20,7 @@ import dev.ryvrook.dominion.service.ClaimService;
 import dev.ryvrook.dominion.service.RelationService;
 import dev.ryvrook.dominion.model.PlayerData;
 import dev.ryvrook.dominion.service.UiService;
+import dev.ryvrook.dominion.text.CommonText;
 import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Players;
@@ -33,8 +34,13 @@ import java.util.logging.Level;
 
 /** Opens Dominion pages, drives the sidebar HUD and shows territory banners. */
 public final class UiServiceImpl implements UiService {
-    /** Item whose icon decorates territory banners. Exists in the vanilla item list. */
+    /** Item whose icon decorates territory banners. Exists in the vanilla item list. The default of ui.bannerIcon. */
     static final String BANNER_ICON = "Furniture_Flag_Small_Red";
+
+    private String bannerIcon() {
+        String id = ctx.settings().text("ui.bannerIcon").trim();
+        return id.isEmpty() ? BANNER_ICON : id;
+    }
 
     private final DominionContext ctx;
     private final Map<UUID, DominionHud> huds = new ConcurrentHashMap<>();
@@ -72,6 +78,10 @@ public final class UiServiceImpl implements UiService {
 
     @Override
     public void openTop(PlayerRef player) {
+        if (!ctx.settings().bool("top.enabled")) {
+            Msg.send(player, Msg.bad(Messages.get(CommonText.FEATURE_OFF)));
+            return;
+        }
         open(player, new TopPage(player, ctx, this));
     }
 
@@ -175,7 +185,7 @@ public final class UiServiceImpl implements UiService {
      * the server default only decides the first value and each player's own choice wins after that.
      */
     void onPlayerReady(PlayerRef player) {
-        if (ctx.player(player.getUuid()).hud()) {
+        if (ctx.settings().bool("hud.enabled") && ctx.player(player.getUuid()).hud()) {
             showHud(player);
         }
     }
@@ -187,6 +197,19 @@ public final class UiServiceImpl implements UiService {
 
     /** Called every second. Refreshes visible sidebars every hud.refreshSeconds. */
     void tickHud() {
+        // With hud.enabled off every open sidebar is taken down and nothing refreshes. Each player's own
+        // choice is kept, so the sidebars come back on their next join once the switch is on again.
+        if (!ctx.settings().bool("hud.enabled")) {
+            for (UUID id : new ArrayList<>(huds.keySet())) {
+                PlayerRef player = Players.online(id);
+                if (player != null) {
+                    hideHud(player);
+                } else {
+                    huds.remove(id);
+                }
+            }
+            return;
+        }
         // The position is part of the markup, so a changed hud.side or hud.top builds the open sidebars again.
         String placement = ctx.settings().text("hud.side") + "/" + ctx.settings().integer("hud.top");
         if (hudPlacement != null && !hudPlacement.equals(placement)) {
@@ -263,6 +286,9 @@ public final class UiServiceImpl implements UiService {
             return;
         }
         ctx.player(player.getUuid()).setHud(visible);
+        if (visible && !ctx.settings().bool("hud.enabled")) {
+            return;
+        }
         if (visible) {
             showHud(player);
         } else {
@@ -282,7 +308,7 @@ public final class UiServiceImpl implements UiService {
             NotificationUtil.sendNotification(player.getPacketHandler(),
                     Message.raw(title == null ? "" : title).color(c).bold(true),
                     bannerSubtitle(player, title, subtitle),
-                    new ItemStack(BANNER_ICON, 1).toPacket(),
+                    new ItemStack(bannerIcon(), 1).toPacket(),
                     NotificationStyle.Default);
         } catch (Exception e) {
             ctx.logger().at(Level.FINE).withCause(e).log("Dominion territory banner failed");

@@ -12,22 +12,23 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import java.util.function.IntSupplier;
 import java.util.function.LongSupplier;
 
 /**
  * Stops mission farming. Ore and trunk blocks placed by players are remembered by world and
  * position for missions.placedBlockMemoryMinutes, and breaking one of them earns no mission credit.
  * Other blocks never earn credit, so they are not remembered and the cap lasts longer. Items a
- * player drops are remembered for five minutes, and picking such an item up earns no credit for
+ * player drops are remembered for missions.farmGuardDropMemoryMinutes, five by default, and picking such an item up earns no credit for
  * the dropper or any member of the dropper's faction, so two members cannot farm a mission by
  * passing the same crops back and forth. Drops by players of other factions never withhold credit.
  * The memory outlives a disconnect for the same reason. Both memories are bounded so a busy server
  * cannot grow them without limit.
  */
 final class FarmGuard {
-    /** Most placed positions kept across all worlds. The oldest are forgotten first. */
+    /** Default most placed positions kept across all worlds. The oldest are forgotten first. */
     static final int MAX_PLACED = 100_000;
-    /** Most remembered drops per player. The oldest are forgotten first. */
+    /** Default most remembered drops per player. The oldest are forgotten first. */
     static final int MAX_DROPS_PER_PLAYER = 256;
     static final long DROP_MEMORY_MILLIS = 5 * 60_000L;
 
@@ -46,13 +47,19 @@ final class FarmGuard {
     }
 
     private final LongSupplier placedMemory;
+    /** Most remembered drops per player, missions.farmGuardMaxDrops. */
+    private final IntSupplier maxDrops;
+    /** How long a drop is remembered in milliseconds, missions.farmGuardDropMemoryMinutes. */
+    private final LongSupplier dropMemory;
+    /** Most placed positions kept, missions.farmGuardMaxPlaced, read once when the guard is made. */
+    private final int maxPlaced;
     /** The faction id of a player, or null when the player has none. */
     private final Function<UUID, UUID> factionOf;
     /** Insertion ordered, so the eldest entry is always the oldest placement. */
     private final LinkedHashMap<Pos, Long> placed = new LinkedHashMap<>(1024, 0.75f, false) {
         @Override
         protected boolean removeEldestEntry(Map.Entry<Pos, Long> eldest) {
-            return size() > MAX_PLACED;
+            return size() > maxPlaced;
         }
     };
     private final Map<UUID, Deque<Drop>> drops = new ConcurrentHashMap<>();
@@ -62,7 +69,9 @@ final class FarmGuard {
             FactionService fs = ctx.serviceOrNull(FactionService.class);
             Faction f = fs == null ? null : fs.factionOf(player);
             return f == null ? null : f.id();
-        });
+        }, ctx.settings().integer("missions.farmGuardMaxPlaced"),
+                () -> ctx.settings().integer("missions.farmGuardMaxDrops"),
+                () -> ctx.settings().integer("missions.farmGuardDropMemoryMinutes") * 60_000L);
     }
 
     /**
@@ -70,8 +79,17 @@ final class FarmGuard {
      * and a lookup from player to faction id.
      */
     FarmGuard(LongSupplier placedMemoryMillis, Function<UUID, UUID> factionOf) {
+        this(placedMemoryMillis, factionOf, MAX_PLACED, () -> MAX_DROPS_PER_PLAYER, () -> DROP_MEMORY_MILLIS);
+    }
+
+    /** With the caps and the drop memory supplied as well, the drop values read on every use. */
+    FarmGuard(LongSupplier placedMemoryMillis, Function<UUID, UUID> factionOf, int maxPlaced,
+              IntSupplier maxDrops, LongSupplier dropMemoryMillis) {
         this.placedMemory = placedMemoryMillis;
         this.factionOf = factionOf;
+        this.maxPlaced = Math.max(0, maxPlaced);
+        this.maxDrops = maxDrops;
+        this.dropMemory = dropMemoryMillis;
     }
 
     private long placedMemoryMillis() {
@@ -120,7 +138,8 @@ final class FarmGuard {
         synchronized (list) {
             prune(list, now);
             list.addLast(new Drop(itemId, quantity, now));
-            while (list.size() > MAX_DROPS_PER_PLAYER) {
+            int cap = Math.max(0, maxDrops.getAsInt());
+            while (list.size() > cap) {
                 list.removeFirst();
             }
         }
@@ -128,7 +147,7 @@ final class FarmGuard {
 
     /**
      * How many of the picked up items the picker or a member of the picker's faction dropped in the
-     * last five minutes, starting with the picker's own drops. Those items are used up from the
+     * drop memory, starting with the picker's own drops. Those items are used up from the
      * memory and earn no credit.
      */
     int ownDrops(UUID player, String itemId, int quantity, long now) {
@@ -156,7 +175,7 @@ final class FarmGuard {
     }
 
     /** Uses up to quantity matching items from one player's drop memory and returns how many. */
-    private static int take(Deque<Drop> list, String itemId, int quantity, long now) {
+    private int take(Deque<Drop> list, String itemId, int quantity, long now) {
         int matched = 0;
         synchronized (list) {
             prune(list, now);
@@ -177,8 +196,9 @@ final class FarmGuard {
         return matched;
     }
 
-    private static void prune(Deque<Drop> list, long now) {
-        while (!list.isEmpty() && now - list.peekFirst().at > DROP_MEMORY_MILLIS) {
+    private void prune(Deque<Drop> list, long now) {
+        long memory = dropMemory.getAsLong();
+        while (!list.isEmpty() && now - list.peekFirst().at > memory) {
             list.removeFirst();
         }
     }

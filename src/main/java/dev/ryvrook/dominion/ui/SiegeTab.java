@@ -22,7 +22,6 @@ import java.util.UUID;
  */
 final class SiegeTab {
     static final String ID = "sieges";
-    private static final int HISTORY = 10;
 
     private final DominionContext ctx;
     private final DominionPanel panel;
@@ -32,12 +31,15 @@ final class SiegeTab {
         this.panel = panel;
     }
 
+    /** The siege service while raid.enabled and raid.modeSiege are on, otherwise null. */
     private SiegeService sieges() {
-        return ctx.serviceOrNull(SiegeService.class);
+        boolean on = ctx.settings().bool("raid.enabled") && ctx.settings().bool("raid.modeSiege");
+        return on ? ctx.serviceOrNull(SiegeService.class) : null;
     }
 
+    /** The shield service while shield.enabled is on, otherwise null. */
     private ShieldService shields() {
-        return ctx.serviceOrNull(ShieldService.class);
+        return ctx.settings().bool("shield.enabled") ? ctx.serviceOrNull(ShieldService.class) : null;
     }
 
     boolean available() {
@@ -81,7 +83,7 @@ final class SiegeTab {
             body.text(Messages.get(UiText.SIEGE_HOWTO), Msg.MUTED);
 
             body.section(Messages.get(UiText.RAID_HISTORY));
-            List<Siege> history = sieges.history(f, HISTORY);
+            List<Siege> history = sieges.history(f, ctx.settings().integer("ui.siegeHistory"));
             if (history.isEmpty()) {
                 body.text(Messages.get(UiText.NO_SIEGES_YET), Msg.MUTED);
             }

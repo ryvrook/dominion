@@ -2,6 +2,7 @@ package dev.ryvrook.dominion.power;
 
 import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.api.DominionEvent;
+import dev.ryvrook.dominion.config.Settings;
 import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.Member;
 
@@ -11,9 +12,11 @@ import java.util.function.Predicate;
 
 /**
  * The deaths pool mode behind power.dtrMode. Each faction has one pool stored in the faction stat
- * "dtr" as hundredths. The pool starts at 2 plus 1 per member, capped at 10, loses 1 per member
- * death, never drops below minus 3 and regains 0.05 per minute for each online member, at most
- * 0.1 per minute. A faction is raidable while its pool is at or below 0.
+ * "dtr" as hundredths. The pool starts at power.dtrBase plus power.dtrPerMember per member, capped at
+ * power.dtrCap, loses power.dtrLossPerDeath per member death, never drops below power.dtrFloor and
+ * regains power.dtrRegenPerOnline per minute for each online member, at most power.dtrRegenCap per
+ * minute. The defaults are 2, 1, 10, 1, minus 3, 0.05 and 0.1. A faction is raidable while its pool
+ * is at or below 0.
  */
 final class Dtr {
     static final String STAT = "dtr";
@@ -39,15 +42,26 @@ final class Dtr {
         return ctx.settings().bool("power.dtrMode");
     }
 
+    /** The largest pool with the shipped defaults. */
     static double max(Faction f) {
-        return Math.min(CAP, BASE + PER_MEMBER * Math.max(0, f.memberCount()));
+        return max(f, BASE, PER_MEMBER, CAP);
+    }
+
+    static double max(Faction f, double base, double perMember, double cap) {
+        return Math.min(cap, base + perMember * Math.max(0, f.memberCount()));
+    }
+
+    /** The largest pool with the current settings. */
+    double maxOf(Faction f) {
+        Settings s = ctx.settings();
+        return max(f, s.decimal("power.dtrBase"), s.decimal("power.dtrPerMember"), s.decimal("power.dtrCap"));
     }
 
     /** Current pool, starting it at the maximum the first time it is read. */
     double pool(Faction f) {
         synchronized (f) {
             if (f.stat(STAT_SET) == 0) {
-                store(f, max(f));
+                store(f, maxOf(f));
                 f.addStat(STAT_SET, 1);
             }
             return f.stat(STAT) / 100.0;
@@ -55,8 +69,8 @@ final class Dtr {
     }
 
     /** Writes the pool clamped to the floor and the maximum. Caller holds the faction lock. */
-    private static double store(Faction f, double value) {
-        double clamped = Math.max(FLOOR, Math.min(max(f), value));
+    private double store(Faction f, double value) {
+        double clamped = Math.max(ctx.settings().decimal("power.dtrFloor"), Math.min(maxOf(f), value));
         long target = Math.round(clamped * 100.0);
         long current = f.stat(STAT);
         if (target != current) {
@@ -73,7 +87,7 @@ final class Dtr {
         double after;
         synchronized (f) {
             before = pool(f);
-            after = store(f, before - LOSS_PER_DEATH);
+            after = store(f, before - ctx.settings().decimal("power.dtrLossPerDeath"));
         }
         if (after != before) {
             ctx.bus().publish(new DominionEvent.FactionChanged(f.id()));
@@ -82,6 +96,8 @@ final class Dtr {
 
     /** Minute regen. Also pulls pools down to a lower maximum after members left. */
     void tick() {
+        double perOnline = ctx.settings().decimal("power.dtrRegenPerOnline");
+        double regenCap = ctx.settings().decimal("power.dtrRegenCap");
         for (Faction f : new ArrayList<>(ctx.repo().factions())) {
             if (f.isSystem()) {
                 continue;
@@ -92,7 +108,7 @@ final class Dtr {
                     online++;
                 }
             }
-            double rate = Math.min(REGEN_CAP, REGEN_PER_ONLINE * online);
+            double rate = Math.min(regenCap, perOnline * online);
             boolean crossed;
             synchronized (f) {
                 double before = pool(f);

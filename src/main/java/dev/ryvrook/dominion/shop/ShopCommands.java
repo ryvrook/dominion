@@ -5,6 +5,8 @@ import com.hypixel.hytale.server.core.command.system.arguments.types.ArgTypes;
 import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.command.Call;
 import dev.ryvrook.dominion.command.PlayerCmd;
+import dev.ryvrook.dominion.config.CommandNames;
+import dev.ryvrook.dominion.config.Perms;
 import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.service.FactionService;
 import dev.ryvrook.dominion.text.Messages;
@@ -43,22 +45,29 @@ final class ShopCommands {
         return root;
     }
 
+    /** The editor command name from commands.shopEditRoot, read once at registration. */
+    private String shopEditRoot() {
+        String name = CommandNames.name(ctx.settings().text("commands.shopEditRoot"), CommandNames.DEFAULT_SHOP_EDIT);
+        CommandNames.registeredShopEdit(name);
+        return name;
+    }
+
     /** /fashop edit, /fashop set and /fashop remove. Every sub command checks the permission itself. */
     private PlayerCmd admin() {
-        PlayerCmd root = new PlayerCmd("fashop", Messages.get(ShopText.CMD_FASHOP)).permission(AdminEditorPage.PERMISSION);
+        PlayerCmd root = new PlayerCmd(shopEditRoot(), Messages.get(ShopText.CMD_FASHOP)).permission(Perms.admin());
         root.handler(this::adminUsage);
 
-        root.sub(new PlayerCmd("edit", Messages.get(ShopText.CMD_EDIT)).permission(AdminEditorPage.PERMISSION))
+        root.sub(new PlayerCmd("edit", Messages.get(ShopText.CMD_EDIT)).permission(Perms.admin()))
                 .handler(c -> shops.openAdminEditor(c.player()));
 
-        PlayerCmd set = root.sub(new PlayerCmd("set", Messages.get(ShopText.CMD_SET)).permission(AdminEditorPage.PERMISSION));
+        PlayerCmd set = root.sub(new PlayerCmd("set", Messages.get(ShopText.CMD_SET)).permission(Perms.admin()));
         RequiredArg<String> setCategory = set.withRequiredArg("category", Messages.get(ShopText.ARG_CATEGORY), ArgTypes.STRING);
         RequiredArg<String> setItem = set.withRequiredArg("itemId", Messages.get(ShopText.ARG_ITEM_ID), ArgTypes.STRING);
         RequiredArg<Double> setBuy = set.withRequiredArg("buy", Messages.get(ShopText.ARG_BUY), ArgTypes.DOUBLE);
         RequiredArg<Double> setSell = set.withRequiredArg("sell", Messages.get(ShopText.ARG_SELL), ArgTypes.DOUBLE);
         set.handler(c -> c.reply(shops.adminSet(c.arg(setCategory), c.arg(setItem), c.arg(setBuy), c.arg(setSell))));
 
-        PlayerCmd remove = root.sub(new PlayerCmd("remove", Messages.get(ShopText.CMD_REMOVE)).permission(AdminEditorPage.PERMISSION));
+        PlayerCmd remove = root.sub(new PlayerCmd("remove", Messages.get(ShopText.CMD_REMOVE)).permission(Perms.admin()));
         RequiredArg<String> removeCategory = remove.withRequiredArg("category", Messages.get(ShopText.ARG_CATEGORY), ArgTypes.STRING);
         RequiredArg<String> removeItem = remove.withRequiredArg("itemId", Messages.get(ShopText.ARG_ITEM_ID), ArgTypes.STRING);
         remove.handler(c -> c.reply(shops.adminRemove(c.arg(removeCategory), c.arg(removeItem))));

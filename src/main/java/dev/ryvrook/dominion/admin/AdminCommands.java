@@ -11,6 +11,8 @@ import dev.ryvrook.dominion.command.IdPrefix;
 import dev.ryvrook.dominion.command.PlayerCmd;
 import dev.ryvrook.dominion.command.ServerCmd;
 import dev.ryvrook.dominion.command.Targets;
+import dev.ryvrook.dominion.config.CommandNames;
+import dev.ryvrook.dominion.config.Perms;
 import dev.ryvrook.dominion.config.Settings;
 import dev.ryvrook.dominion.model.ClaimEntry;
 import dev.ryvrook.dominion.model.Faction;
@@ -72,20 +74,26 @@ final class AdminCommands {
     }
 
     private static PlayerCmd player(String name, String description) {
-        return new PlayerCmd(name, description).permission(AdminModule.PERMISSION);
+        return new PlayerCmd(name, description).permission(Perms.admin());
     }
 
     private static PlayerCmd playerVariant(String description) {
-        return new PlayerCmd(description).permission(AdminModule.PERMISSION);
+        return new PlayerCmd(description).permission(Perms.admin());
     }
 
     private static ServerCmd server(String name, String description) {
-        return new ServerCmd(name, description).permission(AdminModule.PERMISSION);
+        return new ServerCmd(name, description).permission(Perms.admin());
     }
 
     ServerCmd build() {
-        ServerCmd root = server("fa", t(AdminText.CMD_ROOT));
-        root.addAliases("factionadmin");
+        // Read once at registration, so a change applies at the next start or /plugin reload.
+        String rootName = CommandNames.name(ctx.settings().text("commands.adminRoot"), CommandNames.DEFAULT_ADMIN);
+        ServerCmd root = server(rootName, t(AdminText.CMD_ROOT));
+        List<String> aliases = CommandNames.aliases(ctx.settings().text("commands.adminAliases"), rootName);
+        if (!aliases.isEmpty()) {
+            root.addAliases(aliases.toArray(String[]::new));
+        }
+        CommandNames.registeredAdmin(rootName);
         root.handler(this::usage);
 
         registerSettings(root);
@@ -100,6 +108,7 @@ final class AdminCommands {
         registerSieges(root);
         registerImport(root);
         registerIntegrations(root);
+        new ConfigCommands(ctx).register(root);
         // Attach every sub command and variant before the caller registers the root.
         root.seal();
         return root;
@@ -736,7 +745,7 @@ final class AdminCommands {
                         : t(AdminText.IMPORT_SOURCES, "sources", String.join(", ", sources)));
             }
         });
-        ServerCmd run = new ServerCmd(t(AdminText.CMD_IMPORT_RUN)).permission(AdminModule.PERMISSION);
+        ServerCmd run = new ServerCmd(t(AdminText.CMD_IMPORT_RUN)).permission(Perms.admin());
         RequiredArg<String> runSource = run.withRequiredArg("source", t(AdminText.ARG_IMPORT_SOURCE), ArgTypes.STRING);
         run.handler(c -> {
             ImportService s = importer(c);

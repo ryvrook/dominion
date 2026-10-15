@@ -65,6 +65,10 @@ public final class ChatServiceImpl implements ChatService {
         if (sender == null) {
             return;
         }
+        if (!ctx.settings().bool("chat.enabled")) {
+            // With the channels off every line is public chat, and the prefixes are plain text.
+            return;
+        }
         // Fail closed. A line from a player who talks in a private channel is cancelled before any
         // work that can throw, and any failure while routing cancels the line too, so a private
         // message can never fall through to the public pass.
@@ -392,6 +396,9 @@ public final class ChatServiceImpl implements ChatService {
 
     @Override
     public Result setChannel(UUID player, PlayerData.Channel channel) {
+        if (!ctx.settings().bool("chat.enabled")) {
+            return Result.fail(Messages.get(CommonText.FEATURE_OFF));
+        }
         if (channel == null) {
             return Result.fail(Messages.get(ChatText.CHANNELS));
         }

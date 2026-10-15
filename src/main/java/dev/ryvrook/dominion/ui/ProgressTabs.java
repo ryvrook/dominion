@@ -27,7 +27,6 @@ final class ProgressTabs {
     static final String VAULT = "vault";
     static final String UPGRADES = "upgrades";
     static final String MISSIONS = "missions";
-    private static final int MAX_VAULT_PAGES = 30;
 
     private final DominionContext ctx;
     private final DominionPanel panel;
@@ -42,7 +41,7 @@ final class ProgressTabs {
     }
 
     VaultService vault() {
-        return ctx.serviceOrNull(VaultService.class);
+        return ctx.settings().bool("vault.enabled") ? ctx.serviceOrNull(VaultService.class) : null;
     }
 
     // ---- overview --------------------------------------------------------
@@ -63,7 +62,7 @@ final class ProgressTabs {
 
     void buildVault(UICommandBuilder c, Body body, Faction f) {
         VaultService v = vault();
-        int pages = v == null ? 0 : Math.max(0, Math.min(MAX_VAULT_PAGES, v.pages(f)));
+        int pages = v == null ? 0 : Math.max(0, Math.min(ctx.settings().integer("ui.vaultMaxPages"), v.pages(f)));
         panel.title(c, Messages.get(UiText.VAULT), pages == 1 ? Messages.get(UiText.PAGE_ONE) : Messages.get(UiText.PAGES_COUNT, "count", pages));
         body.text(Messages.get(UiText.VAULT_EXPLAINED));
         if (pages == 0) {
@@ -94,6 +93,7 @@ final class ProgressTabs {
                 : Messages.get(UiText.POINTS_TO_SPEND, "points", Msg.number(p.points(f))));
         body.text(coins ? Messages.get(UiText.UPGRADES_PAID_COINS)
                 : Messages.get(UiText.UPGRADES_PAID_POINTS), Msg.MUTED);
+        body.maxDots(ctx.settings().integer("ui.maxDots"));
         for (String key : p.upgradeKeys()) {
             int level = p.upgradeLevel(f, key);
             int max = p.upgradeMaxLevel(key);

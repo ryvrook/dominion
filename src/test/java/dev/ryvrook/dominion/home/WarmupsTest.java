@@ -110,4 +110,15 @@ class WarmupsTest {
             assertTrue(done ^ cancelled[0], "exactly one of cancel and completion must win");
         }
     }
+
+    @Test
+    void theMoveToleranceIsASetting() {
+        where.put(p, at(0));
+        w.tolerance(3.0);
+        w.start(p, "home", at(0), 5);
+        where.put(p, at(2.5));
+        assertTrue(tick().isEmpty());
+        where.put(p, at(3.5));
+        assertEquals(Warmups.Kind.MOVED, tick().get(0).kind());
+    }
 }

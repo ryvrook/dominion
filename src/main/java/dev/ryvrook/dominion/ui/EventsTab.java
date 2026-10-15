@@ -21,7 +21,6 @@ import java.util.function.Supplier;
  */
 final class EventsTab {
     static final String ID = "events";
-    private static final int MAX_ROWS = 20;
 
     private final DominionContext ctx;
     private final DominionPanel panel;
@@ -75,7 +74,7 @@ final class EventsTab {
         }
         int shown = 0;
         for (String name : hills) {
-            if (shown++ >= MAX_ROWS) {
+            if (shown++ >= ctx.settings().integer("ui.eventRows")) {
                 break;
             }
             body.row(name, Msg.GOLD, new String[] {"", "", "", ""});
@@ -89,7 +88,7 @@ final class EventsTab {
         }
         shown = 0;
         for (String name : outposts) {
-            if (shown++ >= MAX_ROWS) {
+            if (shown++ >= ctx.settings().integer("ui.eventRows")) {
                 break;
             }
             Faction holder = holder(s, name);
@@ -107,7 +106,7 @@ final class EventsTab {
         }
         shown = 0;
         for (String line : envoys) {
-            if (shown++ >= MAX_ROWS) {
+            if (shown++ >= ctx.settings().integer("ui.eventRows")) {
                 break;
             }
             body.text(line);
@@ -120,7 +119,7 @@ final class EventsTab {
         }
         shown = 0;
         for (String line : bounties) {
-            if (shown++ >= MAX_ROWS) {
+            if (shown++ >= ctx.settings().integer("ui.eventRows")) {
                 break;
             }
             body.text(line, Msg.WARN);

@@ -24,6 +24,7 @@ import dev.ryvrook.dominion.service.ShieldService;
 import dev.ryvrook.dominion.service.SiegeService;
 import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
+import dev.ryvrook.dominion.text.Palette;
 import dev.ryvrook.dominion.util.Players;
 import dev.ryvrook.dominion.util.Time;
 
@@ -117,9 +118,31 @@ public final class DominionHud extends CustomUIHud {
     private static final int SMALL_CHARS = 36;
 
     static final String WILD_TEXT = "#8a93a3";
-    static final String WILD_BAR = "#6b7280";
-    static final String SAFE = "#ffd166";
-    static final String WAR = "#ff6b6b";
+    // Refreshed from the colors settings by Palette, so they are not final.
+    static volatile String WILD_BAR = Palette.wilderness();
+    static volatile String SAFE = Palette.safeZone();
+    static volatile String WAR = Palette.warZone();
+
+    static {
+        Palette.onChange(() -> {
+            WILD_BAR = Palette.wilderness();
+            SAFE = Palette.safeZone();
+            WAR = Palette.warZone();
+        });
+    }
+
+    /** The status row colours follow the palette. The literals below are the shipped info, bad and good colours. */
+    static String statusColor(String color) {
+        if (color == null) {
+            return Msg.MUTED;
+        }
+        return switch (color) {
+            case "#7aa7e6" -> Msg.INFO;
+            case "#ff6b6b" -> Msg.BAD;
+            case "#5fd37a" -> Msg.GOOD;
+            default -> color;
+        };
+    }
 
     private final DominionContext ctx;
 
@@ -308,7 +331,7 @@ public final class DominionHud extends CustomUIHud {
             color = Msg.MUTED;
         }
         c.set("#DomStatus.Text", fit(text, SMALL_CHARS));
-        c.set("#DomStatus.Style.TextColor", color);
+        c.set("#DomStatus.Style.TextColor", statusColor(color));
         c.set("#DomStatusRow.Visible", !text.isEmpty());
         return grace;
     }

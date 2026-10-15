@@ -14,6 +14,8 @@ import dev.ryvrook.dominion.command.PlayerCmd;
 import dev.ryvrook.dominion.command.ServerCmd;
 import dev.ryvrook.dominion.command.Targets;
 import dev.ryvrook.dominion.text.Messages;
+import dev.ryvrook.dominion.config.CommandNames;
+import dev.ryvrook.dominion.config.Perms;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Players;
 import org.joml.Vector3d;
@@ -27,6 +29,7 @@ import java.util.logging.Level;
  * bottom up in seal before the root is registered.
  */
 final class EventsCommands {
+    /** The shipped nodes. The nodes in use come from Perms, set by permissions.admin and permissions.adminPayouts. */
     static final String ADMIN = "dominion.admin";
     /** Payouts run console commands, so they need their own node on top of dominion.admin. */
     static final String PAYOUTS = "dominion.admin.payouts";
@@ -42,23 +45,30 @@ final class EventsCommands {
     }
 
     private static ServerCmd admin(String name, String description) {
-        return new ServerCmd(name, description).permission(ADMIN);
+        return new ServerCmd(name, description).permission(Perms.admin());
     }
 
     private static ServerCmd adminVariant(String description) {
-        return new ServerCmd(description).permission(ADMIN);
+        return new ServerCmd(description).permission(Perms.admin());
     }
 
     private static PlayerCmd adminHere(String name, String description) {
-        return new PlayerCmd(name, description).permission(ADMIN);
+        return new PlayerCmd(name, description).permission(Perms.admin());
     }
 
     private static PlayerCmd adminHereVariant(String description) {
-        return new PlayerCmd(description).permission(ADMIN);
+        return new PlayerCmd(description).permission(Perms.admin());
     }
 
     ServerCmd build() {
-        ServerCmd root = new ServerCmd("fe", Messages.get(EventsText.CMD_FE));
+        // Read once at registration, so a change applies at the next start or /plugin reload.
+        String rootName = CommandNames.name(ctx.settings().text("commands.eventsRoot"), CommandNames.DEFAULT_EVENTS);
+        ServerCmd root = new ServerCmd(rootName, Messages.get(EventsText.CMD_FE));
+        List<String> aliases = CommandNames.aliases(ctx.settings().text("commands.eventsAliases"), rootName);
+        if (!aliases.isEmpty()) {
+            root.addAliases(aliases.toArray(String[]::new));
+        }
+        CommandNames.registeredEvents(rootName);
         root.handler(this::list);
         root.sub(new ServerCmd("list", Messages.get(EventsText.CMD_LIST))).handler(this::list);
         root.sub(new PlayerCmd("panel", Messages.get(EventsText.CMD_PANEL))).handler(this::panel);
@@ -223,7 +233,7 @@ final class EventsCommands {
         payouts.handler(c -> lines(c, Messages.get(EventsText.NOTHING_TO_PAY), events.payoutsPreview()));
         payouts.sub(admin("preview", Messages.get(EventsText.CMD_PAYOUTS)))
                 .handler(c -> lines(c, Messages.get(EventsText.NOTHING_TO_PAY), events.payoutsPreview()));
-        payouts.sub(new ServerCmd("run", Messages.get(EventsText.CMD_PAYOUTS_RUN)).permission(PAYOUTS))
+        payouts.sub(new ServerCmd("run", Messages.get(EventsText.CMD_PAYOUTS_RUN)).permission(Perms.payouts()))
                 .handler(c -> c.reply(events.payoutsRun(c.uuid())));
     }
 

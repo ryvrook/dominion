@@ -77,7 +77,7 @@ final class Raids {
         }
         if (s.bool("raid.modeUpkeep")) {
             enabled++;
-            if (d.stat("upkeepUnpaidDays") >= 3) {
+            if (d.stat("upkeepUnpaidDays") >= s.integer("raid.upkeepUnpaidDays")) {
                 met++;
             }
         }

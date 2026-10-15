@@ -44,7 +44,7 @@ public final class ClaimServiceImpl implements ClaimService {
      * Reclaiming a chunk the faction lost within this window earns no claim mission credit, so
      * unclaiming and reclaiming, or two factions trading a chunk back and forth, cannot farm it.
      * Weekly missions are the longest window a claim counter can feed. The marks are stored on the
-     * faction so a restart keeps them.
+     * faction so a restart keeps them. This is the default, land.reclaimWindowDays sets the window.
      */
     static final long MISSION_WINDOW_MILLIS = 7 * 86_400_000L;
 
@@ -584,14 +584,19 @@ public final class ClaimServiceImpl implements ClaimService {
 
     // ---- rule helpers -----------------------------------------------------
 
+    /** The mission window from land.reclaimWindowDays. Zero turns the memory off. */
+    private long reclaimWindowMillis() {
+        return settings().integer("land.reclaimWindowDays") * 86_400_000L;
+    }
+
     /** Records that the faction lost the chunk, by its own choice or not. */
-    private static void noteReleased(Faction f, String world, long chunk) {
-        f.noteReleased(world, chunk, Time.now(), MISSION_WINDOW_MILLIS);
+    private void noteReleased(Faction f, String world, long chunk) {
+        f.noteReleased(world, chunk, Time.now(), reclaimWindowMillis());
     }
 
     /** True unless the faction lost this chunk within the mission window. */
-    private static boolean newLand(Faction f, String world, long chunk) {
-        return !f.releasedWithin(world, chunk, Time.now(), MISSION_WINDOW_MILLIS);
+    private boolean newLand(Faction f, String world, long chunk) {
+        return !f.releasedWithin(world, chunk, Time.now(), reclaimWindowMillis());
     }
 
     /** Publishes the change. counts is false for admin moves, decay and any chunk the faction released lately. */

@@ -13,6 +13,7 @@ import java.util.ArrayList;
 final class PowerTicker {
     private static final long DAY = 86_400_000L;
     private static final double MINUTES_PER_DAY = 1440.0;
+    /** Default of power.regenStep. */
     static final double REGEN_STEP = 0.25;
 
     private final DominionContext ctx;
@@ -43,8 +44,8 @@ final class PowerTicker {
             }
             dev.ryvrook.dominion.model.Faction f = ctx.repo().faction(p.factionId());
             double max = power.maxFor(f);
-            // The regen upgrade adds a quarter of the base rate per level.
-            double rate = regen * (1.0 + REGEN_STEP * (f == null ? 0 : Math.max(0, f.upgrade("regen"))));
+            // The regen upgrade adds power.regenStep of the base rate per level, a quarter by default.
+            double rate = regen * (1.0 + ctx.settings().decimal("power.regenStep") * (f == null ? 0 : Math.max(0, f.upgrade("regen"))));
             synchronized (p) {
                 if (p.power() > max) {
                     // The maximum dropped, for example after leaving a faction with the maxpower
