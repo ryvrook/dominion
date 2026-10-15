@@ -15,6 +15,7 @@ import dev.ryvrook.feats.api.FeatUnlockedEvent;
 import dev.ryvrook.feats.api.FeatsApi;
 
 import java.util.UUID;
+import java.util.function.Consumer;
 
 /**
  * Mirrors Dominion's faction counters into Feats with {@code FeatsApi.addStat} and posts feat unlocks to the
@@ -78,13 +79,32 @@ public final class FeatsBridge implements Link, StatSink {
             return;
         }
         try {
-            a.addStat(player, key, amount);
+            once(a, FeatsBridge::currentApi, x -> x.addStat(player, key, amount), x -> poll());
         } catch (RuntimeException | LinkageError e) {
             if (!warned) {
                 warned = true;
                 host.warn(e, "Feats refused a Dominion counter, later failures are not logged");
             }
         }
+    }
+
+    /**
+     * Calls {@code add} on {@code held}. Feats 1.5.1 answers false from an API object left over from before a Feats
+     * reload, so on false the running API is fetched again, and when it is a different object the bridge relinks to
+     * it with {@code relink} and the add is tried once more on it. A false for any other reason, such as a key Feats
+     * does not keep, costs one read of the running API and no retry.
+     */
+    static <A> boolean once(A held, java.util.function.Supplier<A> running, java.util.function.Predicate<A> add,
+                            Consumer<A> relink) {
+        if (add.test(held)) {
+            return true;
+        }
+        A fresh = running.get();
+        if (fresh == null || fresh == held) {
+            return false;
+        }
+        relink.accept(fresh);
+        return add.test(fresh);
     }
 
     /** Runs on the thread that caused the unlock. Only sends a chat line to online members. */
