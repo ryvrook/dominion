@@ -16,6 +16,7 @@ import java.util.logging.Level;
 
 /** The /fa admin tree, singleplayer preset detection and grace period expiry. */
 public final class AdminModule implements DominionModule {
+    /** The shipped admin node. The node in use comes from Perms.admin(), set by permissions.admin. */
     public static final String PERMISSION = "dominion.admin";
     private static final long FIRST_BACKUP_DELAY = TimeUnit.MINUTES.toMillis(10);
     private static final long BACKUP_INTERVAL = TimeUnit.DAYS.toMillis(1);

@@ -2,9 +2,12 @@ package dev.ryvrook.dominion.command;
 
 import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.DominionModule;
+import dev.ryvrook.dominion.config.CommandNames;
+import dev.ryvrook.dominion.config.Settings;
 import dev.ryvrook.dominion.service.UiService;
 
 import java.util.List;
+import java.util.Set;
 
 /** Registers /f with every sub command, plus /balance, /pay and /baltop. */
 public final class CommandModule implements DominionModule {
@@ -26,8 +29,17 @@ public final class CommandModule implements DominionModule {
     public void start(DominionContext ctx) {
         confirmations.timeout(() -> ctx.settings().integer("commands.confirmSeconds") * 1000L);
         Targets targets = new Targets(ctx);
-        PlayerCmd root = new PlayerCmd("f", "Factions. Opens the faction panel.");
-        root.addAliases("faction", "factions");
+        // The names are read once here, so a change applies at the next start or /plugin reload.
+        Settings settings = ctx.settings();
+        String rootName = CommandNames.name(settings.text("commands.root"), CommandNames.DEFAULT_ROOT);
+        Set<String> off = CommandNames.disabledIn(settings.text("commands.disabled"));
+        PlayerCmd root = new PlayerCmd(rootName, "Factions. Opens the faction panel.");
+        List<String> aliases = CommandNames.aliases(settings.text("commands.rootAliases"), rootName);
+        if (!aliases.isEmpty()) {
+            root.addAliases(aliases.toArray(String[]::new));
+        }
+        root.skip(off);
+        CommandNames.registeredRoot(rootName, off);
         root.handler(c -> ctx.service(UiService.class).openPanel(c.player(), "overview"));
 
         EconomyCommands economy = new EconomyCommands(ctx, confirmations, targets);
@@ -54,6 +66,9 @@ public final class CommandModule implements DominionModule {
         root.seal();
         ctx.plugin().getCommandRegistry().registerCommand(root);
         for (PlayerCmd cmd : economy.topLevel()) {
+            if (PlayerCmd.skipped(cmd, off)) {
+                continue;
+            }
             cmd.seal();
             ctx.plugin().getCommandRegistry().registerCommand(cmd);
         }

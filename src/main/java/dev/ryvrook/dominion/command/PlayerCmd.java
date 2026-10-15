@@ -11,6 +11,7 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Consumer;
 
 /**
@@ -23,6 +24,8 @@ public final class PlayerCmd extends AbstractPlayerCommand implements Sealable {
     private final List<AbstractCommand> children = new ArrayList<>();
     private final List<PlayerCmd> variants = new ArrayList<>();
     private boolean sealed;
+    /** Sub command names left out when sealing, from commands.disabled. */
+    private Set<String> skipped = Set.of();
 
     public PlayerCmd(String name, String description) {
         super(name, description);
@@ -50,6 +53,18 @@ public final class PlayerCmd extends AbstractPlayerCommand implements Sealable {
         return this;
     }
 
+    /** Leaves out the sub commands with these lower case names when sealing. */
+    public PlayerCmd skip(Set<String> names) {
+        skipped = names == null ? Set.of() : Set.copyOf(names);
+        return this;
+    }
+
+    /** True when seal leaves this child out. */
+    static boolean skipped(AbstractCommand child, Set<String> names) {
+        String name = child.getName();
+        return name != null && names.contains(name.toLowerCase(java.util.Locale.ROOT));
+    }
+
     /** Records a sub command. It is attached in seal once it is complete. */
     public <C extends AbstractCommand> C sub(C command) {
         children.add(command);
@@ -73,6 +88,9 @@ public final class PlayerCmd extends AbstractPlayerCommand implements Sealable {
             addUsageVariant(v);
         }
         for (AbstractCommand child : children) {
+            if (skipped(child, skipped)) {
+                continue;
+            }
             if (child instanceof Sealable s) {
                 s.seal();
             }

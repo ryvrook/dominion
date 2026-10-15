@@ -10,6 +10,7 @@ import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.api.Result;
 import dev.ryvrook.dominion.chat.ChatServiceImpl;
 import dev.ryvrook.dominion.command.PlayerToggles;
+import dev.ryvrook.dominion.config.CommandNames;
 import dev.ryvrook.dominion.model.AuditEntry;
 import dev.ryvrook.dominion.model.ClaimEntry;
 import dev.ryvrook.dominion.model.Faction;
@@ -24,6 +25,8 @@ import dev.ryvrook.dominion.service.EconomyService;
 import dev.ryvrook.dominion.service.HomeService;
 import dev.ryvrook.dominion.service.PowerService;
 import dev.ryvrook.dominion.service.RelationService;
+import dev.ryvrook.dominion.text.CommonText;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.ui.Body.Btn;
 import dev.ryvrook.dominion.util.Keys;
@@ -32,6 +35,7 @@ import dev.ryvrook.dominion.util.Time;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -152,8 +156,12 @@ public final class DominionPanel extends DominionPage {
                 || (EventsTab.ID.equals(tab) && !hasEvents)) {
             tab = OVERVIEW;
         }
+        Set<String> hidden = hiddenTabs();
+        if (hidden.contains(tab)) {
+            tab = OVERVIEW;
+        }
 
-        Body tabs = new Body(commands, events, "#Tabs");
+        Body tabs = new Body(commands, events, "#Tabs").hide(hidden);
         int online = onlineCount(f);
         tabs.tab(OVERVIEW, "Overview", "", OVERVIEW.equals(tab), "tab");
         tabs.tab(MEMBERS, "Members", online + "/" + f.memberCount(), MEMBERS.equals(tab), "tab");
@@ -203,6 +211,20 @@ public final class DominionPanel extends DominionPage {
                 buildOverview(commands, body, f, eco);
             }
         }
+    }
+
+    /**
+     * Tabs left out of the sidebar. A tab goes when the sub command of the same name is in
+     * commands.disabled. Overview and help always stay.
+     */
+    Set<String> hiddenTabs() {
+        Set<String> out = new HashSet<>(CommandNames.disabled());
+        out.remove(OVERVIEW);
+        out.remove(HELP);
+        if (out.contains("siege")) {
+            out.add(SiegeTab.ID);
+        }
+        return out;
     }
 
     void title(UICommandBuilder c, String title, String hint) {
@@ -655,6 +677,11 @@ public final class DominionPanel extends DominionPage {
     protected boolean onAction(PageEvent e) {
         String v = e.value();
         String text = e.text();
+        if (!"tab".equals(e.action) && CommandNames.disabled(e.action)) {
+            // A button whose action is a sub command that commands.disabled left out is refused like the command.
+            reply(Result.fail(Messages.get(CommonText.FEATURE_OFF)));
+            return true;
+        }
         Faction f = factions().factionOf(uuid());
         Boolean handled = sieges.handle(e);
         if (handled == null) {

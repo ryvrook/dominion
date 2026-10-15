@@ -473,6 +473,35 @@ public final class Defaults {
         s.define("ui.bannerIcon", "Interface", "Item whose icon decorates the territory banner", "Furniture_Flag_Small_Red");
 
         colors(s);
+        commands(s);
+    }
+
+    /** Command names and permission nodes. Both apply at the next start or /plugin reload. */
+    private static void commands(Settings s) {
+        String later = ", applied at the next start or /plugin reload";
+        s.define("commands.root", "Commands", "Name of the player command" + later, CommandNames.DEFAULT_ROOT);
+        s.define("commands.rootAliases", "Commands", "Comma separated aliases of the player command, may be empty" + later, "faction,factions");
+        s.define("commands.adminRoot", "Commands", "Name of the admin command" + later, CommandNames.DEFAULT_ADMIN);
+        s.define("commands.adminAliases", "Commands", "Comma separated aliases of the admin command, may be empty" + later, "factionadmin");
+        s.define("commands.eventsRoot", "Commands", "Name of the events command" + later, CommandNames.DEFAULT_EVENTS);
+        s.define("commands.eventsAliases", "Commands", "Comma separated aliases of the events command, may be empty" + later, "");
+        s.define("commands.shopEditRoot", "Commands", "Name of the server shop editor command" + later, CommandNames.DEFAULT_SHOP_EDIT);
+        s.define("commands.disabled", "Commands", "Comma separated sub commands of the player command that are not registered, "
+                + "such as map,top, also balance, pay and baltop, and their panel tabs are hidden" + later, "");
+        for (String key : List.of("commands.root", "commands.adminRoot", "commands.eventsRoot", "commands.shopEditRoot")) {
+            s.pattern(key, CommandNames.NAME, "a single word of letters, digits, _ or -");
+        }
+        for (String key : List.of("commands.rootAliases", "commands.adminAliases", "commands.eventsAliases", "commands.disabled")) {
+            s.pattern(key, CommandNames.NAME_LIST, "a comma separated list of words of letters, digits, _ or -");
+        }
+
+        s.define(Perms.ADMIN, "Permissions", "Node for every admin command, page and tool. Commands pick it up at the next start, "
+                + "checks in pages and services at once", Perms.DEFAULTS.get(Perms.ADMIN));
+        s.define(Perms.PAYOUTS, "Permissions", "Node that may run the season payout console commands, on top of the admin node. "
+                + "The command picks it up at the next start, the payout check at once", Perms.DEFAULTS.get(Perms.PAYOUTS));
+        for (String key : Perms.DEFAULTS.keySet()) {
+            s.pattern(key, "[A-Za-z0-9_.*-]{1,128}", "a permission node of letters, digits, dots, _, - or *");
+        }
     }
 
     /** Colours as #rrggbb. Chat, the panel, the sidebar, banners and the world map overlay read them live. */

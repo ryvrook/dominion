@@ -6,6 +6,9 @@ import com.hypixel.hytale.server.core.ui.Value;
 import com.hypixel.hytale.server.core.ui.builder.EventData;
 import com.hypixel.hytale.server.core.ui.builder.UICommandBuilder;
 import com.hypixel.hytale.server.core.ui.builder.UIEventBuilder;
+import dev.ryvrook.dominion.config.CommandNames;
+
+import java.util.Set;
 
 /**
  * Appends reusable row templates into one scrolling container and binds their buttons.
@@ -83,13 +86,14 @@ final class Body {
 
     String section(String text) {
         String s = add(SECTION);
-        commands.set(s + " #Text.Text", text);
+        commands.set(s + " #Text.Text", CommandNames.localize(text));
         return s;
     }
 
     String text(String text) {
         String s = add(TEXT);
-        commands.set(s + " #Text.Text", text);
+        // root command name comes from commands.root
+        commands.set(s + " #Text.Text", CommandNames.localize(text));
         return s;
     }
 
@@ -234,8 +238,19 @@ final class Body {
         return s;
     }
 
-    /** A sidebar tab in the Feats style. */
+    /** Tab ids that tab leaves out, for disabled commands and features that are off. */
+    private Set<String> hiddenTabs = Set.of();
+
+    Body hide(Set<String> tabIds) {
+        hiddenTabs = tabIds == null ? Set.of() : Set.copyOf(tabIds);
+        return this;
+    }
+
+    /** A sidebar tab in the Feats style. Returns null without adding anything for a hidden tab. */
     String tab(String id, String label, String count, boolean selected, String action) {
+        if (hiddenTabs.contains(id)) {
+            return null;
+        }
         String s = add(TAB);
         commands.set(s + " #Button.Text", label);
         commands.set(s + " #Selected.Text", label);

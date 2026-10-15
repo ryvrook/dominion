@@ -2,6 +2,7 @@ package dev.ryvrook.dominion.text;
 
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
+import dev.ryvrook.dominion.config.CommandNames;
 
 /**
  * Message helpers so every module speaks with one voice. Plain sentences, no em dashes,
@@ -20,32 +21,35 @@ public final class Msg {
     public static volatile String WARN = Palette.DEFAULTS.get("colors.warn");
     public static volatile String INFO = Palette.DEFAULTS.get("colors.info");
 
+    // root command name comes from commands.root. Sentences keep /f, /fa, /fe and /fashop, and the helpers
+    // below rewrite them to the names registered at start through CommandNames.localize.
+
     public static Message prefix() {
         return Message.raw("Dominion ").color(GOLD).bold(true);
     }
 
     public static Message info(String text) {
-        return Message.join(prefix(), Message.raw(text).color(TEXT));
+        return Message.join(prefix(), Message.raw(CommandNames.localize(text)).color(TEXT));
     }
 
     public static Message good(String text) {
-        return Message.join(prefix(), Message.raw(text).color(GOOD));
+        return Message.join(prefix(), Message.raw(CommandNames.localize(text)).color(GOOD));
     }
 
     public static Message bad(String text) {
-        return Message.join(prefix(), Message.raw(text).color(BAD));
+        return Message.join(prefix(), Message.raw(CommandNames.localize(text)).color(BAD));
     }
 
     public static Message warn(String text) {
-        return Message.join(prefix(), Message.raw(text).color(WARN));
+        return Message.join(prefix(), Message.raw(CommandNames.localize(text)).color(WARN));
     }
 
     public static Message muted(String text) {
-        return Message.raw(text).color(MUTED);
+        return Message.raw(CommandNames.localize(text)).color(MUTED);
     }
 
     public static Message colored(String text, String color) {
-        return Message.raw(text).color(color);
+        return Message.raw(CommandNames.localize(text)).color(color);
     }
 
     public static void send(PlayerRef player, Message message) {

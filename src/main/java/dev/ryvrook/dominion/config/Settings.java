@@ -63,6 +63,7 @@ public final class Settings {
         this.files = files;
         this.file = file;
         Defaults.register(this);
+        Perms.bind(this);
         load();
     }
 

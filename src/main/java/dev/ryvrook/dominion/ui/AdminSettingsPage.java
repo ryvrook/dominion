@@ -7,6 +7,7 @@ import com.hypixel.hytale.server.core.ui.builder.UIEventBuilder;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.ryvrook.dominion.DominionContext;
+import dev.ryvrook.dominion.config.Perms;
 import dev.ryvrook.dominion.config.Settings;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.ui.Body.Btn;
@@ -19,7 +20,6 @@ import java.util.Map;
 /** Live editor for every Dominion setting, grouped like the config file, plus preset buttons. */
 public final class AdminSettingsPage extends DominionPage {
     private static final String PAGE = "Pages/Dominion_Admin.ui";
-    private static final String PERMISSION = "dominion.admin";
     private static final String PRESETS = "Presets";
     private static final String[][] PRESET_LIST = {
             {"classic", "Raiding by power, dominance and sieges. The standard factions experience."},
@@ -117,7 +117,7 @@ public final class AdminSettingsPage extends DominionPage {
     }
 
     private boolean allowed() {
-        return playerRef.hasPermission(PERMISSION);
+        return playerRef.hasPermission(Perms.admin());
     }
 
     @Override
