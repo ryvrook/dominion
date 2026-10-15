@@ -153,7 +153,7 @@ final class DailyEconomy {
             }
             double owed = stipendCarry.merge(p.uuid(), perMinute, Double::sum);
             double pay = payable(owed, step);
-            if (pay > 0 && provider.deposit(p.uuid(), pay, "Playtime stipend").success()) {
+            if (pay > 0 && provider.deposit(p.uuid(), pay, Messages.get(EconomyText.REASON_STIPEND)).success()) {
                 stipendCarry.put(p.uuid(), Math.max(0, owed - pay));
             }
         }

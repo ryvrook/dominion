@@ -63,4 +63,14 @@ public final class EconomyText {
     public static final String UPKEEP_UNPAID_ONE_DAY = Messages.define("economy.upkeepUnpaidOneDay", "Upkeep of {amount} was not paid. The bank is now 1 day behind");
     public static final String UPKEEP_UNPAID = Messages.define("economy.upkeepUnpaid", "Upkeep of {amount} was not paid. The bank is now {days} days behind");
     public static final String INTEREST_EARNED = Messages.define("economy.interestEarned", "Earned {amount} in interest");
+
+    // Reasons sent with a payment to the server economy, shown in its own history.
+    public static final String REASON_STIPEND = Messages.define("economy.reasonStipend", "Playtime stipend");
+    public static final String REASON_REFUND_FAILED = Messages.define("economy.reasonRefundFailed", "Refund of a failed payment");
+    public static final String REASON_BANK_DEPOSIT = Messages.define("economy.reasonBankDeposit", "Faction bank deposit");
+    public static final String REASON_REFUND_DISBANDED = Messages.define("economy.reasonRefundDisbanded", "Refund of a deposit to a disbanded faction");
+    public static final String REASON_BANK_WITHDRAWAL = Messages.define("economy.reasonBankWithdrawal", "Faction bank withdrawal");
+    public static final String REASON_DUES = Messages.define("economy.reasonDues", "Faction dues");
+    public static final String REASON_ADMIN_SET = Messages.define("economy.reasonAdminSet", "Admin set");
+    public static final String REASON_MIGRATION = Messages.define("economy.reasonMigration", "Dominion balance migration");
 }

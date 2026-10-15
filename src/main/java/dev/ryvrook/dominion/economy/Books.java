@@ -178,7 +178,7 @@ final class Books {
         }
         dev.ryvrook.dominion.api.Result given = p.deposit(to, amount, reason);
         if (given.failed()) {
-            refund(p, from, amount, "Refund of a failed payment", "after a failed payment to " + to);
+            refund(p, from, amount, Messages.get(EconomyText.REASON_REFUND_FAILED), "after a failed payment to " + to);
             return given.message();
         }
         return null;
@@ -207,7 +207,7 @@ final class Books {
 
     /** External wallet into the faction bank. The wallet is refunded when the faction is gone by then. */
     String depositExternal(BalanceProvider p, UUID actor, Faction f, double amount) {
-        dev.ryvrook.dominion.api.Result taken = p.withdraw(actor, amount, "Faction bank deposit");
+        dev.ryvrook.dominion.api.Result taken = p.withdraw(actor, amount, Messages.get(EconomyText.REASON_BANK_DEPOSIT));
         if (taken.failed()) {
             return taken.message();
         }
@@ -221,7 +221,7 @@ final class Books {
             }
         }
         if (!credited) {
-            refund(p, actor, amount, "Refund of a deposit to a disbanded faction", "after their faction was disbanded");
+            refund(p, actor, amount, Messages.get(EconomyText.REASON_REFUND_DISBANDED), "after their faction was disbanded");
             return Messages.get(EconomyText.FACTION_GONE);
         }
         return null;
@@ -255,7 +255,7 @@ final class Books {
                 return denied;
             }
         }
-        dev.ryvrook.dominion.api.Result given = p.deposit(actor, amount, "Faction bank withdrawal");
+        dev.ryvrook.dominion.api.Result given = p.deposit(actor, amount, Messages.get(EconomyText.REASON_BANK_WITHDRAWAL));
         if (given.failed()) {
             boolean refunded = false;
             synchronized (lock) {
@@ -448,7 +448,7 @@ final class Books {
             double paid = provider.wholeUnits()
                     ? Math.min(Math.floor(have + 1e-6), Math.ceil(dues - 1e-6))
                     : Money.round(Math.min(have, dues));
-            if (paid > 0 && provider.withdraw(m, paid, "Faction dues").failed()) {
+            if (paid > 0 && provider.withdraw(m, paid, Messages.get(EconomyText.REASON_DUES)).failed()) {
                 paid = 0;
             }
             if (paid + 1e-6 < dues) {

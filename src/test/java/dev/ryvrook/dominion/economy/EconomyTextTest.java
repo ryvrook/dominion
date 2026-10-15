@@ -63,6 +63,14 @@ class EconomyTextTest {
                 EconomyText.UPKEEP_PARTIAL, "amount days taken",
                 EconomyText.UPKEEP_UNPAID_ONE_DAY, "amount",
                 EconomyText.UPKEEP_UNPAID, "amount days",
-                EconomyText.INTEREST_EARNED, "amount"));
+                EconomyText.INTEREST_EARNED, "amount",
+                EconomyText.REASON_STIPEND, "",
+                EconomyText.REASON_REFUND_FAILED, "",
+                EconomyText.REASON_BANK_DEPOSIT, "",
+                EconomyText.REASON_REFUND_DISBANDED, "",
+                EconomyText.REASON_BANK_WITHDRAWAL, "",
+                EconomyText.REASON_DUES, "",
+                EconomyText.REASON_ADMIN_SET, "",
+                EconomyText.REASON_MIGRATION, ""));
     }
 }

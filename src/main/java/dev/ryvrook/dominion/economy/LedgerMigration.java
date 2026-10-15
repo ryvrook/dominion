@@ -4,6 +4,7 @@ import com.hypixel.hytale.server.core.HytaleServer;
 import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.api.Result;
 import dev.ryvrook.dominion.model.PlayerData;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.util.Players;
 import dev.ryvrook.dominion.util.Time;
 import org.bson.Document;
@@ -115,7 +116,7 @@ final class LedgerMigration {
         }
         Result r;
         try {
-            r = external.deposit(p.uuid(), amount, "Dominion balance migration");
+            r = external.deposit(p.uuid(), amount, Messages.get(EconomyText.REASON_MIGRATION));
         } catch (RuntimeException e) {
             r = Result.fail(e.getMessage() == null ? "error" : e.getMessage());
         }

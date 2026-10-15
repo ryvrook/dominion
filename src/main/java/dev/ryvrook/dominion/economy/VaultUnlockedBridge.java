@@ -303,7 +303,7 @@ final class VaultUnlockedBridge implements BalanceProvider {
         double current = balance(player);
         double target = Math.max(0, amount);
         if (target > current + 1e-6) {
-            deposit(player, Money.round(target - current), "Admin set");
+            deposit(player, Money.round(target - current), Messages.get(EconomyText.REASON_ADMIN_SET));
         } else if (target < current - 1e-6) {
             move(withdraw, player, Money.round(current - target), "");
         }

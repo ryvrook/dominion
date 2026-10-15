@@ -176,9 +176,9 @@ final class ItemCurrency implements BalanceProvider {
         double target = Math.max(0, Math.floor(amount + EPSILON));
         double current = balance(player);
         if (target > current) {
-            deposit(player, target - current, "Admin set");
+            deposit(player, target - current, Messages.get(EconomyText.REASON_ADMIN_SET));
         } else if (target < current && Players.isOnline(player)) {
-            withdraw(player, current - target, "Admin set");
+            withdraw(player, current - target, Messages.get(EconomyText.REASON_ADMIN_SET));
         }
     }
 
