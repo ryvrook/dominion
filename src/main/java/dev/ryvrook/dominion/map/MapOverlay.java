@@ -49,8 +49,12 @@ public final class MapOverlay {
 
     private final DominionContext ctx;
     private final MapState state;
-    /** World name to chunk index to what was drawn there. */
-    private final Map<String, Map<Long, Painted>> painted = new ConcurrentHashMap<>();
+    /**
+     * World name to chunk index to what was drawn there. A primitive map per world, locked on itself, with one
+     * Painted per faction and colour shared by its chunks, about 20 bytes a painted chunk instead of 80 for boxed
+     * keys in a concurrent map.
+     */
+    private final Map<String, Long2ObjectOpenHashMap<Painted>> painted = new ConcurrentHashMap<>();
     private final Set<String> skipped = ConcurrentHashMap.newKeySet();
     private final Deque<Map<String, LongSet>> echoes = new ArrayDeque<>();
     private String lastLook;
@@ -215,10 +219,12 @@ public final class MapOverlay {
         if (chunks == null || chunks.isEmpty()) {
             return;
         }
-        Map<Long, Painted> drawn = painted.computeIfAbsent(worldName, w -> new ConcurrentHashMap<>());
+        Long2ObjectOpenHashMap<Painted> drawn = painted.computeIfAbsent(worldName, w -> new Long2ObjectOpenHashMap<>());
         if (!(ctx.settings().bool("map.enabled") && ctx.settings().bool("map.overlay"))) {
-            for (long index : chunks.keySet()) {
-                drawn.remove(index);
+            synchronized (drawn) {
+                for (long index : chunks.keySet()) {
+                    drawn.remove(index);
+                }
             }
             return;
         }
@@ -236,7 +242,10 @@ public final class MapOverlay {
             return known == none ? null : known;
         };
         Map<UUID, Faction> factions = new HashMap<>();
+        Map<UUID, Painted> looks = new HashMap<>();
         Long2ObjectOpenHashMap<MapImage> replaced = new Long2ObjectOpenHashMap<>();
+        Long2ObjectOpenHashMap<Painted> done = new Long2ObjectOpenHashMap<>();
+        LongOpenHashSet bare = new LongOpenHashSet();
         for (Long2ObjectMap.Entry<MapImage> entry : chunks.long2ObjectEntrySet()) {
             long index = entry.getLongKey();
             MapImage image = entry.getValue();
@@ -244,7 +253,7 @@ public final class MapOverlay {
             Faction f = owner == null ? null : factions.computeIfAbsent(owner, id -> ctx.repo().faction(id));
             if (f == null || image == null || image.palette == null || image.packedIndices == null
                     || image.width <= 0 || image.height <= 0) {
-                drawn.remove(index);
+                bare.add(index);
                 continue;
             }
             try {
@@ -252,13 +261,24 @@ public final class MapOverlay {
                 int edges = edgesOf(index, owner, ownerAt);
                 replaced.put(index, OverlayPainter.paint(image, rgb, opacity,
                         OverlayPainter.borderPixels(border, image.width), edges));
-                drawn.put(index, new Painted(owner, rgb));
+                Painted look = looks.get(owner);
+                if (look == null || look.rgb() != rgb) {
+                    look = new Painted(owner, rgb);
+                    looks.put(owner, look);
+                }
+                done.put(index, look);
             } catch (RuntimeException e) {
                 ctx.logger().at(Level.FINE).withCause(e).log("Dominion could not tint map chunk %s in %s",
                         Keys.describe(index), worldName);
             }
         }
         chunks.putAll(replaced);
+        synchronized (drawn) {
+            for (long index : bare) {
+                drawn.remove(index);
+            }
+            drawn.putAll(done);
+        }
     }
 
     // ---- refresh ------------------------------------------------------------
@@ -313,19 +333,26 @@ public final class MapOverlay {
         if (ids.isEmpty()) {
             return;
         }
-        for (Map.Entry<String, Map<Long, Painted>> world : painted.entrySet()) {
+        for (Map.Entry<String, Long2ObjectOpenHashMap<Painted>> world : painted.entrySet()) {
             LongSet own = new LongOpenHashSet();
-            for (Map.Entry<Long, Painted> e : world.getValue().entrySet()) {
-                UUID id = e.getValue().faction();
-                if (!ids.contains(id)) {
-                    continue;
+            LongSet gone = new LongOpenHashSet();
+            Long2ObjectOpenHashMap<Painted> drawn = world.getValue();
+            synchronized (drawn) {
+                for (Long2ObjectMap.Entry<Painted> e : drawn.long2ObjectEntrySet()) {
+                    UUID id = e.getValue().faction();
+                    if (!ids.contains(id)) {
+                        continue;
+                    }
+                    Faction f = ctx.repo().faction(id);
+                    if (f == null) {
+                        gone.add(e.getLongKey());
+                    } else if (rgbOf(f) != e.getValue().rgb()) {
+                        own.add(e.getLongKey());
+                    }
                 }
-                Faction f = ctx.repo().faction(id);
-                if (f == null) {
-                    state.markChunk(world.getKey(), e.getKey());
-                } else if (rgbOf(f) != e.getValue().rgb()) {
-                    own.add(e.getKey().longValue());
-                }
+            }
+            for (long index : gone) {
+                state.markChunk(world.getKey(), index);
             }
             state.markChunks(world.getKey(), own);
         }
@@ -337,10 +364,10 @@ public final class MapOverlay {
         worlds.addAll(ctx.repo().claimWorlds());
         for (String world : worlds) {
             LongSet all = new LongOpenHashSet(ctx.repo().claimsIn(world).keySet());
-            Map<Long, Painted> drawn = painted.get(world);
+            Long2ObjectOpenHashMap<Painted> drawn = painted.get(world);
             if (drawn != null) {
-                for (Long index : drawn.keySet()) {
-                    all.add(index.longValue());
+                synchronized (drawn) {
+                    all.addAll(drawn.keySet());
                 }
             }
             state.markChunks(world, all);

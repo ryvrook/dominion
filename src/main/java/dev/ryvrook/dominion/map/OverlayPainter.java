@@ -72,6 +72,12 @@ public final class OverlayPainter {
 
     /** Reads index i from a little end first bit field. */
     static int read(byte[] packed, int bits, int i) {
+        if (bits == 8) {
+            return packed[i] & 0xff;
+        }
+        if (bits == 4) {
+            return (packed[i >> 1] & 0xff) >>> ((i & 1) << 2) & 0xf;
+        }
         int bit = i * bits;
         int value = 0;
         int got = 0;
@@ -88,6 +94,10 @@ public final class OverlayPainter {
 
     /** Writes index i into a little end first bit field. */
     static void write(byte[] packed, int bits, int i, int value) {
+        if (bits == 8) {
+            packed[i] = (byte) value;
+            return;
+        }
         int bit = i * bits;
         int left = bits;
         while (left > 0) {
@@ -134,23 +144,63 @@ public final class OverlayPainter {
 
     /**
      * Returns a new image with rgb blended over every pixel at opacity percent and a solid darker
-     * outline of border pixels along each edge named in edges.
+     * outline of border pixels along each edge named in edges. The colours are worked out once per
+     * palette entry, a fill and an outline variant of each, and the pixels only carry indexes, so a
+     * 32 by 32 image costs a read and a write per pixel. The palette of the result lists the colours
+     * in the order the pixels first use them, the same as {@link #encode} gives.
      */
     public static MapImage paint(MapImage image, int rgb, int opacity, int border, int edges) {
         int w = image.width;
         int h = image.height;
-        int[] px = decode(image);
+        int[] palette = image.palette;
+        int n = palette.length;
+        int bits = image.bitsPerIndex & 0xff;
+        byte[] packed = image.packedIndices;
         int line = shade(rgb);
+        int[] colour = new int[2 * n];
+        for (int i = 0; i < n; i++) {
+            colour[i] = blend(palette[i], rgb, opacity);
+            colour[n + i] = line << 8 | (palette[i] & 0xff);
+        }
+        int[] remap = new int[2 * n];
+        java.util.Arrays.fill(remap, -1);
+        Int2IntOpenHashMap seen = new Int2IntOpenHashMap();
+        seen.defaultReturnValue(-1);
+        int[] out = new int[Math.min(2 * n, 64)];
+        int size = 0;
+        int[] ids = new int[w * h];
+        boolean north = border > 0 && (edges & NORTH) != 0;
+        boolean south = border > 0 && (edges & SOUTH) != 0;
+        boolean west = border > 0 && (edges & WEST) != 0;
+        boolean east = border > 0 && (edges & EAST) != 0;
         for (int y = 0; y < h; y++) {
+            boolean rowEdge = north && y < border || south && y >= h - border;
             for (int x = 0; x < w; x++) {
                 int i = y * w + x;
-                boolean edge = border > 0 && (((edges & NORTH) != 0 && y < border)
-                        || ((edges & SOUTH) != 0 && y >= h - border)
-                        || ((edges & WEST) != 0 && x < border)
-                        || ((edges & EAST) != 0 && x >= w - border));
-                px[i] = edge ? (line << 8 | (px[i] & 0xff)) : blend(px[i], rgb, opacity);
+                int old = read(packed, bits, i);
+                boolean edge = rowEdge || west && x < border || east && x >= w - border;
+                int c = edge ? n + old : old;
+                int id = remap[c];
+                if (id < 0) {
+                    id = seen.get(colour[c]);
+                    if (id < 0) {
+                        if (size == out.length) {
+                            out = java.util.Arrays.copyOf(out, out.length * 2);
+                        }
+                        id = size;
+                        out[size++] = colour[c];
+                        seen.put(colour[c], id);
+                    }
+                    remap[c] = id;
+                }
+                ids[i] = id;
             }
         }
-        return encode(w, h, px);
+        int outBits = bitsFor(size);
+        byte[] result = new byte[(ids.length * outBits + 7) / 8];
+        for (int i = 0; i < ids.length; i++) {
+            write(result, outBits, i, ids[i]);
+        }
+        return new MapImage(w, h, java.util.Arrays.copyOf(out, size), (byte) outBits, result);
     }
 }
