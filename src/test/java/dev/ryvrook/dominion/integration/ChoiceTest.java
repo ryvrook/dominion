@@ -113,16 +113,36 @@ class ChoiceTest {
         assertEquals(1, link.polls);
 
         now.set(new Presence.Found(new Object(), "1.0.4", true));
-        String line = b.poll();
-        assertNotNull(line);
-        assertTrue(line.contains("was reloaded") && line.contains("/plugin reload Ryvrook:Dominion"), line);
-        assertNull(b.poll(), "the change is logged once");
+        assertNull(b.poll(), "TrackerAPI 1.0.3 and newer reload Dominion themselves, so nothing is logged");
+        assertFalse(b.relink());
         assertEquals("changed", b.state());
 
         b.stop();
         b.stop();
         assertEquals(1, link.stops);
         assertNull(b.poll());
+    }
+
+    @Test
+    void aReloadedSiblingMakesDominionRelink() {
+        Presence.Found found = present("1.5.1");
+        AtomicReference<Presence.Found> now = new AtomicReference<>(found);
+        Binding b = new Binding(Choice.decide(Sibling.FEATS, Mode.AUTO, found), s -> now.get());
+        b.attach(new FakeLink());
+        now.set(new Presence.Found(new Object(), "1.5.1", false));
+        assertNull(b.poll(), "a sibling still starting is looked at again later");
+        assertFalse(b.relink());
+        now.set(new Presence.Found(now.get().plugin(), "1.5.1", true));
+        String line = b.poll();
+        assertTrue(line.contains("was reloaded") && line.contains("Dominion reloads"), line);
+        assertTrue(b.relink());
+        assertNull(b.poll(), "the change is acted on once");
+
+        AtomicReference<Presence.Found> oldTracker = new AtomicReference<>(present("1.0.2"));
+        Binding t = new Binding(Choice.decide(Sibling.TRACKER, Mode.AUTO, oldTracker.get()), s -> oldTracker.get());
+        oldTracker.set(present("1.0.2"));
+        assertNotNull(t.poll(), "an older TrackerAPI does not reload Dominion, so Dominion does");
+        assertTrue(t.relink());
     }
 
     @Test
@@ -141,6 +161,7 @@ class ChoiceTest {
         assertNull(missing.poll());
         later.set(present("1.5.1"));
         assertTrue(missing.poll().contains("was installed after Dominion started"));
+        assertTrue(missing.relink());
 
         Binding off = new Binding(Choice.decide(Sibling.TRACKER, Mode.NEVER, present("1.0.3")), s -> MISSING);
         assertEquals("off", off.state());

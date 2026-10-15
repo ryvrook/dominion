@@ -19,6 +19,7 @@ public final class IntegrationModule implements DominionModule {
     private final List<Binding> bindings = new ArrayList<>();
     private StatFanout stats;
     private volatile boolean stopped;
+    private volatile boolean reloading;
     private int ticks;
 
     public IntegrationModule() {}
@@ -69,12 +70,41 @@ public final class IntegrationModule implements DominionModule {
             return;
         }
         ticks = 0;
+        boolean relink = false;
         for (Binding b : bindings) {
             String line = b.poll();
             if (line != null) {
-                ctx.logger().at(Level.WARNING).log("%s", line);
+                ctx.logger().at(b.relink() ? Level.INFO : Level.WARNING).log("%s", line);
             }
+            relink |= b.relink();
         }
+        if (relink && !reloading) {
+            reloading = true;
+            reloadSelf(ctx);
+        }
+    }
+
+    /**
+     * Reloads Dominion through the plugin manager a few seconds later on a thread of its own, so the sibling finishes
+     * its start first and the reload never runs inside one of Dominion's own timers it is about to stop.
+     */
+    private static void reloadSelf(DominionContext ctx) {
+        Thread t = new Thread(() -> {
+            try {
+                Thread.sleep(3000);
+                var id = ctx.plugin().getIdentifier();
+                var manager = com.hypixel.hytale.server.core.plugin.PluginManager.get();
+                if (manager == null || !manager.reload(id)) {
+                    ctx.logger().at(Level.WARNING).log("Dominion could not reload itself, run %s", Binding.RELOAD);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (RuntimeException | LinkageError e) {
+                ctx.logger().at(Level.WARNING).withCause(e).log("Dominion could not reload itself, run %s", Binding.RELOAD);
+            }
+        }, "Dominion-relink");
+        t.setDaemon(true);
+        t.start();
     }
 
     @Override

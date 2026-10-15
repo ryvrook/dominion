@@ -18,6 +18,7 @@ final class Binding {
     private volatile boolean stopped;
     private volatile boolean changed;
     private volatile String failure;
+    private volatile boolean relink;
 
     Binding(Choice choice, Presence.Lookup lookup) {
         this.choice = choice;
@@ -49,7 +50,10 @@ final class Binding {
 
     /**
      * Every 5 seconds. Returns one line to log the first time the sibling's plugin object is not the one seen at
-     * start, else null. A reloaded sibling has new classes in a new loader that the bridge cannot follow.
+     * start, else null. A reloaded or late sibling has new classes in a new loader that the bridge cannot follow, so
+     * {@link #relink()} then answers true and the module reloads Dominion, which links to the new instance. A
+     * TrackerAPI of 1.0.3 or newer reloads Dominion itself after its own reload or late start, so that case stays
+     * quiet. A sibling that is still starting is looked at again on the next poll.
      */
     String poll() {
         if (stopped || choice.mode() == Mode.NEVER) {
@@ -76,17 +80,33 @@ final class Binding {
         if (now.plugin() == seen) {
             return null;
         }
-        changed = true;
         String name = choice.sibling().pluginName();
-        if (seen == null) {
-            return name + " " + now.version() + " was installed after Dominion started. Run " + RELOAD + " to link to it";
+        if (now.plugin() == null) {
+            changed = true;
+            return choice.bind() ? name + " was unloaded, so Dominion stopped using it until " + RELOAD + " runs with it back" : null;
         }
-        if (!choice.bind()) {
+        if (!now.running()) {
             return null;
         }
-        return now.plugin() == null
-                ? name + " was unloaded, so Dominion stopped using it until " + RELOAD + " runs with it back"
-                : name + " was reloaded, so Dominion lost its link to it. Run " + RELOAD + " to link again";
+        changed = true;
+        if (VersionCompare.below(now.version(), choice.sibling().minimum())) {
+            return name + " " + now.version() + " is older than " + choice.sibling().minimum() + " and is not linked";
+        }
+        if (choice.sibling() == Sibling.TRACKER && !VersionCompare.below(now.version(), TRACKER_RELOADS_DEPENDENTS)) {
+            return null;
+        }
+        relink = true;
+        return seen == null
+                ? name + " " + now.version() + " was installed after Dominion started, so Dominion reloads to link to it"
+                : name + " was reloaded, so Dominion reloads to link to the new instance";
+    }
+
+    /** The TrackerAPI that reloads its dependents after its own reload or a late start. */
+    static final String TRACKER_RELOADS_DEPENDENTS = "1.0.3";
+
+    /** True once a poll found a new instance Dominion must reload for. */
+    boolean relink() {
+        return relink;
     }
 
     void stop() {
