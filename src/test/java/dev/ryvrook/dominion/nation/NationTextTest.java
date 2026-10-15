@@ -1,0 +1,68 @@
+package dev.ryvrook.dominion.nation;
+
+import dev.ryvrook.dominion.text.TextClassCheck;
+import org.junit.jupiter.api.Test;
+
+class NationTextTest {
+    @Test
+    void everyIdIsDefinedOnceWithItsPlaceholders() throws Exception {
+        TextClassCheck.check(NationText.class, "nation", TextClassCheck.expect(
+                NationText.DISABLED, "",
+                NationText.NO_FACTION_WITH_TAG, "",
+                NationText.NO_NATION_WITH_TAG, "",
+                NationText.NATION_GONE, "",
+                NationText.ALREADY_IN_NATION, "",
+                NationText.NOT_IN_NATION, "",
+                NationText.FULL, "nation",
+                NationText.TARGET_NOT_MEMBER, "faction",
+                NationText.FOUND_LEADER_ONLY, "",
+                NationText.NAME_TOO_LONG, "max",
+                NationText.NAME_SPECIAL, "",
+                NationText.TAG_TAKEN, "",
+                NationText.AUDIT_FOUNDED, "nation",
+                NationText.FOUNDED, "nation",
+                NationText.TAG_MISSING, "",
+                NationText.TAG_TOO_SHORT, "min",
+                NationText.TAG_TOO_LONG, "max",
+                NationText.TAG_CHARACTERS, "",
+                NationText.INVITE_LEADER_ONLY, "",
+                NationText.ALREADY_IN_YOURS, "faction",
+                NationText.ALREADY_IN_ANOTHER, "faction",
+                NationText.ALREADY_INVITED, "faction",
+                NationText.AUDIT_INVITED, "faction nation",
+                NationText.INVITE_NOTICE, "faction nation",
+                NationText.INVITED, "faction nation",
+                NationText.JOIN_LEADER_ONLY, "",
+                NationText.NOT_INVITED, "nation",
+                NationText.AUDIT_JOINED, "nation",
+                NationText.JOINED_NOTICE, "faction nation",
+                NationText.JOINED, "nation",
+                NationText.LEAVE_LEADER_ONLY, "",
+                NationText.LEAVE_HAND_OVER, "",
+                NationText.LEFT_NOTICE, "faction nation",
+                NationText.AUDIT_LEFT, "nation",
+                NationText.LEFT, "nation",
+                NationText.DISBANDED_MEMBER_LEFT, "faction nation",
+                NationText.KICK_LEADER_ONLY, "",
+                NationText.KICK_OWN, "",
+                NationText.AUDIT_INVITE_WITHDRAWN, "faction",
+                NationText.INVITE_WITHDRAWN, "faction",
+                NationText.REMOVED_NOTICE, "faction nation",
+                NationText.AUDIT_REMOVED, "faction nation",
+                NationText.AUDIT_WAS_REMOVED, "faction nation",
+                NationText.WAS_REMOVED_NOTICE, "nation",
+                NationText.REMOVED, "faction nation",
+                NationText.DISBAND_LEADER_ONLY, "",
+                NationText.DISBAND_CONFIRM, "nation",
+                NationText.AUDIT_DISBANDED, "nation",
+                NationText.DISBANDED_NOTICE, "nation",
+                NationText.DISBANDED, "nation",
+                NationText.HANDOVER_LEADER_ONLY, "",
+                NationText.ALREADY_LEADS, "nation",
+                NationText.AUDIT_HANDED, "faction nation",
+                NationText.AUDIT_NOW_LEADS, "nation",
+                NationText.NOW_LEADS_NOTICE, "faction nation",
+                NationText.NOW_LEADS, "faction nation",
+                NationText.AUDIT_NOW_LEADS_AFTER, "nation reason"));
+    }
+}
