@@ -1,6 +1,15 @@
 # Changelog
 
-## Unreleased
+## 0.4.0 - 2026-10-15
+
+Dominion Factions 0.4.0 makes everything a server owner might want to change a setting or a sentence. Every player
+facing line lives in messages.json, every rule, limit, timer, colour, command name and permission node is a key in
+config.json, and `/fa config` and `/fa messages` show and change them in game.
+
+### Upgrading
+- Replace `DominionFactions-0.3.0.jar` with `DominionFactions-0.4.0.jar`. The data folder and every existing setting carry over.
+- On the first start `messages.json` is written next to `config.json` with every sentence. Edit it and run `/fa reload`. Command and argument descriptions are read when the commands register, so rewording those needs a restart or a plugin reload.
+- New settings are added to config.json with their defaults, see docs/SETTINGS.md for every key. The Colours, Commands, Interface and Permissions sections are new, and the former fixed values keep their old numbers as defaults.
 
 ### Messages
 - Every player sentence of the faction, land, home, relation, economy and nation packages and the time words players see are now messages.json ids that a server can reword or translate without a rebuild, including audit log lines, bank ledger reasons and the reasons sent with payments to the server economy.
