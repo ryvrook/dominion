@@ -95,6 +95,7 @@ final class AdminCommands {
         registerStrikes(root);
         registerSieges(root);
         registerImport(root);
+        registerIntegrations(root);
         // Attach every sub command and variant before the caller registers the root.
         root.seal();
         return root;
@@ -110,7 +111,8 @@ final class AdminCommands {
                 "power set <player> <value>", "power add <player> <value>", "boost <tag> <value>",
                 "grace on <duration>", "grace off", "eotw on", "eotw off",
                 "eco give <player> <amount>", "eco take <player> <amount>", "eco set <player> <amount>", "eco provider",
-                "siege", "siege cancel <id>", "import <source>", "import preview <source>", "export", "backup", "reload", "diag", "inspect"};
+                "siege", "siege cancel <id>", "import <source>", "import preview <source>", "export", "backup", "reload", "diag", "inspect",
+                "integrations"};
         for (String line : lines) {
             c.send(Msg.colored(" /fa " + line, Msg.GOLD));
         }
@@ -908,6 +910,22 @@ final class AdminCommands {
         }
         c.send(Msg.muted(" Settings preset " + ctx.settings().text("misc.preset") + ", autosave every "
                 + Math.max(10, ctx.settings().integer("storage.autosaveSeconds")) + " seconds."));
+    }
+
+    /** /fa integrations lists TrackerAPI, Feats and Atlas as bound, missing or off. */
+    private void registerIntegrations(ServerCmd root) {
+        root.sub(server("integrations", "List the sibling mods Dominion links to.")).handler(c -> {
+            dev.ryvrook.dominion.integration.Integrations status = ctx.serviceOrNull(dev.ryvrook.dominion.integration.Integrations.class);
+            if (status == null) {
+                c.send(Msg.warn("The integration module is not running, so Dominion runs on its own."));
+                return;
+            }
+            c.send(Msg.info("Integrations"));
+            for (String line : status.lines()) {
+                c.send(Msg.muted(" " + line));
+            }
+            c.send(Msg.muted(" Chronicle Stats and Atlas also read the map snapshot, which needs no link."));
+        });
     }
 
     /** Wiring keeps its list package private, so it is read reflectively. */

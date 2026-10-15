@@ -98,6 +98,7 @@ final class FactionSupport {
 
     void audit(Faction f, UUID who, String whoName, String category, String text) {
         f.audit(new AuditEntry(Time.now(), who, whoName, category, text), settings().integer("faction.auditLimit"));
+        publish(new DominionEvent.AuditLogged(f.id(), who, category, text));
     }
 
     void publish(DominionEvent event) {

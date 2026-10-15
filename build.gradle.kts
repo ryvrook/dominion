@@ -14,6 +14,20 @@ java {
     }
 }
 
+// Sibling jars to compile the optional integrations against, never shipped inside the mod. Each one is given with
+// -PtrackerApiJar=<path>, -PfeatsJar=<path> and -PatlasJar=<path>, else the sibling checkout next to this one,
+// else the checkout under ~/Projects. Only the bridge classes in dev.ryvrook.dominion.integration touch them, and
+// only after a presence check, so Dominion still loads on a server without any of them.
+fun siblingJar(property: String, vararg candidates: String): String {
+    (project.findProperty(property) as String?)?.trim()?.takeIf { it.isNotEmpty() }?.let { return it }
+    val home = System.getProperty("user.home")
+    val paths = candidates.flatMap { listOf("../$it", "$home/Projects/$it") }
+    return paths.firstOrNull { file(it).exists() } ?: paths.first()
+}
+val trackerApiJar = siblingJar("trackerApiJar", "trackerapi/build/libs/TrackerAPI-1.0.3.jar")
+val featsJar = siblingJar("featsJar", "feats/build/libs/Feats-1.5.1.jar")
+val atlasJar = siblingJar("atlasJar", "atlas/build/libs/Atlas-1.6.0.jar")
+
 repositories {
     mavenCentral()
     maven {
@@ -24,6 +38,10 @@ repositories {
 
 dependencies {
     compileOnly("com.hypixel.hytale:Server:$hytaleVersion")
+    // Optional at runtime, listed under OptionalDependencies. Only the integration bridges touch them.
+    compileOnly(files(trackerApiJar))
+    compileOnly(files(featsJar))
+    compileOnly(files(atlasJar))
 
     // Tests run without a server. The server jar is only on the test classpath for bson and the logger.
     testImplementation("com.hypixel.hytale:Server:$hytaleVersion")

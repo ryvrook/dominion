@@ -1,5 +1,6 @@
 package dev.ryvrook.dominion.faction;
 
+import dev.ryvrook.dominion.api.DominionEvent;
 import dev.ryvrook.dominion.api.Result;
 import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.FactionAction;
@@ -41,6 +42,7 @@ final class Membership {
         long hours = Math.max(1, s.settings().integer("faction.inviteHours"));
         f.invite(target, Time.now() + hours * FactionSupport.HOUR);
         s.audit(f, actor, "member", "Invited " + targetName);
+        s.publish(new DominionEvent.MemberInvited(f.id(), actor, target));
         s.tell(target, Msg.info(s.nameOf(actor) + " invited you to join " + f.tag() + ". Use /f join " + f.tag()
                 + " within " + hours + (hours == 1 ? " hour" : " hours")));
         return Result.pass("Invited " + targetName + " to " + f.tag());

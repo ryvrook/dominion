@@ -366,6 +366,15 @@ public final class Defaults {
         s.ordered("faction.tagMin", "faction.tagMax");
         s.ordered("nation.tagMin", "nation.tagMax");
         s.ordered("power.min", "power.max");
+
+        // Integrations brief. Optional links to the sibling mods, read once at start.
+        s.define("integrations.tracker", "Integrations", "Publish faction counters to TrackerAPI. auto when installed, always warns when missing, never ignores it", "auto");
+        s.define("integrations.feats", "Integrations", "Mirror faction counters to Feats. auto when installed, always warns when missing, never ignores it", "auto");
+        s.define("integrations.atlas", "Integrations", "Push live sieges and the map hide switch to Atlas. auto when installed, always warns when missing, never ignores it", "auto");
+        s.define("integrations.featsAnnounce", "Integrations", "Post Feats unlocks to the player's faction chat", true);
+        s.choices("integrations.tracker", "auto", "always", "never");
+        s.choices("integrations.feats", "auto", "always", "never");
+        s.choices("integrations.atlas", "auto", "always", "never");
     }
 
     /** Names of the presets in the order the admin page lists them. */

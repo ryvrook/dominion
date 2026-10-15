@@ -6,7 +6,8 @@ Please read it before opening a pull request.
 
 ## Conventions
 
-- The plugin targets Java 25 and has no dependencies beyond the Hytale server jar and the JDK.
+- The plugin targets Java 25 and has no runtime dependencies beyond the Hytale server jar and the JDK.
+  It compiles against the TrackerAPI, Feats and Atlas jars for the optional integrations, see Integrations below.
   Set JAVA_HOME to a JDK 25 and build with `./gradlew build`. To check the older server, build with
   `./gradlew build -Phytale_channel=release -Phytale_version=0.6.8`.
 - Player facing text, log lines and comments are written as plain sentences. Avoid em dashes,
@@ -163,6 +164,52 @@ with `MethodHandles.publicLookup().findStatic`. Only the public API package belo
 - Every combat rule reads `CombatTagService` (tagged and remainingMillis). `PlayerData.combatTagged` is only read
   as a fallback when the combat module is not running. `combat.useCombatLog` is `auto` or `off` and is read on every call.
 
+## Integrations
+
+TrackerAPI, Feats and Atlas are optional. Dominion compiles against their jars with `compileOnly`, lists them under
+`OptionalDependencies` in the manifest and never ships them. The engine resolves the classes of a listed optional
+dependency through the plugin bridge loader, so the bridges can name the sibling types directly.
+
+- Jars. `-PtrackerApiJar=<path>`, `-PfeatsJar=<path>` and `-PatlasJar=<path>` name them. Without a property the build
+  takes `../trackerapi/build/libs/TrackerAPI-1.0.3.jar`, `../feats/build/libs/Feats-1.5.1.jar` and
+  `../atlas/build/libs/Atlas-1.6.0.jar`, then the same paths under `~/Projects`. The tests never load a sibling class.
+- Package `integration`. `IntegrationModule` runs last in `Wiring.MODULES`. For each sibling it reads the setting
+  (`integrations.tracker`, `integrations.feats`, `integrations.atlas` with `auto`, `always` or `never`), looks the
+  plugin up in `PluginManager` (`Presence`), decides with `Choice` and only then loads the bridge class by name and
+  calls its static `install(Host)`. `Binding` keeps the link, polls the plugin object every 5 seconds and logs once
+  when a sibling was reloaded, removed or installed late. `Integrations` is registered as a service under its own
+  class and feeds `/fa integrations`.
+- Bridges. `integration.tracker.TrackerBridge`, `integration.feats.FeatsBridge` and `integration.atlas.AtlasBridge`
+  are the only classes that name sibling types. Every call into a sibling is guarded, and stop sets a stopped flag
+  before removing hooks. TrackerAPI has `removeHooks`. Atlas does not, so its hooks stay and do nothing after a stop.
+  Feats publishes `FeatsApi` in its own setup with no enable hook, so the Feats bridge links on install or on a later
+  poll.
+- Counters. `StatFanout` is one bus listener. It maps each `DominionEvent` with `StatMapper` (pure, facts behind the
+  `StatMapper.Facts` interface) and hands the credits to every linked `StatSink`, which is `Counters.add` for
+  TrackerAPI and `FeatsApi.addStat` for Feats. TrackerAPI accepts keys under another plugin's own prefix, so every key
+  is `dominion:<name>`, listed in `StatKeys`. Claims read the claimant from the new `ClaimEntry`, unclaims come from
+  the land audit line that starts with `Released chunk `, and kills, deposits and invites from the `PlayerDied`,
+  `BankDeposited` and `MemberInvited` events. Both siblings only count for online players.
+- Atlas. The snapshot already carries claims, homes, warps, siege pins, hills, outposts and envoys, so the bridge
+  pushes only a `Ryvrook:Dominion:sieges` layer of circles whose popups name the phase and the end time, redrawn on
+  `SiegePhase`, `BreachChanged` and `FactionDisbanded`. `PlayerToggles.onWebMap` tells it about `/f map hide`
+  from the command and the panel, and it passes hidden players on to `AtlasApi.setHidden` at bind and on join,
+  since Atlas does not save API hides.
+- Chronicle Stats has no link. It reads `tag`, `name`, `color`, `nation`, `claims`, `power`, `maxPower`, `level`,
+  `kills`, `deaths`, `createdAt` and `memberIds` of each faction from the snapshot, which `SnapshotContractTest` checks.
+
+### Coinage, the next step
+
+Coinage registers as a VaultUnlocked provider, so `eco.provider` set to `vaultunlocked` already moves wallets through
+it. A native `coinage` provider is the next step once Coinage's api-services wave lands, and nothing of it is built
+yet. It would add a `coinage` choice to `eco.provider` in `config/Defaults`, a Coinage `BalanceProvider` bridge in
+`economy` next to `VaultUnlockedBridge` that reads and moves wallets through the `CoinageApi` ledger, chosen in
+`EconomyServiceImpl.provider()`, a Coinage shared account per faction for the bank in place of the `Books` ledger and
+`Faction.bank`, with `LedgerMigration` moving existing balances once, and the Dominion market and faction shop
+(`market/MarketServiceImpl`, `shop/ShopServiceImpl`) handing listings and sales to Coinage's market and shops. It would
+follow the same pattern as the other siblings, with `Ryvrook:Coinage` under `OptionalDependencies`, a `-PcoinageJar`
+property and one bridge class loaded after the presence check.
+
 ## Headless boot test
 
 A short headless boot catches wiring and startup errors without a game client.
@@ -175,7 +222,7 @@ A short headless boot catches wiring and startup errors without a game client.
 4. From the scratch directory run the server jar of a Hytale install with
    `java -jar <path to HytaleServer.jar> --assets <path to Assets.zip> --auth-mode offline --disable-sentry --bind 127.0.0.1:<port>`. Do not pass `--bare`, since server 0.7.1 stops with "Listeners is empty after starting ServerManager" without a bound listener.
    Assets.zip sits one level above the Server folder of the install.
-5. Expect "Dominion started with 22 modules" and "Enabled plugin Ryvrook:Dominion", and no stack trace
+5. Expect "Dominion started with 23 modules" and "Enabled plugin Ryvrook:Dominion", and no stack trace
    from `dev.ryvrook`. Stop the server when done.
 
 With Atlas in the same mods folder, `curl http://127.0.0.1:8123/api/health` checks the web map.

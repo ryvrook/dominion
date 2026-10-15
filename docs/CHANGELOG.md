@@ -11,6 +11,15 @@
 - Claims now show one label per faction and world in the middle of its largest region instead of an icon on every chunk. The per chunk icons come back with `map.claimMarkers`, and are used anyway in a world the overlay does not draw.
 - New settings `map.overlay` (default `true`), `map.overlayOpacity` (percent, default 55, 10 to 90), `map.overlayBorder` (pixels, default 2, 0 to 4) and `map.claimMarkers` (default `false`).
 
+### Integrations
+- Dominion links to TrackerAPI, Feats and Atlas when they are installed and runs as before when they are not. Each link has a setting, `integrations.tracker`, `integrations.feats` and `integrations.atlas`, with `auto` (the default), `always` and `never`, and the manifest lists the three mods as optional dependencies.
+- With TrackerAPI, ten per player counters under `dominion:` for claims, unclaims, enemy kills, deaths in enemy land, sieges won and lost, missions, bank deposits, factions founded and invites, with leaderboards for five of them.
+- With Feats, the same counters are mirrored into Feats, and feat unlocks are posted to the player's faction chat while `integrations.featsAnnounce` is on.
+- With Atlas, a live Sieges layer shows each besieged chunk with its phase and end time, and `/f map hide` and `/f map show` switch the Atlas hide flag as well.
+- `/fa integrations` lists each mod as bound, missing or off, and the start log has one line per mod.
+- New bus events PlayerDied, BankDeposited, MemberInvited and AuditLogged for other mods to read.
+- 26 new tests for the switch, the event to counter mapping against the real faction and land services, the siege popup and the snapshot fields Chronicle Stats reads.
+
 ## 0.2.1 - 2026-10-14
 
 Dominion Factions 0.2.1 works with the CombatLog mod by Devify. When CombatLog is installed its combat tags drive
