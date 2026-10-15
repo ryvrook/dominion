@@ -32,6 +32,11 @@ public final class ExportModule implements DominionModule {
         listener = service::onEvent;
         ctx.bus().subscribe(listener);
         ctx.everySecond(service::secondTick);
+        // The first snapshot is written at once on the IO thread rather than on the timer, so readers that poll once
+        // a minute see the factions right after a boot.
+        if (ctx.settings().bool("export.enabled")) {
+            ctx.runIo("map snapshot", () -> service.write(true));
+        }
     }
 
     @Override
