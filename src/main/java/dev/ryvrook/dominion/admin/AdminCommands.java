@@ -937,7 +937,7 @@ final class AdminCommands {
                 "seconds", Math.max(10, ctx.settings().integer("storage.autosaveSeconds")))));
     }
 
-    /** /fa integrations lists TrackerAPI, Feats and Atlas as bound, missing or off. */
+    /** /fa integrations lists TrackerAPI, Feats, Atlas and Coinage as bound, missing or off. */
     private void registerIntegrations(ServerCmd root) {
         root.sub(server("integrations", t(AdminText.CMD_INTEGRATIONS))).handler(c -> {
             dev.ryvrook.dominion.integration.Integrations status = ctx.serviceOrNull(dev.ryvrook.dominion.integration.Integrations.class);

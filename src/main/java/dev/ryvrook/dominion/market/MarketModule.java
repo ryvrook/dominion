@@ -20,6 +20,7 @@ public final class MarketModule implements DominionModule {
         service = new MarketServiceImpl(ctx);
         service.load();
         ctx.register(MarketService.class, service);
+        ctx.register(MarketHandoff.class, new MarketHandoff(ctx));
     }
 
     @Override

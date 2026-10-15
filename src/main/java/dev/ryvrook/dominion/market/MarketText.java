@@ -115,4 +115,10 @@ public final class MarketText {
     public static final String FULL_TO_MAILBOX = Messages.define("market.fullToMailbox", "Your inventory is full so the items went to your market mailbox.");
     public static final String NEED_WORLD = Messages.define("market.needWorld", "You need to be in a world to do that.");
     public static final String SOMETHING_WRONG = Messages.define("market.somethingWrong", "Something went wrong and nothing was changed.");
+
+    // Coinage brief. The panel Market tab while Coinage runs the market.
+    public static final String COINAGE_MARKET = Messages.define("market.coinageMarket", "The market is run by Coinage. Listings, auctions and buy orders live there.");
+    public static final String COINAGE_OPEN = Messages.define("market.coinageOpen", "Open the market");
+    public static final String COINAGE_FAILED = Messages.define("market.coinageFailed", "The Coinage market could not be opened right now.");
+    public static final String COINAGE_MAILBOX = Messages.define("market.coinageMailbox", "Your Dominion mailbox still holds something for you.");
 }

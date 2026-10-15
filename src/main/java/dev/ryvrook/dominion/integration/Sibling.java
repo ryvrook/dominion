@@ -4,7 +4,8 @@ package dev.ryvrook.dominion.integration;
 public enum Sibling {
     TRACKER("TrackerAPI", "1.0.0", "integrations.tracker", "dev.ryvrook.dominion.integration.tracker.TrackerBridge"),
     FEATS("Feats", "1.5.0", "integrations.feats", "dev.ryvrook.dominion.integration.feats.FeatsBridge"),
-    ATLAS("Atlas", "1.6.0", "integrations.atlas", "dev.ryvrook.dominion.integration.atlas.AtlasBridge");
+    ATLAS("Atlas", "1.6.0", "integrations.atlas", "dev.ryvrook.dominion.integration.atlas.AtlasBridge"),
+    COINAGE("Coinage", "1.0.0", "integrations.coinage", "dev.ryvrook.dominion.integration.coinage.CoinageLink");
 
     public static final String GROUP = "Ryvrook";
 

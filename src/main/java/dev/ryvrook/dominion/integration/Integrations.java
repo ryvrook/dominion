@@ -14,7 +14,7 @@ public final class Integrations {
         this.bindings = bindings;
     }
 
-    /** One line per sibling, in the order TrackerAPI, Feats, Atlas. */
+    /** One line per sibling, in the order TrackerAPI, Feats, Atlas, Coinage. */
     public List<String> lines() {
         List<String> out = new ArrayList<>();
         for (Binding b : bindings) {

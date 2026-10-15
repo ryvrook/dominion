@@ -4,6 +4,8 @@ import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.ui.builder.UICommandBuilder;
 import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.api.Result;
+import dev.ryvrook.dominion.market.MarketHandoff;
+import dev.ryvrook.dominion.market.MarketText;
 import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.Listing;
 import dev.ryvrook.dominion.model.Relation;
@@ -71,6 +73,35 @@ final class MarketTab {
         return market() != null;
     }
 
+    /** The hand off to Coinage's market while it is active, else null. */
+    private MarketHandoff handoff() {
+        MarketHandoff h = ctx.serviceOrNull(MarketHandoff.class);
+        return h != null && h.active() ? h : null;
+    }
+
+    /**
+     * While Coinage runs the market, the tab shows a button to its page and Dominion's own mailbox, which still
+     * holds what Dominion's market owes the player. Dominion's listing tabs are hidden.
+     */
+    private boolean buildHandoff(UICommandBuilder c, Body body, MarketService m) {
+        if (handoff() == null) {
+            return false;
+        }
+        Btn open = Btn.of(Messages.get(MarketText.COINAGE_OPEN), "mkt_coinage");
+        if (MAILBOX.equals(sub)) {
+            body.buttons(open, pill(Messages.get(UiText.TAB_MAILBOX), MAILBOX));
+            buildMailbox(c, body, m);
+            return true;
+        }
+        panel.title(c, Messages.get(UiText.MARKET), "");
+        body.text(Messages.get(MarketText.COINAGE_MARKET), Msg.MUTED);
+        if (!count().isEmpty()) {
+            body.text(Messages.get(MarketText.COINAGE_MAILBOX), Msg.MUTED);
+        }
+        body.buttons(open, pill(Messages.get(UiText.TAB_MAILBOX), MAILBOX));
+        return true;
+    }
+
     String count() {
         MarketService m = market();
         if (m == null) {
@@ -85,6 +116,9 @@ final class MarketTab {
         if (m == null) {
             panel.title(c, Messages.get(UiText.MARKET), "");
             body.text(Messages.get(UiText.MARKET_CLOSED), Msg.MUTED);
+            return;
+        }
+        if (buildHandoff(c, body, m)) {
             return;
         }
         body.buttons(pill(Messages.get(UiText.TAB_BROWSE), BROWSE), pill(Messages.get(UiText.TAB_SELL), SELL),
@@ -259,6 +293,19 @@ final class MarketTab {
 
     /** Handles market buttons. Returns null when the action is not ours. */
     Boolean handle(PageEvent e) {
+        if ("tab".equals(e.action) && ID.equals(e.value())) {
+            // While Coinage runs the market the tab opens its page, unless Dominion's mailbox still holds something.
+            MarketHandoff h = market() == null ? null : handoff();
+            return h != null && count().isEmpty() && h.open(panel.uuid()) ? Boolean.FALSE : null;
+        }
+        if ("mkt_coinage".equals(e.action)) {
+            MarketHandoff h = handoff();
+            if (h != null && h.open(panel.uuid())) {
+                return false;
+            }
+            panel.reply(Result.fail(Messages.get(MarketText.COINAGE_FAILED)));
+            return true;
+        }
         if (!e.action.startsWith("mkt_")) {
             return null;
         }

@@ -16,7 +16,8 @@
     "Devify:CombatLog": ">=1.7.0",
     "Ryvrook:TrackerAPI": ">=1.0.0",
     "Ryvrook:Feats": ">=1.5.0",
-    "Ryvrook:Atlas": ">=1.6.0"
+    "Ryvrook:Atlas": ">=1.6.0",
+    "Ryvrook:Coinage": ">=1.0.0"
   },
   "LoadBefore": {},
   "DisabledByDefault": false,

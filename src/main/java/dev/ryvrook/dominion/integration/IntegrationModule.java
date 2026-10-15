@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.logging.Level;
 
 /**
- * Optional links to TrackerAPI, Feats and Atlas. Dominion works the same without any of them. At start each
+ * Optional links to TrackerAPI, Feats, Atlas and Coinage. Dominion works the same without any of them. At start each
  * sibling is looked up in the plugin manager, the setting decides, and only then is its bridge class loaded by
  * name. Chronicle Stats needs nothing here, it reads the map snapshot.
  */

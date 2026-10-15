@@ -430,7 +430,7 @@ class FeatureTextTest {
     @Test
     void everyConstantIsADefinedIdWithItsPackagePrefixAndNoTwoShareAnId() throws Exception {
         Map<String, String> byId = constants();
-        assertEquals(725, byId.size(), "every sentence of these packages has an id");
+        assertEquals(729, byId.size(), "every sentence of these packages has an id");
         for (String className : MessageSets.ALL) {
             assertNotNull(Class.forName(className), className);
         }

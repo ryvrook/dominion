@@ -2,7 +2,7 @@ package dev.ryvrook.dominion.integration;
 
 import java.util.Locale;
 
-/** The integrations.tracker, integrations.feats and integrations.atlas settings. */
+/** The integrations.tracker, integrations.feats, integrations.atlas and integrations.coinage settings. */
 public enum Mode {
     /** Binds when the sibling is installed and new enough, else runs without it quietly. The default. */
     AUTO,

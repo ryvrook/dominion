@@ -15,7 +15,7 @@ java {
 }
 
 // Sibling jars to compile the optional integrations against, never shipped inside the mod. Each one is given with
-// -PtrackerApiJar=<path>, -PfeatsJar=<path> and -PatlasJar=<path>, else the sibling checkout next to this one,
+// -PtrackerApiJar=<path>, -PfeatsJar=<path>, -PatlasJar=<path> and -PcoinageJar=<path>, else the sibling checkout next to this one,
 // else the checkout under ~/Projects. Only the bridge classes in dev.ryvrook.dominion.integration touch them, and
 // only after a presence check, so Dominion still loads on a server without any of them.
 fun siblingJar(property: String, vararg candidates: String): String {
@@ -27,6 +27,8 @@ fun siblingJar(property: String, vararg candidates: String): String {
 val trackerApiJar = siblingJar("trackerApiJar", "trackerapi/build/libs/TrackerAPI-1.0.3.jar")
 val featsJar = siblingJar("featsJar", "feats/build/libs/Feats-1.5.1.jar")
 val atlasJar = siblingJar("atlasJar", "atlas/build/libs/Atlas-1.6.0.jar")
+// The Coinage api jar holds the api packages only. The tests use it too, for the bridge over a stand in Coinage API.
+val coinageJar = siblingJar("coinageJar", "coinage/build/libs/Coinage-api-1.0.0.jar")
 
 repositories {
     mavenCentral()
@@ -42,9 +44,11 @@ dependencies {
     compileOnly(files(trackerApiJar))
     compileOnly(files(featsJar))
     compileOnly(files(atlasJar))
+    compileOnly(files(coinageJar))
 
     // Tests run without a server. The server jar is only on the test classpath for bson and the logger.
     testImplementation("com.hypixel.hytale:Server:$hytaleVersion")
+    testImplementation(files(coinageJar))
     testImplementation(platform("org.junit:junit-bom:5.11.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
