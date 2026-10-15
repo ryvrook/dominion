@@ -63,6 +63,8 @@ public final class DominionPlugin extends JavaPlugin {
 
     @Override
     protected void setup() {
+        // A runtime reload under a new jar name is refused by the engine while the old pack registration stands.
+        AssetPackFix.dropStale(this);
         io = Executors.newSingleThreadExecutor(r -> {
             Thread t = new Thread(r, "Dominion-IO");
             t.setDaemon(true);
@@ -116,6 +118,7 @@ public final class DominionPlugin extends JavaPlugin {
         long failed = moduleState.values().stream().filter(v -> !"ok".equals(v)).count();
         if (failed == 0) {
             getLogger().at(Level.INFO).log("Dominion started with %d modules", modules.size());
+            AssetPackFix.report(this);
         } else {
             getLogger().at(Level.WARNING).log("Dominion started with %d modules and %d of them failed, see the errors above",
                     modules.size(), failed);
@@ -186,6 +189,7 @@ public final class DominionPlugin extends JavaPlugin {
 
     @Override
     protected void shutdown() {
+        AssetPackFix.release(this);
         for (ScheduledFuture<?> t : tasks) {
             t.cancel(false);
         }

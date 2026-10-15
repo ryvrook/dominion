@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A runtime reload under a new jar name no longer leaves the UI pack refused. Dominion drops the stale asset pack registration at setup and releases its own at shutdown, the same way Feats and Coinage do.
+
 ### Changed
 - With TrackerAPI bound and tracking block breaks, places, pickups and drops, the mine, chop, farm and fish missions count from its events. Dominion's own systems take over again within 5 seconds when TrackerAPI stops, pauses the listener or stops tracking one of those kinds. The counts are the same either way, both go through Dominion's own anti farm memory. Deaths, kills and the land protection stay on Dominion's own hooks.
 - After a `/plugin reload` of Feats, Atlas or Coinage, or when one is installed while the server runs, Dominion reloads itself within about 8 seconds and links to the new instance. TrackerAPI 1.0.3 and newer already reload Dominion, so that case logs nothing. Coinage 1.1.0 reloads Dominion too, and Dominion waits for its pass and skips its own reload when Coinage already did it, so Dominion starts once.
