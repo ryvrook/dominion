@@ -11,6 +11,7 @@ import java.util.logging.Level;
 /** Faction, ally and officer channels, relation coloured tags and the login message of the day. */
 public final class ChatModule implements DominionModule {
     private ChatServiceImpl service;
+    private Nameplates nameplates;
 
     public ChatModule() {}
 
@@ -37,6 +38,23 @@ public final class ChatModule implements DominionModule {
         ctx.plugin().getEventRegistry().<String, PlayerChatEvent>registerAsyncGlobal(EventPriority.LAST, PlayerChatEvent.class,
                 future -> future.thenApply(event -> guarded(ctx, () -> chat.handlePublic(event), event)));
         ctx.onPlayerReady(chat::onPlayerReady);
+
+        Announcements announcements = new Announcements(ctx);
+        ctx.bus().subscribe(announcements::onEvent);
+
+        Nameplates plates = new Nameplates(ctx);
+        nameplates = plates;
+        ctx.plugin().getEntityStoreRegistry().registerSystem(plates);
+        ctx.bus().subscribe(plates::onEvent);
+        ctx.onPlayerReady(plates::onPlayerReady);
+    }
+
+    @Override
+    public void shutdown(DominionContext ctx) {
+        Nameplates plates = nameplates;
+        if (plates != null) {
+            plates.restoreAll();
+        }
     }
 
     /** Never breaks chat. The event goes on untouched if Dominion fails. */

@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- `/f who` prints the classic layout. A `____[ Tag Name ]____` header in your relation colour, then description, age, open or invite only, Land / Power / Maxpower, raidable, bank, nation, truces, allies and enemies as coloured lists, and the online and offline members with `**` for the leader, `*` for officers and custom rank names.
+- `/f who <player>` finds the faction of any known player when no faction uses that tag.
+- `/f top [page]` pages the value leaderboard with a `____[ Faction Top (Value) 1/4 ]____` header, rows such as `1. Tag (3/12) 48,500`, your own standing when it is off the page and a hint for the next page. New setting `top.pageSize`, default 10, from 5 to 25.
+- New setting `chat.showTag`, default true. When off, public chat shows no faction tag in either public format. Faction, ally, officer and nation channels keep their prefixes.
+- New experimental setting `chat.nameplateTag`, default false. When on, the bracketed faction tag shows before the name above each player's head. It updates on join, world change, faction join and leave and rename, and the plain name is put back on quit and when the plugin stops.
+- Faction renames are announced to every online player as The faction Old is now New, with the tags in each viewer's relation colour, and written to the faction log. New setting `chat.announceRenames`, default true.
+- New bus event `DominionEvent.FactionRenamed` with the faction id and the old and new tag and name, published after every successful rename, including admin renames.
+
 ## 0.2.1 - 2026-10-14
 
 Dominion Factions 0.2.1 works with the CombatLog mod by Devify. When CombatLog is installed its combat tags drive

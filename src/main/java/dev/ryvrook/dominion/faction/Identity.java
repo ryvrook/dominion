@@ -126,10 +126,14 @@ final class Identity {
                 return Result.fail(problem);
             }
         }
+        String oldTag;
+        String oldName;
         synchronized (s.lock) {
             if (s.ctx.repo().faction(f.id()) == null) {
                 return Result.fail("That faction no longer exists");
             }
+            oldTag = f.tag();
+            oldName = f.name();
             if (tagChange) {
                 String problem = TagRules.tag(s.settings(), newTag);
                 if (problem != null) {
@@ -149,6 +153,7 @@ final class Identity {
             }
         }
         s.changed(f);
+        s.publish(new DominionEvent.FactionRenamed(f.id(), oldTag, f.tag(), oldName, f.name()));
         return Result.pass("Faction identity updated");
     }
 

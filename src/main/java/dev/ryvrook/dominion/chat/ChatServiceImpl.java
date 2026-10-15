@@ -150,10 +150,11 @@ public final class ChatServiceImpl implements ChatService {
         Faction faction = factions().factionOf(sender.getUuid());
         PlayerChatEvent.Formatter base = event.getFormatter();
         boolean ownFormat = base == null || base == PlayerChatEvent.DEFAULT_FORMATTER;
+        boolean showTag = ctx.settings().bool("chat.showTag");
         if ("passthrough".equalsIgnoreCase(ctx.settings().text("chat.publicFormat"))) {
             // The engine calls the formatter only for a line it delivers, so the line is logged and
             // recorded for the map there. A plugin that cancels after Dominion keeps it off both.
-            Message tag = faction == null ? null
+            Message tag = faction == null || !showTag ? null
                     : Msg.colored(plainTag(faction.tag()), safeColor(faction.color(), Relation.NEUTRAL.color()));
             PlayerChatEvent.Formatter inner = base == null ? PlayerChatEvent.DEFAULT_FORMATTER : base;
             String tagText = faction == null ? "" : faction.tag();
@@ -169,7 +170,7 @@ public final class ChatServiceImpl implements ChatService {
             return;
         }
         event.setCancelled(true);
-        sendPublic(sender, event.getTargets(), content, faction, ownFormat ? null : base);
+        sendPublic(sender, event.getTargets(), content, faction, showTag, ownFormat ? null : base);
     }
 
     private static String safeColor(String color, String fallback) {
@@ -181,11 +182,12 @@ public final class ChatServiceImpl implements ChatService {
     }
 
     /**
-     * Sends a public line to each target with the tag coloured for that viewer. With a formatter
+     * Sends a public line to each target with the tag coloured for that viewer, or without a tag when
+     * chat.showTag is off. With a formatter
      * from another plugin, such as a title or rank prefix, its output follows the tag in place of
      * Dominion's own name and separator.
      */
-    private void sendPublic(PlayerRef sender, List<PlayerRef> targets, String content, Faction faction,
+    private void sendPublic(PlayerRef sender, List<PlayerRef> targets, String content, Faction faction, boolean showTag,
                             PlayerChatEvent.Formatter other) {
         UUID uuid = sender.getUuid();
         Message line;
@@ -199,7 +201,7 @@ public final class ChatServiceImpl implements ChatService {
                 if (target == null) {
                     continue;
                 }
-                target.sendMessage(faction == null ? line : Message.join(tagFor(target.getUuid(), uuid), line));
+                target.sendMessage(faction == null || !showTag ? line : Message.join(tagFor(target.getUuid(), uuid), line));
             }
         }
         String tag = faction == null ? "" : plainTag(faction.tag());
