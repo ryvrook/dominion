@@ -211,6 +211,12 @@ public final class Defaults {
         s.define("misc.tutorial", "Storage", "Show the tutorial on first join", true);
         s.define("misc.singleplayerAutoPreset", "Storage", "Apply the singleplayer preset automatically", true);
 
+        // UI brief, where the sidebar sits. The default top clears the Coinage and Chronicle boxes.
+        s.define("hud.side", "Map", "Sidebar screen side, right or left", "right");
+        s.define("hud.top", "Map", "Sidebar distance from the top of the screen", 400);
+        s.choices("hud.side", "right", "left");
+        s.range("hud.top", 0, 2000);
+
         limits(s);
     }
 

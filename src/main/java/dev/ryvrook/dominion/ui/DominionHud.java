@@ -1,6 +1,8 @@
 package dev.ryvrook.dominion.ui;
 
 import com.hypixel.hytale.server.core.entity.entities.player.hud.CustomUIHud;
+import com.hypixel.hytale.server.core.ui.PatchStyle;
+import com.hypixel.hytale.server.core.ui.Value;
 import com.hypixel.hytale.server.core.ui.builder.UICommandBuilder;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import dev.ryvrook.dominion.DominionContext;
@@ -25,81 +27,98 @@ import dev.ryvrook.dominion.util.Players;
 import dev.ryvrook.dominion.util.Time;
 
 import java.util.List;
+import java.util.Locale;
 
 import java.util.logging.Level;
 
-/** Right side faction sidebar. Built once with inline markup, then refreshed by label updates. */
+/**
+ * Faction sidebar in the suite HUD style. A thin title bar sits above rows that each carry their
+ * own background, so a hidden row leaves no empty box. Built once with inline markup, then
+ * refreshed by label, visibility and colour updates.
+ */
 public final class DominionHud extends CustomUIHud {
     public static final String KEY = "DominionHud";
 
+    static final int WIDTH = 250;
+    static final int HEIGHT = 250;
+
+    private static final String ROW_LABEL = "Style: (FontSize: 12, TextColor: #96a9be, VerticalAlignment: Center);";
+    private static final String ROW_VALUE = "Style: (FontSize: 13, TextColor: #d3d6db, RenderBold: true, "
+            + "HorizontalAlignment: End, VerticalAlignment: Center);";
+
+    /** The anchor is filled in from hud.side and hud.top when the HUD is built. */
     private static final String MARKUP = """
-            Group {
-              Anchor: (Right: 16, Top: 200, Width: 280, Height: 302);
+            Group #DomHud {
+              Anchor: (%s: 20, Top: %d, Width: %d, Height: %d);
               LayoutMode: Top;
-              Padding: (Horizontal: 12, Vertical: 10);
-              Background: #000000(0.4);
 
-              Label #DomTitle {
-                Anchor: (Height: 28);
-                Style: (FontSize: 18, TextColor: #7fd6ff, RenderBold: true, VerticalAlignment: Center);
-              }
-
-              Label #DomRank {
-                Anchor: (Height: 20, Bottom: 6);
-                Style: (FontSize: 13, TextColor: #96a9be, RenderUppercase: true, RenderBold: true, VerticalAlignment: Center);
-              }
-
-              Label #DomPower {
+              Group #DomTitleBar {
                 Anchor: (Height: 22);
-                Style: (FontSize: 14, TextColor: #d3d6db, VerticalAlignment: Center);
+                Padding: (Horizontal: 8);
+                Background: #000000(0.5);
+                LayoutMode: Left;
+
+                Label #DomTitle {
+                  FlexWeight: 1;
+                  Style: (FontSize: 12, TextColor: #7fd6ff, RenderUppercase: true, RenderBold: true, LetterSpacing: 1, VerticalAlignment: Center);
+                }
+
+                Label #DomRank {
+                  Anchor: (Width: 84);
+                  Style: (FontSize: 10, TextColor: #96a9be, RenderUppercase: true, RenderBold: true, LetterSpacing: 0.5, HorizontalAlignment: End, VerticalAlignment: Center);
+                }
               }
 
-              Label #DomFactionPower {
-                Anchor: (Height: 22);
-                Style: (FontSize: 14, TextColor: #d3d6db, VerticalAlignment: Center);
+              Group #DomHintRow { Visible: false; Anchor: (Height: 20); Padding: (Horizontal: 8); Background: #000000(0.35); LayoutMode: Left;
+                Label #DomHint { FlexWeight: 1; Style: (FontSize: 12, TextColor: #96a9be, VerticalAlignment: Center); }
               }
 
-              Label #DomClaims {
-                Anchor: (Height: 22);
-                Style: (FontSize: 14, TextColor: #d3d6db, VerticalAlignment: Center);
+            %s
+              Group #DomHereRow { Anchor: (Height: 22); Padding: (Right: 8); Background: #000000(0.42); LayoutMode: Left;
+                Group #DomHereBar { Anchor: (Width: 4, Right: 6); Background: (Color: #6b7280); }
+                Label #DomHere { FlexWeight: 1; Style: (FontSize: 13, TextColor: #8a93a3, RenderBold: true, VerticalAlignment: Center); }
+                Label #DomHereFlags { Anchor: (Width: 96); Style: (FontSize: 11, TextColor: #ff6b6b, RenderBold: true, HorizontalAlignment: End, VerticalAlignment: Center); }
               }
 
-              Label #DomOnline {
-                Anchor: (Height: 22, Bottom: 6);
-                Style: (FontSize: 14, TextColor: #d3d6db, VerticalAlignment: Center);
+              Group #DomStatusRow { Visible: false; Anchor: (Height: 20); Padding: (Horizontal: 8); Background: #000000(0.35); LayoutMode: Left;
+                Label #DomStatus { FlexWeight: 1; Style: (FontSize: 12, TextColor: #878e9c, VerticalAlignment: Center); }
               }
 
-              Label #DomHere {
-                Anchor: (Height: 22);
-                Style: (FontSize: 14, TextColor: #d3d6db, RenderBold: true, VerticalAlignment: Center);
+              Group #DomSiegeRow { Visible: false; Anchor: (Height: 20); Padding: (Horizontal: 8); Background: #000000(0.35); LayoutMode: Left;
+                Label #DomSiege { FlexWeight: 1; Style: (FontSize: 12, TextColor: #ff6b6b, RenderBold: true, VerticalAlignment: Center); }
               }
 
-              Label #DomStatus {
-                Anchor: (Height: 22);
-                Style: (FontSize: 13, TextColor: #878e9c, VerticalAlignment: Center);
+              Group #DomShieldRow { Visible: false; Anchor: (Height: 20); Padding: (Horizontal: 8); Background: #000000(0.35); LayoutMode: Left;
+                Label #DomShield { FlexWeight: 1; Style: (FontSize: 12, TextColor: #7fd6ff, VerticalAlignment: Center); }
               }
 
-              Label #DomSiege {
-                Anchor: (Height: 22);
-                Style: (FontSize: 13, TextColor: #ff6b6b, RenderBold: true, VerticalAlignment: Center);
-              }
-
-              Label #DomShield {
-                Anchor: (Height: 22);
-                Style: (FontSize: 13, TextColor: #7fd6ff, VerticalAlignment: Center);
-              }
-
-              Label #DomGrace {
-                Anchor: (Height: 22);
-                Style: (FontSize: 13, TextColor: #7aa7e6, VerticalAlignment: Center);
+              Group #DomGraceRow { Visible: false; Anchor: (Height: 20); Padding: (Horizontal: 8); Background: #000000(0.35); LayoutMode: Left;
+                Label #DomGrace { FlexWeight: 1; Style: (FontSize: 12, TextColor: #7aa7e6, VerticalAlignment: Center); }
               }
             }
             """;
 
-    /** Rough character budgets that fit the 256 pixel content width at each font size. */
-    private static final int TITLE_CHARS = 24;
-    private static final int LINE_CHARS = 34;
+    /** Label and value rows, as id suffix and label text. */
+    private static final String[][] STAT_ROWS = {
+            {"Power", "Power"},
+            {"FactionPower", "Faction power"},
+            {"Land", "Land"},
+            {"Online", "Online"},
+            {"Nation", "Nation"},
+    };
+
+    /** Rough character budgets that fit the 250 pixel sidebar at each font size. */
+    private static final int TITLE_CHARS = 18;
+    private static final int RANK_CHARS = 12;
+    private static final int VALUE_CHARS = 16;
+    private static final int HERE_CHARS = 17;
+    private static final int FLAG_CHARS = 16;
     private static final int SMALL_CHARS = 36;
+
+    static final String WILD_TEXT = "#8a93a3";
+    static final String WILD_BAR = "#6b7280";
+    static final String SAFE = "#ffd166";
+    static final String WAR = "#ff6b6b";
 
     private final DominionContext ctx;
 
@@ -108,9 +127,31 @@ public final class DominionHud extends CustomUIHud {
         this.ctx = ctx;
     }
 
+    /** The sidebar markup for a side and a top offset. Any side but left means right. */
+    static String markup(String side, int top) {
+        StringBuilder rows = new StringBuilder();
+        for (String[] r : STAT_ROWS) {
+            rows.append("  Group #Dom").append(r[0]).append("Row { Visible: false; Anchor: (Height: 20); ")
+                    .append("Padding: (Horizontal: 8); Background: #000000(0.35); LayoutMode: Left;\n")
+                    .append("    Label { FlexWeight: 1; Text: \"").append(r[1]).append("\"; ").append(ROW_LABEL).append(" }\n")
+                    .append("    Label #Dom").append(r[0]).append(" { Anchor: (Width: 140); ").append(ROW_VALUE).append(" }\n")
+                    .append("  }\n\n");
+        }
+        String edge = "left".equalsIgnoreCase(side == null ? "" : side.trim()) ? "Left" : "Right";
+        return String.format(Locale.ROOT, MARKUP, edge, Math.max(0, top), WIDTH, HEIGHT, rows);
+    }
+
     @Override
     protected void build(UICommandBuilder commands) {
-        commands.appendInline(null, MARKUP);
+        String side = "right";
+        int top = 400;
+        try {
+            side = ctx.settings().text("hud.side");
+            top = ctx.settings().integer("hud.top");
+        } catch (Exception e) {
+            ctx.logger().at(Level.FINE).withCause(e).log("Dominion HUD position unavailable");
+        }
+        commands.appendInline(null, markup(side, top));
         fill(commands);
     }
 
@@ -125,102 +166,149 @@ public final class DominionHud extends CustomUIHud {
         }
     }
 
+    /** Each part fills on its own, so one missing service blanks only its own rows. */
     private void fill(UICommandBuilder c) {
+        Faction f;
         try {
-            fillUnsafe(c);
+            f = ctx.service(FactionService.class).factionOf(getPlayerRef().getUuid());
         } catch (Exception e) {
             ctx.logger().at(Level.FINE).withCause(e).log("Dominion HUD values unavailable");
+            return;
+        }
+        safely(() -> fillTitle(c, f), "title");
+        safely(() -> fillStats(c, f), "stats");
+        safely(() -> fillHere(c, f), "location");
+        boolean[] graceOnStatus = {false};
+        safely(() -> graceOnStatus[0] = fillStatus(c, f), "status");
+        safely(() -> fillSiegeLines(c, f, graceOnStatus[0]), "siege");
+    }
+
+    private void safely(Runnable part, String what) {
+        try {
+            part.run();
+        } catch (Exception e) {
+            ctx.logger().at(Level.FINE).withCause(e).log("Dominion HUD %s unavailable", what);
         }
     }
 
-    private void fillUnsafe(UICommandBuilder c) {
-        PlayerRef player = getPlayerRef();
-        var uuid = player.getUuid();
-        FactionService fs = ctx.service(FactionService.class);
-        PowerService ps = ctx.service(PowerService.class);
-        ClaimService cs = ctx.service(ClaimService.class);
-        Faction f = fs.factionOf(uuid);
-
-        c.set("#DomPower.Text", "Your power " + Msg.number(ps.powerOf(uuid)) + " / " + Msg.number(ps.maxPowerOf(uuid)));
+    private void fillTitle(UICommandBuilder c, Faction f) {
         if (f == null) {
             c.set("#DomTitle.Text", "No faction");
             c.set("#DomTitle.Style.TextColor", Msg.MUTED);
-            c.set("#DomRank.Text", "Use the panel to join or create");
-            c.set("#DomFactionPower.Text", "");
-            c.set("#DomClaims.Text", "");
-            c.set("#DomOnline.Text", "");
-        } else {
-            c.set("#DomTitle.Text", fit(f.tag() + "  " + f.name(), TITLE_CHARS));
-            c.set("#DomTitle.Style.TextColor", DominionPage.safeColor(f.color(), "#7fd6ff"));
-            Rank rank = f.rankOf(uuid);
-            String nation = nationTag(f);
-            String rankText = rank == null ? "" : f.rankName(rank);
-            if (nation != null) {
-                rankText = rankText.isEmpty() ? "Nation " + nation : rankText + "  of nation " + nation;
-            }
-            c.set("#DomRank.Text", fit(rankText, SMALL_CHARS));
-            c.set("#DomFactionPower.Text", "Faction power " + Msg.number(ps.factionPower(f)) + " / "
-                    + Msg.number(ps.factionMaxPower(f)));
-            c.set("#DomClaims.Text", "Land " + cs.claimCount(f) + " / " + cs.maxClaims(f) + " chunks");
-            int online = 0;
-            for (Member m : f.members()) {
-                if (Players.isOnline(m.uuid())) {
-                    online++;
-                }
-            }
-            c.set("#DomOnline.Text", online + " of " + f.memberCount() + " members online");
+            c.set("#DomRank.Text", "");
+            c.set("#DomHint.Text", "Use /f to join or create one");
+            c.set("#DomHintRow.Visible", true);
+            return;
         }
+        c.set("#DomHintRow.Visible", false);
+        c.set("#DomTitle.Text", fit(f.label(), TITLE_CHARS));
+        c.set("#DomTitle.Style.TextColor", DominionPage.safeColor(f.color(), "#7fd6ff"));
+        Rank rank = f.rankOf(getPlayerRef().getUuid());
+        c.set("#DomRank.Text", rank == null ? "" : fit(f.rankName(rank), RANK_CHARS));
+    }
 
+    private void fillStats(UICommandBuilder c, Faction f) {
+        var uuid = getPlayerRef().getUuid();
+        PowerService ps = ctx.service(PowerService.class);
+        c.set("#DomPower.Text", Msg.number(ps.powerOf(uuid)) + " / " + Msg.number(ps.maxPowerOf(uuid)));
+        c.set("#DomPowerRow.Visible", true);
+        boolean member = f != null;
+        c.set("#DomFactionPowerRow.Visible", member);
+        c.set("#DomLandRow.Visible", member);
+        c.set("#DomOnlineRow.Visible", member);
+        String nation = member ? nationLabel(f) : null;
+        c.set("#DomNationRow.Visible", nation != null);
+        c.set("#DomNation.Text", nation == null ? "" : fit(nation, VALUE_CHARS));
+        if (!member) {
+            return;
+        }
+        c.set("#DomFactionPower.Text", Msg.number(ps.factionPower(f)) + " / " + Msg.number(ps.factionMaxPower(f)));
+        ClaimService cs = ctx.service(ClaimService.class);
+        c.set("#DomLand.Text", cs.claimCount(f) + " / " + cs.maxClaims(f) + " chunks");
+        int online = 0;
+        for (Member m : f.members()) {
+            if (Players.isOnline(m.uuid())) {
+                online++;
+            }
+        }
+        c.set("#DomOnline.Text", online + " / " + f.memberCount());
+    }
+
+    private void fillHere(UICommandBuilder c, Faction f) {
+        PlayerRef player = getPlayerRef();
+        ClaimService cs = ctx.service(ClaimService.class);
         String world = Players.worldName(player);
         long chunk = Players.chunkOf(player);
         Faction here = world == null || chunk == Long.MIN_VALUE ? null : cs.ownerAt(world, chunk);
+        String color;
+        String name;
+        String flags = "";
         if (here == null) {
-            c.set("#DomHere.Text", "Wilderness");
-            c.set("#DomHere.Style.TextColor", "#5fd37a");
+            name = "Wilderness";
+            color = WILD_TEXT;
+            c.setObject("#DomHereBar.Background", patch(WILD_BAR));
         } else {
-            String color;
-            String flags = "";
+            name = here.label();
             if (here.type() == FactionType.SAFEZONE) {
-                color = "#ffd166";
-                flags = "  safe";
+                color = SAFE;
+                flags = "safe";
             } else if (here.type() == FactionType.WARZONE) {
-                color = "#ff6b6b";
-                flags = "  war";
+                color = WAR;
+                flags = "war";
             } else {
-                Relation rel = ctx.service(RelationService.class).playerToFaction(uuid, here);
+                Relation rel = ctx.service(RelationService.class).playerToFaction(player.getUuid(), here);
                 color = rel == null ? Msg.TEXT : rel.color();
                 if (cs.raidable(here)) {
-                    flags = "  raidable";
+                    flags = "raidable";
                 }
                 ClaimEntry entry = cs.claimAt(world, chunk);
                 if (entry != null && f != null && cs.breached(world, chunk, f.id())) {
-                    flags += "  breached";
+                    flags = flags.isEmpty() ? "breached" : flags + "  breached";
                 }
             }
-            c.set("#DomHere.Text", fit(here.tag() + "  " + here.name() + flags, LINE_CHARS));
-            c.set("#DomHere.Style.TextColor", color);
+            c.setObject("#DomHereBar.Background", patch(color));
         }
+        c.set("#DomHere.Text", fit(name, flags.isEmpty() ? HERE_CHARS + FLAG_CHARS - 2 : HERE_CHARS));
+        c.set("#DomHere.Style.TextColor", color);
+        c.set("#DomHereFlags.Text", fit(flags, FLAG_CHARS));
+        c.set("#DomHereFlags.Style.TextColor", here != null && here.type() == FactionType.SAFEZONE ? SAFE : WAR);
+    }
 
+    /** A plain colour fill, the same form the vanilla world event rows use for their status bar. */
+    static PatchStyle patch(String hex) {
+        return new PatchStyle().setColor(Value.of(hex));
+    }
+
+    /** Fills the status row and answers whether the grace countdown went there. */
+    private boolean fillStatus(UICommandBuilder c, Faction f) {
         RulesService rules = ctx.serviceOrNull(RulesService.class);
         ShieldService shieldService = ctx.serviceOrNull(ShieldService.class);
-        if (rules != null && rules.graceActive()) {
-            // One grace line only. The countdown joins the status line and the grace line stays empty.
+        ClaimService cs = ctx.service(ClaimService.class);
+        String text;
+        String color;
+        boolean grace = rules != null && rules.graceActive();
+        if (grace) {
+            // One grace line only. The countdown joins the status row and the grace row stays hidden.
             long left = shieldService != null && shieldService.graceActive() ? shieldService.graceEndsAt() - Time.now() : -1;
-            c.set("#DomStatus.Text", fit(left > 0 ? "Grace ends in " + Time.remaining(left) + ", no raiding" : "Grace period, no raiding", SMALL_CHARS));
-            c.set("#DomStatus.Style.TextColor", "#7aa7e6");
+            text = left > 0 ? "Grace ends in " + Time.remaining(left) + ", no raiding" : "Grace period, no raiding";
+            color = "#7aa7e6";
         } else if (rules != null && rules.eotwActive()) {
-            c.set("#DomStatus.Text", "End of the world, all land raidable");
-            c.set("#DomStatus.Style.TextColor", "#ff6b6b");
+            text = "End of the world, all land raidable";
+            color = "#ff6b6b";
         } else if (f != null && !f.isSystem() && cs.raidable(f)) {
-            c.set("#DomStatus.Text", "Your faction is raidable");
-            c.set("#DomStatus.Style.TextColor", "#ff6b6b");
+            text = "Your faction is raidable";
+            color = "#ff6b6b";
         } else if (f != null) {
-            c.set("#DomStatus.Text", "Your land is protected");
-            c.set("#DomStatus.Style.TextColor", "#5fd37a");
+            text = "Your land is protected";
+            color = "#5fd37a";
         } else {
-            c.set("#DomStatus.Text", "");
+            text = "";
+            color = Msg.MUTED;
         }
-        fillSiegeLines(c, f, rules != null && rules.graceActive());
+        c.set("#DomStatus.Text", fit(text, SMALL_CHARS));
+        c.set("#DomStatus.Style.TextColor", color);
+        c.set("#DomStatusRow.Visible", !text.isEmpty());
+        return grace;
     }
 
     /** Shortens text to a character budget so it never runs past the sidebar edge. */
@@ -238,14 +326,14 @@ public final class DominionHud extends CustomUIHud {
         return cut + "...";
     }
 
-    private String nationTag(Faction f) {
+    private String nationLabel(Faction f) {
         NationService nations = ctx.serviceOrNull(NationService.class);
         if (nations == null || f == null || f.isSystem()) {
             return null;
         }
         try {
             Nation n = nations.nationOf(f);
-            return n == null ? null : n.tag();
+            return n == null ? null : n.label();
         } catch (RuntimeException e) {
             return null;
         }
@@ -280,13 +368,16 @@ public final class DominionHud extends CustomUIHud {
             }
         }
         c.set("#DomSiege.Text", siegeText);
+        c.set("#DomSiegeRow.Visible", !siegeText.isEmpty());
 
         ShieldService shields = ctx.serviceOrNull(ShieldService.class);
         // The shield only covers the core around the home and drops while the faction is raidable.
         boolean shieldUp = shields != null && f != null && !f.isSystem() && f.home() != null && shields.windowActive(f)
                 && !ctx.service(ClaimService.class).raidable(f);
         c.set("#DomShield.Text", shieldUp ? "Your core shield is up" : "");
+        c.set("#DomShieldRow.Visible", shieldUp);
         boolean grace = shields != null && shields.graceActive() && !graceOnStatus;
         c.set("#DomGrace.Text", grace ? fit("Grace ends in " + Time.remaining(shields.graceEndsAt() - now), SMALL_CHARS) : "");
+        c.set("#DomGraceRow.Visible", grace);
     }
 }
