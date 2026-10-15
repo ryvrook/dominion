@@ -11,6 +11,7 @@ import dev.ryvrook.dominion.model.FactionAction;
 import dev.ryvrook.dominion.service.VaultService;
 import dev.ryvrook.dominion.service.FactionService;
 import dev.ryvrook.dominion.shop.ShopBody.Btn;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.ui.PageEvent;
 
@@ -37,49 +38,50 @@ final class FactionManagerPage extends ShopPage {
     protected void render(UICommandBuilder c, UIEventBuilder events) {
         c.append(ShopBody.PAGE);
         c.set("#Sidebar.Visible", false);
-        c.set("#PageTitle.Text", "Faction shop");
+        c.set("#PageTitle.Text", Messages.get(ShopText.LABEL_FACTION_SHOP));
         c.set("#F1.Visible", true);
-        c.set("#F1.Text", "Close");
+        c.set("#F1.Text", Messages.get(ShopText.BUTTON_CLOSE));
         ShopBody.on(events, "#F1", "close", "");
         ShopBody body = new ShopBody(c, events, "#Body");
         Faction f = faction();
         if (f == null || !f.isMember(uuid())) {
-            c.set("#Heading.Text", "Faction shop");
-            body.text("You are no longer in this faction.", Msg.MUTED);
+            c.set("#Heading.Text", Messages.get(ShopText.LABEL_FACTION_SHOP));
+            body.text(Messages.get(ShopText.NO_LONGER_MEMBER), Msg.MUTED);
             return;
         }
         if (!shops.isOfficer(uuid(), f)) {
-            c.set("#Heading.Text", "Faction shop");
-            body.text("Only officers and the leader can manage the faction shop.", Msg.MUTED);
+            c.set("#Heading.Text", Messages.get(ShopText.LABEL_FACTION_SHOP));
+            body.text(Messages.get(ShopText.MANAGE_OFFICERS), Msg.MUTED);
             return;
         }
         List<ShopServiceImpl.Stock> stock = shops.stock(factionId);
         int max = shops.maxFactionEntries();
-        c.set("#Heading.Text", "Manage the " + f.tag() + " shop");
-        c.set("#Subheading.Text", stock.size() + " of " + max + " entries used");
-        c.set("#Footer.Text", "Sales are paid into the faction bank.");
+        c.set("#Heading.Text", Messages.get(ShopText.HEADING_MANAGE, "faction", f.tag()));
+        c.set("#Subheading.Text", Messages.get(ShopText.ENTRIES_USED, "used", stock.size(), "max", max));
+        c.set("#Footer.Text", Messages.get(ShopText.FOOTER_SALES));
         c.set("#F2.Visible", true);
-        c.set("#F2.Text", "View shop");
+        c.set("#F2.Text", Messages.get(ShopText.BUTTON_VIEW));
         ShopBody.on(events, "#F2", "view", "");
 
         if (!shops.factionEnabled()) {
-            body.text("Faction shops are turned off on this server. You can still take items back.", Msg.WARN);
+            body.text(Messages.get(ShopText.SHOPS_OFF_TAKE_BACK), Msg.WARN);
         } else {
             vaultSection(body, f);
-            body.section("Stock the held item");
-            body.text("Hold the stack you want to sell in your hand, then enter the price for each item.", Msg.MUTED);
-            body.form(new String[] {"Price each"}, null, Btn.of("Stock held", "stock", ""));
+            body.section(Messages.get(ShopText.SECTION_STOCK_HELD));
+            body.text(Messages.get(ShopText.STOCK_HELD_HINT), Msg.MUTED);
+            body.form(new String[] {Messages.get(ShopText.LABEL_PRICE_EACH)}, null, Btn.of(Messages.get(ShopText.BUTTON_STOCK_HELD), "stock", ""));
         }
-        body.section("In the shop");
+        body.section(Messages.get(ShopText.SECTION_IN_SHOP));
         if (stock.isEmpty()) {
-            body.text("The shop is empty.", Msg.MUTED);
+            body.text(Messages.get(ShopText.SHOP_EMPTY), Msg.MUTED);
         } else {
-            body.row(null, "Item", Msg.MUTED, new String[] {"In stock", "Price each", "Stocked by"}, null);
+            body.row(null, Messages.get(ShopText.LABEL_ITEM), Msg.MUTED, new String[] {Messages.get(ShopText.LABEL_IN_STOCK),
+                    Messages.get(ShopText.LABEL_PRICE_EACH), Messages.get(ShopText.LABEL_STOCKED_BY)}, null);
         }
         for (ShopServiceImpl.Stock s : stock) {
             body.row(s.itemId(), Names.of(s.itemId()), null,
                     new String[] {String.valueOf(s.quantity()), money(s.price()), s.stockedByName()}, null,
-                    Btn.of("Take back", "unstock", s.id().toString()));
+                    Btn.of(Messages.get(ShopText.BUTTON_TAKE_BACK), "unstock", s.id().toString()));
         }
     }
 
@@ -88,14 +90,14 @@ final class FactionManagerPage extends ShopPage {
 
     /** Lists the filled vault slots with a price field and a stock button each. */
     private void vaultSection(ShopBody body, Faction f) {
-        body.section("Stock from the vault");
+        body.section(Messages.get(ShopText.SECTION_FROM_VAULT));
         VaultService vault = ctx.serviceOrNull(VaultService.class);
         if (vault == null) {
-            body.text("The faction vault is not available on this server.", Msg.MUTED);
+            body.text(Messages.get(ShopText.VAULT_UNAVAILABLE), Msg.MUTED);
             return;
         }
         if (!ctx.service(FactionService.class).can(uuid(), FactionAction.VAULT)) {
-            body.text("Your rank cannot use the faction vault.", Msg.MUTED);
+            body.text(Messages.get(ShopText.VAULT_RANK), Msg.MUTED);
             return;
         }
         int pages = vault.pages(f);
@@ -113,19 +115,20 @@ final class FactionManagerPage extends ShopPage {
                     continue;
                 }
                 if (shown == 0) {
-                    body.text("Enter the price for each item next to a vault slot and press Stock.", Msg.MUTED);
-                    body.row(null, "Item", Msg.MUTED, new String[] {"Page", "Slot", "Amount"}, null);
+                    body.text(Messages.get(ShopText.VAULT_HINT), Msg.MUTED);
+                    body.row(null, Messages.get(ShopText.LABEL_ITEM), Msg.MUTED, new String[] {Messages.get(ShopText.LABEL_PAGE),
+                            Messages.get(ShopText.LABEL_SLOT), Messages.get(ShopText.LABEL_AMOUNT)}, null);
                 }
                 body.row(item.getItemId(), Names.of(item.getItemId()), null,
                         new String[] {String.valueOf(page), String.valueOf(slot), String.valueOf(item.getQuantity())},
-                        new String[] {""}, Btn.of("Stock", "vstock", page + ":" + slot + ":" + item.getItemId()));
+                        new String[] {""}, Btn.of(Messages.get(ShopText.BUTTON_STOCK), "vstock", page + ":" + slot + ":" + item.getItemId()));
                 shown++;
             }
         }
         if (shown == 0) {
-            body.text("The vault is empty.", Msg.MUTED);
+            body.text(Messages.get(ShopText.VAULT_EMPTY), Msg.MUTED);
         } else if (more > 0) {
-            body.text(more + (more == 1 ? " more slot is" : " more slots are") + " not shown. Stock some of these first.", Msg.MUTED);
+            body.text(Messages.get(more == 1 ? ShopText.MORE_SLOT : ShopText.MORE_SLOTS, "count", more), Msg.MUTED);
         }
     }
 
@@ -135,7 +138,7 @@ final class FactionManagerPage extends ShopPage {
             case "stock" -> {
                 Double price = parsePrice(event.text());
                 if (price == null) {
-                    reply(Result.fail("Enter a price for each item."));
+                    reply(Result.fail(Messages.get(ShopText.ENTER_PRICE)));
                 } else {
                     reply(shops.factionStockHeld(uuid(), price));
                 }
@@ -144,9 +147,9 @@ final class FactionManagerPage extends ShopPage {
                 Double price = parsePrice(event.text());
                 int[] where = pageSlot(event.value());
                 if (where == null) {
-                    reply(Result.fail("That vault slot is not valid."));
+                    reply(Result.fail(Messages.get(ShopText.BAD_VAULT_SLOT)));
                 } else if (price == null) {
-                    reply(Result.fail("Enter a price for each item."));
+                    reply(Result.fail(Messages.get(ShopText.ENTER_PRICE)));
                 } else {
                     reply(shops.factionStock(uuid(), where[0], where[1], price, itemOf(event.value())));
                 }

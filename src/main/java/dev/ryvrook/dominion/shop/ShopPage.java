@@ -11,6 +11,7 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.api.Result;
 import dev.ryvrook.dominion.service.EconomyService;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.ui.PageEvent;
 
@@ -42,7 +43,7 @@ abstract class ShopPage extends InteractiveCustomUIPage<PageEvent> {
             render(commands, events);
         } catch (Exception e) {
             ctx.logger().at(Level.WARNING).withCause(e).log("Dominion shop page %s failed to render", getClass().getSimpleName());
-            Msg.send(playerRef, Msg.bad("Part of this page could not be shown. Try again in a moment."));
+            Msg.send(playerRef, Msg.bad(Messages.get(ShopText.PAGE_FAILED)));
         }
     }
 
@@ -66,7 +67,7 @@ abstract class ShopPage extends InteractiveCustomUIPage<PageEvent> {
             }
         } catch (Exception e) {
             ctx.logger().at(Level.WARNING).withCause(e).log("Dominion shop action %s failed", data.action);
-            Msg.send(playerRef, Msg.bad("Something went wrong with that button. Try again in a moment."));
+            Msg.send(playerRef, Msg.bad(Messages.get(ShopText.BUTTON_FAILED)));
             refresh = true;
         }
         if (refresh) {
@@ -86,7 +87,7 @@ abstract class ShopPage extends InteractiveCustomUIPage<PageEvent> {
             return;
         }
         String text = result.message() == null || result.message().isBlank()
-                ? (result.success() ? "Done." : "That did not work.")
+                ? Messages.get(result.success() ? ShopText.DONE : ShopText.DID_NOT_WORK)
                 : result.message();
         Msg.send(playerRef, result.success() ? Msg.good(text) : Msg.bad(text));
     }
@@ -99,7 +100,7 @@ abstract class ShopPage extends InteractiveCustomUIPage<PageEvent> {
             String label = q == quantity ? "[ " + q + " ]" : String.valueOf(q);
             buttons[i] = ShopBody.Btn.of(label, "qty", String.valueOf(q));
         }
-        body.buttons("Quantity", buttons);
+        body.buttons(Messages.get(ShopText.LABEL_QUANTITY), buttons);
     }
 
     protected String balanceLine() {
@@ -107,7 +108,7 @@ abstract class ShopPage extends InteractiveCustomUIPage<PageEvent> {
         if (eco == null || !eco.enabled()) {
             return "";
         }
-        return "Your balance is " + eco.format(eco.balance(uuid()));
+        return Messages.get(ShopText.BALANCE, "balance", eco.format(eco.balance(uuid())));
     }
 
     protected String money(double amount) {

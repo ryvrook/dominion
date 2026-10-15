@@ -14,6 +14,7 @@ public final class MessageSets {
 
     public static final String[] ALL = {
             "dev.ryvrook.dominion.market.MarketText",
+            "dev.ryvrook.dominion.shop.ShopText",
             "dev.ryvrook.dominion.siege.SiegeText",
             "dev.ryvrook.dominion.text.CommonText",
             "dev.ryvrook.dominion.vault.VaultText"

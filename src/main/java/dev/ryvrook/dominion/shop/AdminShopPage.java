@@ -5,6 +5,7 @@ import com.hypixel.hytale.server.core.ui.builder.UIEventBuilder;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.shop.ShopBody.Btn;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.ui.PageEvent;
 
@@ -22,10 +23,10 @@ final class AdminShopPage extends ShopPage {
     @Override
     protected void render(UICommandBuilder c, UIEventBuilder events) {
         c.append(ShopBody.PAGE);
-        c.set("#PageTitle.Text", "Shop");
-        c.set("#Heading.Text", "Server shop");
+        c.set("#PageTitle.Text", Messages.get(ShopText.LABEL_SHOP));
+        c.set("#Heading.Text", Messages.get(ShopText.LABEL_SERVER_SHOP));
         c.set("#Subheading.Text", balanceLine());
-        c.set("#Footer.Text", "Prices are for each item.");
+        c.set("#Footer.Text", Messages.get(ShopText.LABEL_PRICES_EACH));
 
         List<String> categories = shops.adminCategories();
         if (category == null || shops.categoryName(category) == null) {
@@ -38,29 +39,31 @@ final class AdminShopPage extends ShopPage {
 
         ShopBody body = new ShopBody(c, events, "#Body");
         if (category == null) {
-            body.text("The shop has nothing for sale yet.", Msg.MUTED);
+            body.text(Messages.get(ShopText.EMPTY_SHOP), Msg.MUTED);
         } else {
             quantityRow(body);
             body.section(category);
-            body.row(null, "Item", Msg.MUTED, new String[] {"Buy price", "Sell price", ""}, null);
+            body.row(null, Messages.get(ShopText.LABEL_ITEM), Msg.MUTED,
+                    new String[] {Messages.get(ShopText.LABEL_BUY_PRICE), Messages.get(ShopText.LABEL_SELL_PRICE), ""}, null);
             List<ShopServiceImpl.AdminEntry> entries = shops.entries(category);
             for (ShopServiceImpl.AdminEntry e : entries) {
-                Btn buy = e.buy() > 0 ? Btn.of("Buy " + quantity, "buy", e.itemId()) : null;
-                Btn sell = e.sell() > 0 ? Btn.of("Sell " + quantity, "sell", e.itemId()) : null;
+                Btn buy = e.buy() > 0 ? Btn.of(Messages.get(ShopText.BUTTON_BUY, "count", quantity), "buy", e.itemId()) : null;
+                Btn sell = e.sell() > 0 ? Btn.of(Messages.get(ShopText.BUTTON_SELL, "count", quantity), "sell", e.itemId()) : null;
                 body.row(e.itemId(), Names.of(e.itemId()), null,
-                        new String[] {e.buy() > 0 ? money(e.buy()) : "Not sold", e.sell() > 0 ? money(e.sell()) : "Not bought", ""},
+                        new String[] {e.buy() > 0 ? money(e.buy()) : Messages.get(ShopText.LABEL_NOT_SOLD),
+                                e.sell() > 0 ? money(e.sell()) : Messages.get(ShopText.LABEL_NOT_BOUGHT), ""},
                         null, buy == null ? sell : buy, buy == null ? null : sell);
             }
             if (entries.isEmpty()) {
-                body.text("This category is empty.", Msg.MUTED);
+                body.text(Messages.get(ShopText.EMPTY_CATEGORY), Msg.MUTED);
             }
         }
 
         c.set("#F1.Visible", true);
-        c.set("#F1.Text", "Sell held item");
+        c.set("#F1.Text", Messages.get(ShopText.BUTTON_SELL_HELD));
         ShopBody.on(events, "#F1", "sellheld", "");
         c.set("#F2.Visible", true);
-        c.set("#F2.Text", "Close");
+        c.set("#F2.Text", Messages.get(ShopText.BUTTON_CLOSE));
         ShopBody.on(events, "#F2", "close", "");
     }
 
