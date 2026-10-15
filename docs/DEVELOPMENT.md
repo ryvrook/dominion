@@ -197,21 +197,28 @@ dependency through the plugin bridge loader, so the bridges can name the sibling
 - Package `integration`. `IntegrationModule` runs last in `Wiring.MODULES`. For each sibling it reads the setting
   (`integrations.tracker`, `integrations.feats`, `integrations.atlas`, `integrations.coinage` with `auto`, `always` or `never`), looks the
   plugin up in `PluginManager` (`Presence`), decides with `Choice` and only then loads the bridge class by name and
-  calls its static `install(Host)`. `Binding` keeps the link, polls the plugin object every 5 seconds and logs once
-  when a sibling was reloaded, removed or installed late. `Integrations` is registered as a service under its own
+  calls its static `install(Host)`. `Binding` keeps the link and polls the plugin object every 5 seconds. A sibling that was
+  reloaded or installed late has classes in a new loader the bridge cannot follow, so once it is running Dominion
+  logs one line and reloads itself through `PluginManager.reload` on a thread of its own 3 seconds later, which
+  links to the new instance. TrackerAPI 1.0.3 and newer reload Dominion themselves, so that case stays quiet. A
+  sibling that was unloaded logs one warning. `Integrations` is registered as a service under its own
   class and feeds `/fa integrations`.
 - Bridges. `integration.tracker.TrackerBridge`, `integration.feats.FeatsBridge`, `integration.atlas.AtlasBridge` and
   `integration.coinage.CoinageLink` are the only classes that name sibling types. Every call into a sibling is guarded, and stop sets a stopped flag
-  before removing hooks. TrackerAPI has `removeHooks`. Atlas does not, so its hooks stay and do nothing after a stop.
+  before removing hooks. TrackerAPI and Coinage have `removeHooks`, Atlas has it after 1.6.0 and the bridge looks it up by reflection.
   Feats publishes `FeatsApi` in its own setup with no enable hook, so the Feats bridge links on install or on a later
   poll.
 - Counters. `StatFanout` is one bus listener. It maps each `DominionEvent` with `StatMapper` (pure, facts behind the
   `StatMapper.Facts` interface) and hands the credits to every linked `StatSink`, which is `Counters.add` for
   TrackerAPI and `FeatsApi.addStat` for Feats. TrackerAPI accepts keys under another plugin's own prefix, so every key
-  is `dominion:<name>`, listed in `StatKeys`. Claims and unclaims read the actor and the
+  is `dominion:<name>`, listed in `StatKeys`, and TrackerAPI is asked for a leaderboard of all ten. Claims and unclaims read the actor and the
   `counts` flag that `ClaimChanged` carries (false for admin moves, decay and any chunk the faction released within
   the seven day mission window, so a chunk claimed, released and claimed again counts once each way), and kills, deposits and invites from the `PlayerDied`,
-  `BankDeposited` and `MemberInvited` events. Both siblings only count for online players.
+  `BankDeposited` and `MemberInvited` events. An invite counts once per invited player and faction. A deposit counts
+  the whole coins of the player's net deposits that day, deposits minus the `BankWithdrawn` withdrawals and never
+  below zero, less what was already credited, so a deposit and withdraw loop counts once. `ContextFacts` keeps both
+  memories in the faction stats under `counter.`, which `/f stats` leaves out. Siege and mission credit goes to every
+  member, online or not, TrackerAPI and Feats queue it for offline players.
 - Gather missions from TrackerAPI. While TrackerAPI is bound and tracks `block_broken`, `block_placed`,
   `item_picked_up` and `item_dropped`, the bridge subscribes to those four kinds (ASYNC) and hands them to
   `progress.GatherFeed`, and Dominion's own four `GatherSystems` return at once. The systems stay registered, so a
@@ -227,9 +234,12 @@ dependency through the plugin bridge loader, so the bridges can name the sibling
   must run on it. `PvpFilterSystem` and `WarmupDamageSystem` cancel or react to damage in the same tick,
   `HomeRespawnSystem` moves the respawn, and chat, nameplates and the map react to engine events TrackerAPI does not
   publish.
-- Atlas. The snapshot already carries claims, homes, warps, siege pins, hills, outposts and envoys, so the bridge
-  pushes only a `Ryvrook:Dominion:sieges` layer of circles whose popups name the phase and the end time, redrawn on
-  `SiegePhase`, `BreachChanged` and `FactionDisbanded`. `PlayerToggles.onWebMap` tells it about `/f map hide`
+- Atlas. The snapshot already carries claims, homes, warps, siege pins with the phase and end time, hills, outposts
+  and envoys. Only while `export.enabled` is off does the bridge push a `Ryvrook:Dominion:sieges` layer of circles
+  whose popups name the phase and the end time, at the tier `integrations.atlasSiegeTier` names (set it to Atlas's
+  `visibility.territories`, the API does not expose it), redrawn on `SiegePhase`, `BreachChanged`,
+  `FactionDisbanded` and when the export switch flips. Stop calls `AtlasApi.removeHooks` by reflection, Atlas 1.6.0
+  does not have it. `PlayerToggles.onWebMap` tells it about `/f map hide`
   from the command and the panel, and it passes hidden players on to `AtlasApi.setHidden` at bind and on join,
   since Atlas does not save API hides.
 - Chronicle Stats has no link. It reads `tag`, `name`, `color`, `nation`, `claims`, `power`, `maxPower`, `level`,
@@ -305,6 +315,19 @@ How Dominion uses it.
 - Market. `market.MarketHandoff` is a service the link attaches a target to. `ui.MarketTab` opens Coinage's market on
   a tab click and shows a button and Dominion's mailbox instead of its listing tabs while `market.useCoinage` is on.
   `shop.useCoinage` is defined but off and unused until Coinage shops can have a shared account owner.
+
+## Hot paths
+
+- Claims overlay. `OverlayPainter.paint` works out a fill and an outline colour per palette entry and only moves
+  indexes per pixel. It took 6.5 us for a 32 by 32 chunk image with 40 colours when it blended every pixel and takes
+  2.9 us now (Apple M series, JDK 25). `DOMINION_BENCH=1 ./gradlew test --tests '*PaintBench*' -i` prints the
+  numbers, and `PaintBench` also checks the result is the image the per pixel version drew. `MapOverlay` keeps what
+  it painted in one primitive map per world, locked on itself, with one `Painted` per faction and colour.
+- Sidebar. `DominionHud.refresh` fills the values into a map and sends only those that changed since the last push,
+  nothing at all when none did, and everything again every 30 seconds in case the client dropped an update.
+- Snapshot. `export/snapshot.json` is rebuilt every two seconds only while `export.playerPositions` is on and players
+  are online. Otherwise only bus events and a change of the online roster (who, which world, hidden) rebuild it. The
+  first snapshot is written on the IO thread right after the export module starts.
 
 ## Headless boot test
 

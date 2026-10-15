@@ -189,7 +189,7 @@ Punishing players who log out in combat stays with CombatLog. Dominion only read
 
 ## Configuration
 
-Settings live in `config.json` inside the plugin data folder. There are 255 keys grouped into
+Settings live in `config.json` inside the plugin data folder. There are 256 keys grouped into
 Factions, Power, Land, Raiding, Relations, Combat, Homes, Chat, Economy, Market, Sieges, Shields, Events, Progression, Storage, Map, Integrations, Commands, Interface, Colours and Permissions. Every key is listed with its default, its limits and a description in
 [docs/SETTINGS.md](docs/SETTINGS.md), which is generated from
 `src/main/java/dev/ryvrook/dominion/config/Defaults.java`.
@@ -245,9 +245,9 @@ TrackerAPI, Feats, Atlas and Coinage as optional dependencies, so the server loa
 
 | Mod | What it adds | Setting |
 | --- | --- | --- |
-| [TrackerAPI](https://www.curseforge.com/hytale/mods/trackerapi) 1.0.0 or newer | Dominion publishes ten per player counters under `dominion:`, with leaderboards for claims, enemy kills, sieges won, missions and bank deposits | `integrations.tracker` |
+| [TrackerAPI](https://www.curseforge.com/hytale/mods/trackerapi) 1.0.0 or newer | Dominion publishes ten per player counters under `dominion:` with a leaderboard for each, and counts the gather missions from its block and item events | `integrations.tracker` |
 | Feats 1.5.0 or newer | The same counters are mirrored into Feats, and every feat a player unlocks is posted to their faction chat | `integrations.feats`, `integrations.featsAnnounce` |
-| Atlas 1.6.0 or newer | A live Sieges layer with the phase and end time of every siege, and `/f map hide` hides the player in Atlas as well | `integrations.atlas` |
+| Atlas 1.6.0 or newer | `/f map hide` hides the player in Atlas as well, and a live Sieges layer while `export.enabled` is off | `integrations.atlas`, `integrations.atlasSiegeTier` |
 | Coinage 1.0.0 or newer | Wallets and faction banks live in Coinage, every move shows in Coinage's history under Dominion, a member's share of the faction bank counts in `/networth`, and the panel Market tab opens Coinage's market | `integrations.coinage`, `eco.provider`, `eco.coinageBanks`, `market.useCoinage` |
 | Chronicle Stats | Reads factions, members, kills and deaths from the map snapshot. Nothing to set up | none |
 
@@ -260,14 +260,16 @@ server starts. `integrations.featsAnnounce` is `true` by default and can be chan
 The counters are `dominion:claims` and `dominion:unclaims` (a chunk the faction released within the last seven days counts for neither when it is claimed or released again), `dominion:enemy_kills` (a kill of a member of a faction at
 war with yours), `dominion:enemy_land_deaths` (deaths on the land of a faction at war with yours),
 `dominion:sieges_won`, `dominion:sieges_lost` (every member of both factions when a siege ends), `dominion:missions`
-(every member when the faction completes a mission), `dominion:bank_deposited` (whole coins),
-`dominion:factions_founded` and `dominion:invites`. TrackerAPI and Feats only take counters for players who are
-online, which is everyone involved except for siege and mission credit to offline members.
+(every member when the faction completes a mission), `dominion:bank_deposited` (whole coins, counted as what a
+player deposited minus what they withdrew that day, so a deposit and withdraw loop counts once),
+`dominion:factions_founded` and `dominion:invites` (once per invited player and faction). TrackerAPI keeps a
+leaderboard for all ten. Siege and mission credit goes to every member, online or not.
 
 Feats has no file for server defined feats yet, so the counters show in its stats and wait there for feats that read
 them. Atlas draws claims, homes, warps, hills, outposts and envoys from the map snapshot whether or not it is linked,
-so the link only adds what the snapshot cannot carry. After a `/plugin reload` of Feats or Atlas, run
-`/plugin reload Ryvrook:Dominion` too, Dominion logs a reminder. TrackerAPI 1.0.3 reloads Dominion by itself.
+so the link only adds what the snapshot cannot carry. After a `/plugin reload` of Feats, Atlas or Coinage, or when
+one of them is installed while the server runs, Dominion notices within 5 seconds and reloads itself to link to the
+new instance. TrackerAPI 1.0.3 and newer reload Dominion by themselves.
 
 ### Coinage
 
