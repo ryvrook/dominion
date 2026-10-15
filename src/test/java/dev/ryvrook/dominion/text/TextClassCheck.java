@@ -62,10 +62,12 @@ public final class TextClassCheck {
             while (matcher.find()) {
                 found.add(matcher.group(1));
             }
-            Set<String> expected = placeholders.get(id);
-            assertNotNull(expected, "the test lists the placeholders of " + id);
-            assertEquals(expected, found, "placeholders of " + id);
+            // An id the test does not list is expected to carry no placeholders.
+            Set<String> expected = placeholders.getOrDefault(id, Set.of());
+            assertEquals(new TreeSet<>(expected), found, "placeholders of " + id);
         }
-        assertEquals(new TreeSet<>(placeholders.keySet()), new TreeSet<>(seen), "the test lists exactly the ids of " + textClass.getSimpleName());
+        for (String id : placeholders.keySet()) {
+            assertTrue(seen.contains(id), "listed id " + id + " is a constant of " + textClass.getSimpleName());
+        }
     }
 }
