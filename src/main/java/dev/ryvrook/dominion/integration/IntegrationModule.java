@@ -91,26 +91,31 @@ public final class IntegrationModule implements DominionModule {
      * reloaded Dominion, see {@link SelfReload}.
      */
     private static void reloadSelf(DominionContext ctx) {
+        // Everything the thread needs is built here. A TrackerAPI or Coinage pass can reload Dominion while the thread
+        // sleeps, and the old plugin loader then refuses to load a class it has not loaded yet.
+        var plugin = ctx.plugin();
+        var id = plugin.getIdentifier();
+        var manager = com.hypixel.hytale.server.core.plugin.PluginManager.get();
+        var lock = SelfReload.sharedLock();
+        var skipped = SelfReload.Outcome.SKIPPED;
+        var failed = SelfReload.Outcome.FAILED;
+        java.util.function.Supplier<Object> current = () -> manager.getPlugin(id);
+        java.util.function.BooleanSupplier reload = () -> manager.reload(id);
+        var log = ctx.logger();
+        String retry = Binding.RELOAD;
         Thread t = new Thread(() -> {
             try {
                 Thread.sleep(3000);
-                var id = ctx.plugin().getIdentifier();
-                var manager = com.hypixel.hytale.server.core.plugin.PluginManager.get();
-                if (manager == null) {
-                    ctx.logger().at(Level.WARNING).log("Dominion could not reload itself, run %s", Binding.RELOAD);
-                    return;
-                }
-                SelfReload.Outcome done = SelfReload.run(() -> manager.getPlugin(id), ctx.plugin(), () -> manager.reload(id),
-                        SelfReload.sharedLock());
-                if (done == SelfReload.Outcome.SKIPPED) {
-                    ctx.logger().at(Level.INFO).log("Dominion was already reloaded by another plugin, so it skips its own reload");
-                } else if (done == SelfReload.Outcome.FAILED) {
-                    ctx.logger().at(Level.WARNING).log("Dominion could not reload itself, run %s", Binding.RELOAD);
+                SelfReload.Outcome done = manager == null ? failed : SelfReload.run(current, plugin, reload, lock);
+                if (done == skipped) {
+                    log.at(Level.INFO).log("Dominion was already reloaded by another plugin, so it skips its own reload");
+                } else if (done == failed) {
+                    log.at(Level.WARNING).log("Dominion could not reload itself, run %s", retry);
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             } catch (RuntimeException | LinkageError e) {
-                ctx.logger().at(Level.WARNING).withCause(e).log("Dominion could not reload itself, run %s", Binding.RELOAD);
+                log.at(Level.WARNING).withCause(e).log("Dominion could not reload itself, run %s", retry);
             }
         }, "Dominion-relink");
         t.setDaemon(true);

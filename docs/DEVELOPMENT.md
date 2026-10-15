@@ -204,14 +204,18 @@ dependency through the plugin bridge loader, so the bridges can name the sibling
   links to the new instance. TrackerAPI 1.0.3 and newer reload Dominion themselves, so that case stays quiet.
   Coinage 1.1.0 reloads the plugins that list it too, so `SelfReload` takes the lock TrackerAPI and Coinage hold for
   their reload pass (a `ReentrantLock` under the system property `ryvrook.dependents.lock`, waited on for up to 30
-  seconds) and only reloads when the plugin manager still holds the Dominion instance that asked. A
+  seconds) and only reloads when the plugin manager still holds the Dominion instance that asked. The relink thread
+  gets every class it needs before it sleeps, because after a reload the old plugin loader hands out the new
+  instance's classes and the JVM refuses them. A headless run on 2026-10-15 reloaded Feats, Coinage, Atlas, TrackerAPI
+  and Dominion in turn and logged "Enabled plugin Ryvrook:Dominion" once for each. A
   sibling that was unloaded logs one warning. `Integrations` is registered as a service under its own
   class and feeds `/fa integrations`.
 - Bridges. `integration.tracker.TrackerBridge`, `integration.feats.FeatsBridge`, `integration.atlas.AtlasBridge` and
   `integration.coinage.CoinageLink` are the only classes that name sibling types. Every call into a sibling is guarded, and stop sets a stopped flag
   before removing hooks. TrackerAPI and Coinage have `removeHooks`. Atlas got it late in 1.6.0, so the bridge looks it up by reflection.
   Feats publishes `FeatsApi` in its own setup with no enable hook, so the Feats bridge links on install or on a later
-  poll.
+  poll. Feats 1.5.1 answers false from `addStat` on an API object left from before a Feats reload, so on false the
+  bridge reads `FeatsApi.get()` again and, when that is a new object, relinks and tries the add once more.
 - Counters. `StatFanout` is one bus listener. It maps each `DominionEvent` with `StatMapper` (pure, facts behind the
   `StatMapper.Facts` interface) and hands the credits to every linked `StatSink`, which is `Counters.add` for
   TrackerAPI and `FeatsApi.addStat` for Feats. TrackerAPI accepts keys under another plugin's own prefix, so every key
