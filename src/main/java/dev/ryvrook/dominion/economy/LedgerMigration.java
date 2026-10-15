@@ -153,10 +153,16 @@ final class LedgerMigration {
     }
 
 
-    /** True when the balance never moved and still equals the starting balance. Caller holds the record's monitor. */
+    /**
+     * True when the balance is only the starting grant. A record made by this version knows it never moved, whatever
+     * eco.startingBalance says now. A record from an older file without the flag is judged by the current setting.
+     * Caller holds the record's monitor.
+     */
     static boolean untouched(PlayerData p, double startingBalance) {
-        return !Double.isNaN(startingBalance) && !p.balanceTouched()
-                && Math.abs(Money.round(p.balance()) - Money.round(startingBalance)) < CENT;
+        if (Double.isNaN(startingBalance) || p.balanceTouched()) {
+            return false;
+        }
+        return p.balanceFresh() || Math.abs(Money.round(p.balance()) - Money.round(startingBalance)) < CENT;
     }
 
     private boolean readable(UUID id) {

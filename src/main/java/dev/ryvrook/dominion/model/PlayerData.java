@@ -21,7 +21,11 @@ public final class PlayerData {
     private boolean tutorialSeen;
     private boolean mapHidden;
     private double balance;
-    /** True once the internal balance changed through a deposit, withdrawal or set. Null for a record that never moved money. */
+    /**
+     * True once the internal balance changed through a deposit, withdrawal or set. False for a record made by this
+     * version that never moved money, so its balance is the starting grant whatever the setting says now. Null for
+     * a record from an older file that never moved money since.
+     */
     private Boolean balanceTouched;
     private int kills;
     private int deaths;
@@ -34,6 +38,7 @@ public final class PlayerData {
         this.name = name == null ? "" : name;
         this.power = startingPower;
         this.balance = startingBalance;
+        this.balanceTouched = Boolean.FALSE;
         this.lastSeen = System.currentTimeMillis();
     }
 
@@ -64,6 +69,8 @@ public final class PlayerData {
     public synchronized void setBalance(double b) { balance = Math.max(0, b); balanceTouched = Boolean.TRUE; dirty = true; }
     /** True once the internal balance moved. A record without the flag, new or from an older file, answers false. */
     public synchronized boolean balanceTouched() { return Boolean.TRUE.equals(balanceTouched); }
+    /** True for a record made by this version whose balance never moved, so it still holds only its starting grant. */
+    public synchronized boolean balanceFresh() { return Boolean.FALSE.equals(balanceTouched); }
     public synchronized int kills() { return kills; }
     public synchronized void addKill() { kills++; dirty = true; }
     public synchronized int deaths() { return deaths; }
@@ -93,7 +100,8 @@ public final class PlayerData {
         PlayerData p = new PlayerData(uuid, rawName instanceof String s ? s : "", num(d, "Power"), num(d, "Balance"));
         String f = d.getString("Faction");
         p.factionId = f == null ? null : UUID.fromString(f);
-        p.balanceTouched = Boolean.TRUE.equals(d.get("BalanceTouched")) ? Boolean.TRUE : null;
+        Object touched = d.get("BalanceTouched");
+        p.balanceTouched = touched instanceof Boolean b ? b : null;
         p.lastSeen = (long) num(d, "LastSeen");
         p.lastDeath = (long) num(d, "LastDeath");
         try {

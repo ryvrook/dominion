@@ -72,6 +72,18 @@ class LedgerMigrationTest {
     }
 
     @Test
+    void aFreshRecordKeepsItsGrantAfterTheStartingBalanceChanged() {
+        BooksTest.FakeWallets w = new BooksTest.FakeWallets();
+        PlayerData fresh = player(100);
+        PlayerData reloaded = PlayerData.fromDocument(fresh.uuid(), fresh.toDocument());
+        // The admin lowered eco.startingBalance to 50 after these records were made.
+        assertEquals(LedgerMigration.Outcome.SKIPPED, LedgerMigration.moveOne(fresh, lock, pd -> true, pd -> true, w, 50).outcome());
+        assertEquals(LedgerMigration.Outcome.SKIPPED, LedgerMigration.moveOne(reloaded, lock, pd -> true, pd -> true, w, 50).outcome());
+        assertEquals(0, w.balance(fresh.uuid()));
+        assertEquals(100, reloaded.balance());
+    }
+
+    @Test
     void aFailedSaveDepositsNothingAndKeepsTheBalance() {
         PlayerData p = player(7);
         BooksTest.FakeWallets w = new BooksTest.FakeWallets();
