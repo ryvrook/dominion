@@ -1,5 +1,7 @@
 package dev.ryvrook.dominion.importer;
 
+import dev.ryvrook.dominion.text.Messages;
+
 import dev.ryvrook.dominion.model.Rank;
 import org.bson.Document;
 
@@ -41,14 +43,14 @@ final class HyperFactionsSource implements Source {
             try {
                 d = Data.json(file);
             } catch (Exception e) {
-                plan.skipped.add("The file " + file.getFileName() + " could not be read because " + e.getMessage());
+                plan.skipped.add(Messages.get(ImporterText.FILE_UNREADABLE, "file", file.getFileName(), "reason", e.getMessage()));
                 continue;
             }
             readFaction(file, d, plan);
         }
         Path zones = root.resolve("zones.json");
         if (Data.isFile(zones)) {
-            plan.skipped.add("Safe and war zones in zones.json are not imported. Recreate them with Dominion zone commands");
+            plan.skipped.add(Messages.get(ImporterText.HYPER_ZONES));
         }
     }
 
@@ -56,7 +58,7 @@ final class HyperFactionsSource implements Source {
         String id = Data.str(d, "id");
         String name = Data.str(d, "name");
         if (id == null || name == null) {
-            plan.skipped.add("The file " + file.getFileName() + " has no faction id or name");
+            plan.skipped.add(Messages.get(ImporterText.HYPER_FILE_INCOMPLETE, "file", file.getFileName()));
             return;
         }
         Plan.Faction f = new Plan.Faction(id);
@@ -68,7 +70,7 @@ final class HyperFactionsSource implements Source {
         for (Document m : Data.docs(d, "members")) {
             UUID uuid = Data.uuid(m.get("uuid"));
             if (uuid == null) {
-                plan.skipped.add("A member of " + name + " has no valid UUID");
+                plan.skipped.add(Messages.get(ImporterText.MEMBER_NO_UUID, "faction", name));
                 continue;
             }
             String role = String.valueOf(Data.str(m, "role")).toUpperCase(Locale.ROOT);
@@ -87,7 +89,7 @@ final class HyperFactionsSource implements Source {
             Integer x = Data.coord(c.get("chunkX"));
             Integer z = Data.coord(c.get("chunkZ"));
             if (world == null || world.isBlank() || x == null || z == null) {
-                plan.skipped.add("A claim of " + name + " is missing its world or has damaged chunk coordinates");
+                plan.skipped.add(Messages.get(ImporterText.CLAIM_DAMAGED_OF, "faction", name));
                 continue;
             }
             f.sourceCells++;

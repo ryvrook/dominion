@@ -1,5 +1,7 @@
 package dev.ryvrook.dominion.shop;
 
+import dev.ryvrook.dominion.text.Messages;
+
 /**
  * The shop's price rules, kept free of the server so they can be tested on their own.
  */
@@ -48,16 +50,16 @@ final class ShopRules {
     /** A readable problem with a price, or null. Zero is allowed when allowZero is set. */
     static String priceProblem(double price, boolean allowZero, boolean whole, double max) {
         if (Double.isNaN(price) || Double.isInfinite(price) || price < 0 || (!allowZero && price <= 0)) {
-            return allowZero ? "Prices cannot be negative." : "The price must be more than zero.";
+            return Messages.get(allowZero ? ShopText.PRICE_NEGATIVE : ShopText.PRICE_NOT_POSITIVE);
         }
         if (price > max) {
-            return "That price is too high.";
+            return Messages.get(ShopText.PRICE_TOO_HIGH);
         }
         if (price > 0 && round(price) <= 0) {
-            return "The price must be at least 0.01.";
+            return Messages.get(ShopText.PRICE_TOO_SMALL);
         }
         if (whole && Math.abs(price - Math.rint(price)) > 1e-6) {
-            return "Prices must be whole numbers because the currency is an item.";
+            return Messages.get(ShopText.PRICE_WHOLE);
         }
         return null;
     }

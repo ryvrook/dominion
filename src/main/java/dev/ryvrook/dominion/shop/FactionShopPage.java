@@ -7,6 +7,7 @@ import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.service.FactionService;
 import dev.ryvrook.dominion.shop.ShopBody.Btn;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.ui.PageEvent;
 
@@ -33,38 +34,39 @@ final class FactionShopPage extends ShopPage {
         Faction f = faction();
         ShopBody body = new ShopBody(c, events, "#Body");
         c.set("#F1.Visible", true);
-        c.set("#F1.Text", "Close");
+        c.set("#F1.Text", Messages.get(ShopText.BUTTON_CLOSE));
         ShopBody.on(events, "#F1", "close", "");
         if (f == null) {
-            c.set("#Heading.Text", "Faction shop");
-            body.text("This faction no longer exists.", Msg.MUTED);
+            c.set("#Heading.Text", Messages.get(ShopText.LABEL_FACTION_SHOP));
+            body.text(Messages.get(ShopText.FACTION_GONE), Msg.MUTED);
             return;
         }
-        c.set("#PageTitle.Text", f.tag() + " shop");
+        c.set("#PageTitle.Text", Messages.get(ShopText.TITLE_FACTION_SHOP, "faction", f.tag()));
         c.set("#Heading.Text", f.label());
         c.set("#Subheading.Text", balanceLine());
-        c.set("#Footer.Text", "Payments go to the bank of " + f.tag() + ".");
+        c.set("#Footer.Text", Messages.get(ShopText.FOOTER_PAYMENTS, "faction", f.tag()));
         if (!shops.factionEnabled()) {
-            body.text("Faction shops are turned off on this server.", Msg.MUTED);
+            body.text(Messages.get(ShopText.FACTION_SHOPS_OFF), Msg.MUTED);
             return;
         }
         List<ShopServiceImpl.Stock> stock = shops.stock(factionId);
         quantityRow(body);
-        body.section("For sale");
+        body.section(Messages.get(ShopText.SECTION_FOR_SALE));
         if (stock.isEmpty()) {
-            body.text(f.tag() + " has nothing for sale right now.", Msg.MUTED);
+            body.text(Messages.get(ShopText.NOTHING_FOR_SALE, "faction", f.tag()), Msg.MUTED);
         } else {
-            body.row(null, "Item", Msg.MUTED, new String[] {"In stock", "Price each", ""}, null);
+            body.row(null, Messages.get(ShopText.LABEL_ITEM), Msg.MUTED,
+                    new String[] {Messages.get(ShopText.LABEL_IN_STOCK), Messages.get(ShopText.LABEL_PRICE_EACH), ""}, null);
         }
         for (ShopServiceImpl.Stock s : stock) {
             int n = Math.min(quantity, s.quantity());
             body.row(s.itemId(), Names.of(s.itemId()), null,
                     new String[] {String.valueOf(s.quantity()), money(s.price()), ""}, null,
-                    Btn.of("Buy " + n, "buy", s.id().toString()));
+                    Btn.of(Messages.get(ShopText.BUTTON_BUY, "count", n), "buy", s.id().toString()));
         }
         if (shops.isOfficer(uuid(), f)) {
             c.set("#F2.Visible", true);
-            c.set("#F2.Text", "Manage shop");
+            c.set("#F2.Text", Messages.get(ShopText.BUTTON_MANAGE));
             ShopBody.on(events, "#F2", "manage", "");
         }
     }

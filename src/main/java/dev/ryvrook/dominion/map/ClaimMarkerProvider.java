@@ -25,6 +25,7 @@ import dev.ryvrook.dominion.model.Siege;
 import dev.ryvrook.dominion.service.EventsService;
 import dev.ryvrook.dominion.service.RelationService;
 import dev.ryvrook.dominion.service.SiegeService;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.util.Keys;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import org.joml.Vector3d;
@@ -127,7 +128,7 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
                     new Transform(x, y, z))
                     .withName(Message.raw(f.label()).color(colorOf(f)))
                     .withComponent(new TintComponent(tint(colorOf(f))))
-                    .withContextMenuItem(new ContextMenuItem("Faction info", "/f who " + f.tag()));
+                    .withContextMenuItem(new ContextMenuItem(Messages.get(MapText.MENU_FACTION_INFO), "/f who " + f.tag()));
             // No unclaim entry here. /f unclaim acts on the chunk the player stands in, not the
             // chunk that was clicked, so offering it on a distant marker would unclaim the wrong land.
             collector.add(b.build());
@@ -138,9 +139,9 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
         if (home != null && worldName.equals(home.world())) {
             collector.add(new MapMarkerBuilder(MarkerIds.of("home", mine.id()), HOME_IMAGE,
                     new Transform(new Vector3d(home.x(), home.y(), home.z())))
-                    .withName(Message.raw(mine.tag() + " home").color(colorOf(mine)))
+                    .withName(Message.raw(Messages.get(MapText.HOME, "faction", mine.tag())).color(colorOf(mine)))
                     .withComponent(new TintComponent(tint(colorOf(mine))))
-                    .withContextMenuItem(new ContextMenuItem("Faction info", "/f who " + mine.tag()))
+                    .withContextMenuItem(new ContextMenuItem(Messages.get(MapText.MENU_FACTION_INFO), "/f who " + mine.tag()))
                     .build());
         }
 
@@ -171,7 +172,7 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
                     .withComponent(new TintComponent(tint(color)));
             Faction owner = p.ownerId() == null ? null : ctx.repo().faction(p.ownerId());
             if (owner != null) {
-                b.withContextMenuItem(new ContextMenuItem("Holder info", "/f who " + owner.tag()));
+                b.withContextMenuItem(new ContextMenuItem(Messages.get(MapText.MENU_HOLDER_INFO), "/f who " + owner.tag()));
             }
             collector.add(b.build());
         }
@@ -224,9 +225,9 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
             }
             collector.add(new MapMarkerBuilder(MarkerIds.of("allyhome", ally.id()), HOME_IMAGE,
                     new Transform(new Vector3d(home.x(), home.y(), home.z())))
-                    .withName(Message.raw(ally.tag() + " home is open to you").color(Relation.ALLY.color()))
+                    .withName(Message.raw(Messages.get(MapText.ALLY_HOME, "faction", ally.tag())).color(Relation.ALLY.color()))
                     .withComponent(new TintComponent(tint(Relation.ALLY.color())))
-                    .withContextMenuItem(new ContextMenuItem("Faction info", "/f who " + ally.tag()))
+                    .withContextMenuItem(new ContextMenuItem(Messages.get(MapText.MENU_FACTION_INFO), "/f who " + ally.tag()))
                     .build());
         }
     }
@@ -240,7 +241,7 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
                     new Transform(new Vector3d(m.x(), m.y(), m.z())))
                     .withName(Message.raw(m.label()).color(m.color()))
                     .withComponent(new TintComponent(tint(m.color())))
-                    .withContextMenuItem(new ContextMenuItem("Attacker info", "/f who " + m.attackerTag()))
+                    .withContextMenuItem(new ContextMenuItem(Messages.get(MapText.MENU_ATTACKER_INFO), "/f who " + m.attackerTag()))
                     .build());
         }
     }
@@ -267,11 +268,12 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
                     }
                     Faction attacker = ctx.repo().faction(s.attacker());
                     Faction defender = ctx.repo().faction(s.defender());
-                    String a = attacker == null ? "Unknown" : attacker.tag();
-                    String d = defender == null ? "Unknown" : defender.tag();
-                    String phase = s.phase() == Siege.Phase.BREACHED ? "breached" : "capturing";
+                    String a = attacker == null ? Messages.get(MapText.UNKNOWN) : attacker.tag();
+                    String d = defender == null ? Messages.get(MapText.UNKNOWN) : defender.tag();
+                    String label = Messages.get(s.phase() == Siege.Phase.BREACHED ? MapText.SIEGE_BREACHED : MapText.SIEGE_CAPTURING,
+                            "attacker", a, "defender", d);
                     marks.add(new SiegeMark(s.id(), s.world(), s.x(), s.y(), s.z(),
-                            a + " sieging " + d + ", " + phase, attacker == null ? "#ff6b6b" : colorOf(attacker), a));
+                            label, attacker == null ? "#ff6b6b" : colorOf(attacker), a));
                 }
             }
             SiegeLayer built = new SiegeLayer(version, now, List.copyOf(marks));

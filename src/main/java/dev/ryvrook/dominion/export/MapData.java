@@ -11,6 +11,7 @@ import dev.ryvrook.dominion.model.Siege;
 import dev.ryvrook.dominion.service.ClaimService;
 import dev.ryvrook.dominion.service.EventsService;
 import dev.ryvrook.dominion.service.SiegeService;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.util.Keys;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 
@@ -114,7 +115,7 @@ final class MapData {
         for (Faction f : ctx.repo().factions()) {
             Location home = f.home();
             if (home != null && world.equals(home.world())) {
-                out.add(new PointOfInterest("home:" + f.id(), "home", f.tag() + " home", world,
+                out.add(new PointOfInterest("home:" + f.id(), "home", Messages.get(ExportText.HOME_LABEL, "faction", f.tag()), world,
                         home.x(), home.y(), home.z(), f.id(), f.color(), 0L));
             }
             for (Map.Entry<String, Faction.Warp> w : f.warps().entrySet()) {
@@ -131,8 +132,9 @@ final class MapData {
             }
             Faction attacker = ctx.repo().faction(s.attacker());
             Faction defender = ctx.repo().faction(s.defender());
-            String label = (attacker == null ? "Unknown" : attacker.tag()) + " besieging "
-                    + (defender == null ? "unknown" : defender.tag());
+            String label = Messages.get(ExportText.SIEGE_LABEL,
+                    "attacker", attacker == null ? Messages.get(ExportText.UNKNOWN_ATTACKER) : attacker.tag(),
+                    "defender", defender == null ? Messages.get(ExportText.UNKNOWN_DEFENDER) : defender.tag());
             out.add(new PointOfInterest("siege:" + s.id(), "siege", label, world, s.x(), s.y(), s.z(),
                     s.attacker(), attacker == null ? "#ff6b6b" : attacker.color(), s.phaseEndsAt()));
         }

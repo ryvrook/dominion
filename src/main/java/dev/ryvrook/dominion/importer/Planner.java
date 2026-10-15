@@ -1,5 +1,7 @@
 package dev.ryvrook.dominion.importer;
 
+import dev.ryvrook.dominion.text.Messages;
+
 import dev.ryvrook.dominion.config.Settings;
 
 import java.util.ArrayList;
@@ -78,12 +80,12 @@ final class Planner {
             String label = f.name == null || f.name.isBlank() ? f.sourceId : f.name;
             String previous = st.tagOf(Data.uuid(ledger.get(f.sourceId)));
             if (previous != null) {
-                skipped.add(label + " was already imported as " + previous);
+                skipped.add(Messages.get(ImporterText.ALREADY_IMPORTED, "faction", label, "tag", previous));
                 continue;
             }
             if (ledger.containsKey(f.sourceId)) {
                 // A faction imported earlier and disbanded since is not brought back.
-                skipped.add(label + " was imported before and that faction no longer exists");
+                skipped.add(Messages.get(ImporterText.IMPORTED_AND_GONE, "faction", label));
                 continue;
             }
             Decision d = new Decision(f);
@@ -91,9 +93,9 @@ final class Planner {
             for (Plan.Member m : f.members.values()) {
                 String other = memberOf.get(m.uuid());
                 if (other != null) {
-                    d.issues.add(nameOf(m, st) + " is already in the Dominion faction " + other + " and is left out");
+                    d.issues.add(Messages.get(ImporterText.MEMBER_ELSEWHERE, "player", nameOf(m, st), "tag", other));
                 } else if (!assigned.add(m.uuid())) {
-                    d.issues.add(nameOf(m, st) + " belongs to an earlier faction in this import and is left out");
+                    d.issues.add(Messages.get(ImporterText.MEMBER_EARLIER, "player", nameOf(m, st)));
                 } else {
                     free.add(m);
                 }
@@ -111,11 +113,11 @@ final class Planner {
                     }
                 }
                 if (lead != null) {
-                    d.issues.add("The original leader cannot lead it, so " + nameOf(lead, st) + " becomes the leader");
+                    d.issues.add(Messages.get(ImporterText.NEW_LEADER, "player", nameOf(lead, st)));
                 }
             }
             if (lead == null) {
-                skipped.add(label + " is skipped because none of its members is free to lead it");
+                skipped.add(Messages.get(ImporterText.NO_LEADER, "faction", label));
                 free.forEach(m -> assigned.remove(m.uuid()));
                 continue;
             }
@@ -130,14 +132,14 @@ final class Planner {
             String wanted = usableTag(f.preferredTag, st.settings()) ? f.preferredTag.strip() : label;
             d.tag = Tags.unique(wanted, st.settings(), t -> !st.tagTaken(t) && !usedTags.contains(t.toLowerCase(Locale.ROOT)));
             if (d.tag == null) {
-                skipped.add(label + " is skipped because no free tag could be made from its name");
+                skipped.add(Messages.get(ImporterText.NO_TAG, "faction", label));
                 free.forEach(m -> assigned.remove(m.uuid()));
                 continue;
             }
             usedTags.add(d.tag.toLowerCase(Locale.ROOT));
             if (!d.tag.equalsIgnoreCase(wanted.strip())) {
-                String why = st.tagTaken(Tags.base(wanted, st.settings())) ? " because that tag is already used in Dominion" : "";
-                d.issues.add("Its tag becomes " + d.tag + why);
+                d.issues.add(Messages.get(st.tagTaken(Tags.base(wanted, st.settings())) ? ImporterText.TAG_BECOMES_TAKEN
+                        : ImporterText.TAG_BECOMES, "tag", d.tag));
             }
             for (Map.Entry<String, LinkedHashSet<Long>> e : f.chunks.entrySet()) {
                 Set<Long> seen = planned.computeIfAbsent(e.getKey(), w -> new HashSet<>());
@@ -152,10 +154,10 @@ final class Planner {
                 }
             }
             if (d.taken > 0) {
-                d.issues.add(plural(d.taken, "of its chunks") + " already claimed in Dominion and skipped");
+                d.issues.add(plural(d.taken, ImporterText.TAKEN_ONE, ImporterText.TAKEN_MANY));
             }
             if (d.duplicate > 0) {
-                d.issues.add(plural(d.duplicate, "of its chunks") + " also claimed by an earlier faction in this import and skipped");
+                d.issues.add(plural(d.duplicate, ImporterText.DUPLICATE_ONE, ImporterText.DUPLICATE_MANY));
             }
             decisions.add(d);
         }
@@ -189,11 +191,8 @@ final class Planner {
                 && t.equals(Tags.base(t, s));
     }
 
-    /** A count with its noun, adding is or are when the noun starts with of. */
-    static String plural(int n, String noun) {
-        if (noun.startsWith("of ")) {
-            return n + " " + noun + (n == 1 ? " is" : " are");
-        }
-        return n + " " + noun + (n == 1 ? "" : "s");
+    /** The message for one or for many with the count filled in. */
+    static String plural(int n, String one, String many) {
+        return Messages.get(n == 1 ? one : many, "count", n);
     }
 }

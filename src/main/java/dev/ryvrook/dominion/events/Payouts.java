@@ -1,5 +1,7 @@
 package dev.ryvrook.dominion.events;
 
+import dev.ryvrook.dominion.text.Messages;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -70,13 +72,16 @@ final class Payouts {
     /** Joins the top tags as A, B and C for the season end line. */
     static String topList(List<String> tags, int max) {
         int n = Math.min(Math.max(0, max), tags.size());
+        if (n == 0) {
+            return "";
+        }
         StringBuilder out = new StringBuilder();
-        for (int i = 0; i < n; i++) {
+        for (int i = 0; i < n - 1; i++) {
             if (i > 0) {
-                out.append(i == n - 1 ? " and " : ", ");
+                out.append(", ");
             }
             out.append(tags.get(i));
         }
-        return out.toString();
+        return n == 1 ? tags.get(0) : Messages.get(EventsText.LIST_AND, "list", out, "last", tags.get(n - 1));
     }
 }

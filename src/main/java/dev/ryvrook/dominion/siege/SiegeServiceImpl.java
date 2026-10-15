@@ -19,6 +19,8 @@ import dev.ryvrook.dominion.service.ProgressService;
 import dev.ryvrook.dominion.service.RelationService;
 import dev.ryvrook.dominion.service.ShieldService;
 import dev.ryvrook.dominion.service.SiegeService;
+import dev.ryvrook.dominion.text.CommonText;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Keys;
 import dev.ryvrook.dominion.util.Players;
@@ -265,35 +267,35 @@ public final class SiegeServiceImpl implements SiegeService {
 
         Faction attacker = fs.factionOf(actor);
         if (attacker == null) {
-            return Result.fail("You are not in a faction.");
+            return Result.fail(Messages.get(CommonText.NOT_IN_FACTION));
         }
         if (attacker.isSystem()) {
-            return Result.fail("Server zones cannot start sieges.");
+            return Result.fail(Messages.get(SiegeText.SYSTEM_CANNOT_START));
         }
         if (!fs.can(actor, FactionAction.SIEGE)) {
-            return Result.fail("Your rank cannot start sieges.");
+            return Result.fail(Messages.get(SiegeText.RANK_CANNOT_START));
         }
         if (!s.bool("raid.enabled") || !s.bool("raid.modeSiege")) {
-            return Result.fail("Sieges are turned off on this server.");
+            return Result.fail(Messages.get(SiegeText.TURNED_OFF));
         }
         if (!eotw && graceActive(shields, s)) {
-            return Result.fail("Sieges are paused during the grace period.");
+            return Result.fail(Messages.get(SiegeText.GRACE));
         }
         int minAttackers = s.integer("raid.minAttackersOnline");
         if (onlineMembers(attacker) < minAttackers) {
-            return Result.fail("Your faction needs " + plural(minAttackers, "member") + " online to start a siege.");
+            return Result.fail(Messages.get(SiegeText.TOO_FEW_ATTACKERS, "members", plural(minAttackers, SiegeText.MEMBERS_ONE, SiegeText.MEMBERS_MANY)));
         }
 
         PlayerRef ref = Players.online(actor);
         Vector3d pos = Players.position(ref);
         String world = Players.worldName(ref);
         if (pos == null || world == null) {
-            return Result.fail("Your position is not known yet. Try again in a moment.");
+            return Result.fail(Messages.get(SiegeText.POSITION_UNKNOWN));
         }
         long here = Keys.chunkAt(pos.x, pos.z);
         Faction hereOwner = claims.ownerAt(world, here);
         if (hereOwner != null && !hereOwner.id().equals(attacker.id())) {
-            return Result.fail("Stand in the wilderness or your own land next to enemy land to start a siege.");
+            return Result.fail(Messages.get(SiegeText.WRONG_GROUND));
         }
 
         RelationService relations = ctx.serviceOrNull(RelationService.class);
@@ -312,22 +314,22 @@ public final class SiegeServiceImpl implements SiegeService {
             }
         }
         if (defender == null) {
-            return Result.fail("There is no enemy land next to you. Stand beside a chunk owned by an enemy faction.");
+            return Result.fail(Messages.get(SiegeText.NO_ENEMY_LAND));
         }
 
         int minDefenders = s.integer("raid.minDefendersOnline");
         if (!eotw && onlineMembers(defender) < minDefenders) {
-            return Result.fail(defender.tag() + " needs " + plural(minDefenders, "member") + " online before it can be sieged.");
+            return Result.fail(Messages.get(SiegeText.TOO_FEW_DEFENDERS, "faction", defender.tag(),
+                    "members", plural(minDefenders, SiegeText.MEMBERS_ONE, SiegeText.MEMBERS_MANY)));
         }
         if (!eotw && shields != null && shields.shielded(defender, world, target)) {
-            return Result.fail("That land of " + defender.tag() + " is under its shield right now.");
+            return Result.fail(Messages.get(SiegeText.SHIELDED, "faction", defender.tag()));
         }
         long now = Time.now();
         if (!eotw) {
             long immune = defender.stat(IMMUNE_UNTIL);
             if (immune > now) {
-                return Result.fail(defender.tag() + " held off a siege recently and is safe for "
-                        + Time.remaining(immune - now) + ".");
+                return Result.fail(Messages.get(SiegeText.IMMUNE, "faction", defender.tag(), "time", Time.remaining(immune - now)));
             }
         }
 
@@ -335,18 +337,18 @@ public final class SiegeServiceImpl implements SiegeService {
         synchronized (lock) {
             for (Siege a : active) {
                 if (involves(a, attacker.id())) {
-                    return Result.fail("Your faction is already in a siege.");
+                    return Result.fail(Messages.get(SiegeText.ALREADY_IN_SIEGE));
                 }
                 if (involves(a, defender.id())) {
-                    return Result.fail(defender.tag() + " is already in a siege.");
+                    return Result.fail(Messages.get(SiegeText.TARGET_IN_SIEGE, "faction", defender.tag()));
                 }
             }
             if (!eotw) {
                 long cooldown = Math.max(0, s.integer("raid.attackerCooldownMinutes")) * 60_000L;
                 long last = lastSiegeAt(attacker.id(), defender.id());
                 if (SiegeClock.onCooldown(last, cooldown, now)) {
-                    return Result.fail("You can siege " + defender.tag() + " again in "
-                            + Time.remaining(last + cooldown - now) + ".");
+                    return Result.fail(Messages.get(SiegeText.COOLDOWN, "faction", defender.tag(),
+                            "time", Time.remaining(last + cooldown - now)));
                 }
             }
             siege = new Siege(UUID.randomUUID(), attacker.id(), defender.id(), world, target,
@@ -358,35 +360,38 @@ public final class SiegeServiceImpl implements SiegeService {
 
         String where = Keys.describe(target);
         String who = nameOf(actor);
-        fs.audit(attacker, actor, who, "siege", "Started a siege against " + defender.tag() + " at chunk " + where
-                + " in " + world);
-        fs.audit(defender, actor, who, "siege", attacker.tag() + " started a siege at chunk " + where + " in " + world);
+        fs.audit(attacker, actor, who, "siege", Messages.get(SiegeText.AUDIT_STARTED, "faction", defender.tag(),
+                "chunk", where, "world", world));
+        fs.audit(defender, actor, who, "siege", Messages.get(SiegeText.AUDIT_STARTED_AGAINST_US, "faction", attacker.tag(),
+                "chunk", where, "world", world));
         phaseChanged(siege, attacker, defender);
-        return Result.pass("Your siege against " + defender.tag() + " has begun. Hold the banner for "
-                + Time.remaining(siege.phaseEndsAt() - now) + ".");
+        return Result.pass(Messages.get(SiegeText.BEGUN, "faction", defender.tag(),
+                "time", Time.remaining(siege.phaseEndsAt() - now)));
     }
 
     @Override
     public Result adminCancel(UUID admin, String adminName, UUID siegeId) {
         Siege siege = byId(siegeId);
         if (siege == null || !siege.active()) {
-            return Result.fail("No active siege has that id.");
+            return Result.fail(Messages.get(SiegeText.NO_SUCH_SIEGE));
         }
-        if (!finish(siege, Siege.Phase.FAILED, "An admin ended it.")) {
-            return Result.fail("That siege has already ended.");
+        if (!finish(siege, Siege.Phase.FAILED, Messages.get(SiegeText.REASON_ADMIN))) {
+            return Result.fail(Messages.get(SiegeText.ALREADY_ENDED));
         }
         FactionService fs = ctx.serviceOrNull(FactionService.class);
         if (fs != null) {
             Faction attacker = fs.byId(siege.attacker());
             Faction defender = fs.byId(siege.defender());
             if (attacker != null) {
-                fs.audit(attacker, admin, adminName, "siege", "An admin ended the siege against " + (defender == null ? "an unknown faction" : defender.tag()));
+                fs.audit(attacker, admin, adminName, "siege", Messages.get(SiegeText.AUDIT_ADMIN_ENDED_AGAINST,
+                        "faction", defender == null ? Messages.get(SiegeText.UNKNOWN_FACTION) : defender.tag()));
             }
             if (defender != null) {
-                fs.audit(defender, admin, adminName, "siege", "An admin ended the siege by " + (attacker == null ? "an unknown faction" : attacker.tag()));
+                fs.audit(defender, admin, adminName, "siege", Messages.get(SiegeText.AUDIT_ADMIN_ENDED_BY,
+                        "faction", attacker == null ? Messages.get(SiegeText.UNKNOWN_FACTION) : attacker.tag()));
             }
         }
-        return Result.pass("The siege was ended.");
+        return Result.pass(Messages.get(SiegeText.ENDED));
     }
 
     @Override
@@ -394,10 +399,10 @@ public final class SiegeServiceImpl implements SiegeService {
         FactionService fs = ctx.service(FactionService.class);
         Faction attacker = fs.factionOf(actor);
         if (attacker == null) {
-            return Result.fail("You are not in a faction.");
+            return Result.fail(Messages.get(CommonText.NOT_IN_FACTION));
         }
         if (!fs.can(actor, FactionAction.SIEGE)) {
-            return Result.fail("Your rank cannot call off sieges.");
+            return Result.fail(Messages.get(SiegeText.RANK_CANNOT_CANCEL));
         }
         Siege siege = null;
         synchronized (lock) {
@@ -408,19 +413,19 @@ public final class SiegeServiceImpl implements SiegeService {
                 }
             }
             if (siege == null) {
-                return Result.fail("Your faction is not running a siege.");
+                return Result.fail(Messages.get(SiegeText.NOT_RUNNING));
             }
             if (siege.phase() != Siege.Phase.CAPTURING) {
-                return Result.fail("The walls are already breached so the siege cannot be called off.");
+                return Result.fail(Messages.get(SiegeText.ALREADY_BREACHED));
             }
         }
         Faction defender = fs.byId(siege.defender());
-        String tag = defender != null ? defender.tag() : "the defenders";
-        if (!finish(siege, Siege.Phase.FAILED, "The attackers called it off.")) {
-            return Result.fail("Your faction is not running a siege.");
+        String tag = defender != null ? defender.tag() : Messages.get(SiegeText.THE_DEFENDERS);
+        if (!finish(siege, Siege.Phase.FAILED, Messages.get(SiegeText.REASON_CALLED_OFF))) {
+            return Result.fail(Messages.get(SiegeText.NOT_RUNNING));
         }
-        fs.audit(attacker, actor, nameOf(actor), "siege", "Called off the siege against " + tag);
-        return Result.pass("You called off the siege against " + tag + ".");
+        fs.audit(attacker, actor, nameOf(actor), "siege", Messages.get(SiegeText.AUDIT_CALLED_OFF, "faction", tag));
+        return Result.pass(Messages.get(SiegeText.CALLED_OFF, "faction", tag));
     }
 
     // ---- tick ----------------------------------------------------------------
@@ -447,7 +452,7 @@ public final class SiegeServiceImpl implements SiegeService {
             Faction attacker = fs.byId(siege.attacker());
             Faction defender = fs.byId(siege.defender());
             if (attacker == null || defender == null) {
-                finish(siege, Siege.Phase.FAILED, "A faction in it no longer exists.");
+                finish(siege, Siege.Phase.FAILED, Messages.get(SiegeText.REASON_FACTION_GONE));
                 continue;
             }
             Siege.Phase phase = siege.phase();
@@ -478,7 +483,7 @@ public final class SiegeServiceImpl implements SiegeService {
                 continue;
             }
             if (step == SiegeClock.Step.FAILED) {
-                finish(siege, Siege.Phase.FAILED, "No attacker stayed at the banner.");
+                finish(siege, Siege.Phase.FAILED, Messages.get(SiegeText.REASON_ABANDONED));
                 continue;
             }
             if (step == SiegeClock.Step.BREACH) {
@@ -543,14 +548,15 @@ public final class SiegeServiceImpl implements SiegeService {
 
     private void contestStatus(Siege siege, Faction attacker, Faction defender, int attackers, int defenders, long now) {
         long millis = siege.phaseEndsAt() - now;
-        String crowd = plural(attackers, "attacker") + " and " + plural(defenders, "defender")
-                + " are at the banner on chunk " + Keys.describe(siege.chunkIndex()) + ".";
-        String forAttackers = millis > 0 ? " The walls fall in " + Time.remaining(millis) + "."
-                : " The walls fall as soon as one of you stands at the banner.";
-        String forDefenders = millis > 0 ? " Your walls fall in " + Time.remaining(millis) + " unless you clear the banner."
-                : " Your walls fall as soon as an attacker reaches the banner, so keep it clear.";
-        alert(attacker, Msg.info("Siege on " + defender.tag() + " continues. " + crowd + forAttackers));
-        alert(defender, Msg.warn("The siege by " + attacker.tag() + " continues. " + crowd + forDefenders));
+        String crowd = Messages.get(SiegeText.CROWD,
+                "attackers", plural(attackers, SiegeText.ATTACKERS_ONE, SiegeText.ATTACKERS_MANY),
+                "defenders", plural(defenders, SiegeText.DEFENDERS_ONE, SiegeText.DEFENDERS_MANY),
+                "chunk", Keys.describe(siege.chunkIndex()));
+        String time = millis > 0 ? Time.remaining(millis) : "";
+        alert(attacker, Msg.info(Messages.get(millis > 0 ? SiegeText.STATUS_ATTACKERS : SiegeText.STATUS_ATTACKERS_NOW,
+                "faction", defender.tag(), "crowd", crowd, "time", time)));
+        alert(defender, Msg.warn(Messages.get(millis > 0 ? SiegeText.STATUS_DEFENDERS : SiegeText.STATUS_DEFENDERS_NOW,
+                "faction", attacker.tag(), "crowd", crowd, "time", time)));
     }
 
     // ---- phase changes -------------------------------------------------------
@@ -568,8 +574,8 @@ public final class SiegeServiceImpl implements SiegeService {
         publishBreach(siege, true);
         String where = Keys.describe(siege.chunkIndex());
         FactionService fs = ctx.service(FactionService.class);
-        fs.audit(attacker, null, "Server", "siege", "Breached " + defender.tag() + " at chunk " + where);
-        fs.audit(defender, null, "Server", "siege", attacker.tag() + " breached the land at chunk " + where);
+        fs.audit(attacker, null, Messages.get(SiegeText.SERVER), "siege", Messages.get(SiegeText.AUDIT_BREACHED, "faction", defender.tag(), "chunk", where));
+        fs.audit(defender, null, Messages.get(SiegeText.SERVER), "siege", Messages.get(SiegeText.AUDIT_WE_WERE_BREACHED, "faction", attacker.tag(), "chunk", where));
         phaseChanged(siege, attacker, defender);
     }
 
@@ -623,8 +629,8 @@ public final class SiegeServiceImpl implements SiegeService {
         }
         defender.addStat("siegesDefended", 1);
         FactionService fs = ctx.service(FactionService.class);
-        fs.audit(defender, null, "Server", "siege", "Held off the siege by " + attacker.tag());
-        fs.audit(attacker, null, "Server", "siege", defender.tag() + " held off the siege");
+        fs.audit(defender, null, Messages.get(SiegeText.SERVER), "siege", Messages.get(SiegeText.AUDIT_HELD_OFF, "faction", attacker.tag()));
+        fs.audit(attacker, null, Messages.get(SiegeText.SERVER), "siege", Messages.get(SiegeText.AUDIT_THEY_HELD_OFF, "faction", defender.tag()));
     }
 
     private void expire(Siege siege, Faction attacker, Faction defender) {
@@ -649,9 +655,9 @@ public final class SiegeServiceImpl implements SiegeService {
                 ctx.logger().at(Level.WARNING).withCause(e).log("Progress update for a siege failed");
             }
         }
-        fs.audit(attacker, null, "Server", "siege", "Won the siege against " + defender.tag()
-                + " with " + siege.blocksBroken() + " blocks broken and " + siege.containersOpened() + " containers opened");
-        fs.audit(defender, null, "Server", "siege", "Lost the siege to " + attacker.tag());
+        fs.audit(attacker, null, Messages.get(SiegeText.SERVER), "siege", Messages.get(SiegeText.AUDIT_WON, "faction", defender.tag(),
+                "blocks", siege.blocksBroken(), "containers", siege.containersOpened()));
+        fs.audit(defender, null, Messages.get(SiegeText.SERVER), "siege", Messages.get(SiegeText.AUDIT_LOST, "faction", attacker.tag()));
     }
 
     /**
@@ -704,39 +710,40 @@ public final class SiegeServiceImpl implements SiegeService {
         save();
         ctx.bus().publish(new DominionEvent.SiegePhase(siege.id(), siege.phase().name(), siege.attacker(),
                 siege.defender(), siege.world(), siege.chunkIndex()));
-        String aTag = attacker != null ? attacker.tag() : "the attackers";
-        String dTag = defender != null ? defender.tag() : "the defenders";
-        String where = "chunk " + Keys.describe(siege.chunkIndex()) + " in " + siege.world();
+        String aTag = attacker != null ? attacker.tag() : Messages.get(SiegeText.THE_ATTACKERS);
+        String dTag = defender != null ? defender.tag() : Messages.get(SiegeText.THE_DEFENDERS);
+        String where = Messages.get(SiegeText.WHERE, "chunk", Keys.describe(siege.chunkIndex()), "world", siege.world());
         long left = siege.phaseEndsAt() - Time.now();
         Message toAttacker;
         Message toDefender;
         switch (siege.phase()) {
             case CAPTURING -> {
-                toAttacker = Msg.warn("Your faction raised a siege banner against " + dTag + " at " + where
-                        + ". Stay near the banner for " + Time.remaining(left) + " to breach their land.");
-                toDefender = Msg.bad(aTag + " raised a siege banner against your land at " + where
-                        + ". Stand by the banner to break the siege.");
+                toAttacker = Msg.warn(Messages.get(SiegeText.RAISED_ATTACKER, "faction", dTag, "where", where,
+                        "time", Time.remaining(left)));
+                toDefender = Msg.bad(Messages.get(SiegeText.RAISED_DEFENDER, "faction", aTag, "where", where));
             }
             case BREACHED -> {
-                toAttacker = Msg.good("The land of " + dTag + " is breached at " + where + ". You can raid it for "
-                        + Time.remaining(left) + ".");
-                toDefender = Msg.bad(aTag + " breached your land at " + where + ". The breach lasts "
-                        + Time.remaining(left) + ".");
+                toAttacker = Msg.good(Messages.get(SiegeText.BREACHED_ATTACKER, "faction", dTag, "where", where,
+                        "time", Time.remaining(left)));
+                toDefender = Msg.bad(Messages.get(SiegeText.BREACHED_DEFENDER, "faction", aTag, "where", where,
+                        "time", Time.remaining(left)));
             }
             case FAILED -> {
                 String why = reason == null || reason.isBlank() ? "" : " " + reason;
-                toAttacker = Msg.bad("Your siege against " + dTag + " at " + where + " failed." + why);
-                toDefender = Msg.good("The siege by " + aTag + " at " + where + " failed." + why);
+                toAttacker = Msg.bad(Messages.get(SiegeText.FAILED_ATTACKER, "faction", dTag, "where", where, "reason", why));
+                toDefender = Msg.good(Messages.get(SiegeText.FAILED_DEFENDER, "faction", aTag, "where", where, "reason", why));
             }
             case DEFENDED -> {
                 long hours = Math.max(0, ctx.settings().integer("siege.immunityHoursAfterDefence")) + immunityBonus(defender);
-                toAttacker = Msg.bad(dTag + " held off your siege at " + where + ".");
-                toDefender = Msg.good("Your faction held off the siege by " + aTag + " at " + where
-                        + (hours > 0 ? ". You are safe from sieges for " + plural(hours, "hour") + "." : "."));
+                toAttacker = Msg.bad(Messages.get(SiegeText.DEFENDED_ATTACKER, "faction", dTag, "where", where));
+                toDefender = Msg.good(hours > 0
+                        ? Messages.get(SiegeText.DEFENDED_DEFENDER_IMMUNE, "faction", aTag, "where", where,
+                                "hours", plural(hours, SiegeText.HOURS_ONE, SiegeText.HOURS_MANY))
+                        : Messages.get(SiegeText.DEFENDED_DEFENDER, "faction", aTag, "where", where));
             }
             default -> {
-                toAttacker = Msg.info("The breach of " + dTag + " at " + where + " has ended. The siege is won.");
-                toDefender = Msg.info("The breach by " + aTag + " at " + where + " has ended.");
+                toAttacker = Msg.info(Messages.get(SiegeText.WON_ATTACKER, "faction", dTag, "where", where));
+                toDefender = Msg.info(Messages.get(SiegeText.WON_DEFENDER, "faction", aTag, "where", where));
             }
         }
         alert(attacker, toAttacker);
@@ -889,8 +896,8 @@ public final class SiegeServiceImpl implements SiegeService {
         }
     }
 
-    private static String plural(long n, String noun) {
-        return n + " " + noun + (n == 1 ? "" : "s");
+    private static String plural(long n, String one, String many) {
+        return Messages.get(n == 1 ? one : many, "count", n);
     }
 
     private String nameOf(UUID uuid) {

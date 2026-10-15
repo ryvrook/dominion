@@ -1,5 +1,7 @@
 package dev.ryvrook.dominion.importer;
 
+import dev.ryvrook.dominion.text.Messages;
+
 import dev.ryvrook.dominion.model.Rank;
 import org.bson.Document;
 
@@ -60,7 +62,7 @@ final class UltimateFactionsSource implements Source {
                     }
                 }
             } catch (Exception e) {
-                plan.notes.add("players.json could not be read so some member names are unknown");
+                plan.notes.add(Messages.get(ImporterText.UF_NO_PLAYERS));
             }
         }
         Map<String, Plan.Faction> byId = new HashMap<>();
@@ -68,7 +70,7 @@ final class UltimateFactionsSource implements Source {
             String id = Data.str(d, "id");
             String name = Data.str(d, "name");
             if (id == null || name == null) {
-                plan.skipped.add("A faction in factions.json has no id or name");
+                plan.skipped.add(Messages.get(ImporterText.UF_FACTION_INCOMPLETE));
                 continue;
             }
             Plan.Faction f = new Plan.Faction(id);
@@ -80,7 +82,7 @@ final class UltimateFactionsSource implements Source {
                 for (Map.Entry<String, Object> e : members.entrySet()) {
                     UUID uuid = Data.uuid(e.getKey());
                     if (uuid == null) {
-                        plan.skipped.add("A member of " + name + " has no valid UUID");
+                        plan.skipped.add(Messages.get(ImporterText.MEMBER_NO_UUID, "faction", name));
                         continue;
                     }
                     String role = String.valueOf(e.getValue()).toUpperCase(Locale.ROOT);
@@ -100,7 +102,7 @@ final class UltimateFactionsSource implements Source {
         }
         Path claimsFile = dir.resolve("claims.json");
         if (!Data.isFile(claimsFile)) {
-            plan.notes.add("claims.json was not found so no land is imported");
+            plan.notes.add(Messages.get(ImporterText.UF_NO_CLAIMS));
             return;
         }
         int zones = 0;
@@ -116,11 +118,11 @@ final class UltimateFactionsSource implements Source {
             Integer z = Data.coord(c.get("chunkZ"));
             String key = Data.str(c, "worldKey");
             if (f == null) {
-                plan.skipped.add("A claim belongs to an unknown faction " + fid);
+                plan.skipped.add(Messages.get(ImporterText.CLAIM_UNKNOWN_FACTION, "faction", fid));
                 continue;
             }
             if (x == null || z == null || key == null || key.isBlank()) {
-                plan.skipped.add("A claim of " + f.name + " is missing its world or has damaged chunk coordinates");
+                plan.skipped.add(Messages.get(ImporterText.CLAIM_DAMAGED_OF, "faction", f.name));
                 continue;
             }
             String world = Source.worldName(key);
@@ -128,7 +130,7 @@ final class UltimateFactionsSource implements Source {
                 if (!missingWorlds.contains(key)) {
                     missingWorlds.add(key);
                 }
-                plan.skipped.add("A claim of " + f.name + " is in world " + key + " which is not loaded, so its name is unknown");
+                plan.skipped.add(Messages.get(ImporterText.CLAIM_WORLD_UNLOADED, "faction", f.name, "world", key));
                 continue;
             }
             f.sourceCells++;
@@ -137,12 +139,11 @@ final class UltimateFactionsSource implements Source {
             }
         }
         if (zones > 0) {
-            plan.skipped.add(zones + " safe zone and war zone cells are not imported. Recreate them with Dominion zone commands");
+            plan.skipped.add(Messages.get(ImporterText.UF_ZONES, "count", zones));
         }
         if (!missingWorlds.isEmpty()) {
-            plan.notes.add("Claims are stored by world UUID. Load those worlds and preview again to include them");
+            plan.notes.add(Messages.get(ImporterText.UF_WORLD_UUIDS));
         }
-        plan.notes.add("Ultimate Factions claims 16 block cells. Each Dominion chunk is " + dev.ryvrook.dominion.util.Keys.chunkSize()
-                + " blocks wide, so a chunk is claimed in full when any of its cells was claimed");
+        plan.notes.add(Messages.get(ImporterText.UF_CELLS, "size", dev.ryvrook.dominion.util.Keys.chunkSize()));
     }
 }

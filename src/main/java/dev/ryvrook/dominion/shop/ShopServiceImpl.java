@@ -18,6 +18,8 @@ import dev.ryvrook.dominion.service.ProgressService;
 import dev.ryvrook.dominion.service.ShopService;
 import dev.ryvrook.dominion.service.VaultService;
 import dev.ryvrook.dominion.model.FactionAction;
+import dev.ryvrook.dominion.text.CommonText;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Players;
 import dev.ryvrook.dominion.util.Time;
@@ -168,8 +170,8 @@ public final class ShopServiceImpl implements ShopService {
             List<ItemStack> stacks = market == null || s.stockedBy() == null ? List.of() : Items.split(s.item(), s.itemId(), s.quantity());
             if (market != null && s.stockedBy() != null && Items.quantity(stacks) == s.quantity()) {
                 market.mail(s.stockedBy(), stacks, 0);
-                Msg.send(Players.online(s.stockedBy()), Msg.info("The " + Names.of(s.itemId()) + " you stocked in the shop of "
-                        + gone.tag() + " went to your market mailbox."));
+                Msg.send(Players.online(s.stockedBy()), Msg.info(Messages.get(ShopText.STOCK_MAILED, "item", Names.of(s.itemId()),
+                        "faction", gone.tag())));
             } else {
                 kept.add(s);
             }
@@ -244,14 +246,13 @@ public final class ShopServiceImpl implements ShopService {
     public Result adminSet(String category, String itemId, double buyPrice, double sellPrice) {
         String cat = category == null ? "" : category.trim();
         if (cat.isEmpty() || cat.length() > MAX_CATEGORY_LENGTH || !cat.matches("[A-Za-z0-9 _-]+")) {
-            return Result.fail("Category names use letters, numbers, spaces, dashes or underscores and up to "
-                    + MAX_CATEGORY_LENGTH + " characters.");
+            return Result.fail(Messages.get(ShopText.CATEGORY_NAME_RULES, "max", MAX_CATEGORY_LENGTH));
         }
         if (itemId == null || itemId.isBlank()) {
-            return Result.fail("Give the id of the item to list.");
+            return Result.fail(Messages.get(ShopText.GIVE_ITEM_ID));
         }
         if (!Items.exists(itemId.trim())) {
-            return Result.fail("There is no item called " + itemId.trim() + ".");
+            return Result.fail(Messages.get(ShopText.NO_SUCH_ITEM, "item", itemId.trim()));
         }
         String id = Items.item(itemId.trim()).getId();
         String bad = priceProblem(buyPrice, true);
@@ -264,10 +265,10 @@ public final class ShopServiceImpl implements ShopService {
         double buy = round(buyPrice);
         double sell = round(sellPrice);
         if (buy <= 0 && sell <= 0) {
-            return Result.fail("Give the item a buy price, a sell price or both.");
+            return Result.fail(Messages.get(ShopText.GIVE_A_PRICE));
         }
         if (buy > 0 && sell > buy) {
-            return Result.fail("The sell price cannot be higher than the buy price, or players could buy and sell for profit.");
+            return Result.fail(Messages.get(ShopText.SELL_ABOVE_BUY));
         }
         boolean existed;
         String catName;
@@ -278,30 +279,31 @@ public final class ShopServiceImpl implements ShopService {
             c.entries.put(key(id), new AdminEntry(id, buy, sell));
             saveAdmin();
         }
-        return Result.pass((existed ? "Updated " : "Added ") + Names.of(id) + " in " + catName + ". " + priceWords(buy, sell));
+        return Result.pass(Messages.get(existed ? ShopText.ENTRY_UPDATED : ShopText.ENTRY_ADDED, "item", Names.of(id),
+                "category", catName, "prices", priceWords(buy, sell)));
     }
 
     @Override
     public Result adminRemove(String category, String itemId) {
         if (category == null || itemId == null) {
-            return Result.fail("Give a category and an item id.");
+            return Result.fail(Messages.get(ShopText.GIVE_CATEGORY_AND_ITEM));
         }
         synchronized (lock) {
             Category c = catalogue.get(key(category));
             if (c == null) {
-                return Result.fail("There is no category called " + category + ".");
+                return Result.fail(Messages.get(ShopText.NO_SUCH_CATEGORY, "category", category));
             }
             AdminEntry removed = c.entries.remove(key(itemId.trim()));
             if (removed == null) {
-                return Result.fail(itemId + " is not listed in " + c.name + ".");
+                return Result.fail(Messages.get(ShopText.NOT_LISTED, "item", itemId, "category", c.name));
             }
             boolean dropped = c.entries.isEmpty();
             if (dropped) {
                 catalogue.remove(key(c.name));
             }
             saveAdmin();
-            return Result.pass("Removed " + Names.of(removed.itemId()) + " from " + c.name + "."
-                    + (dropped ? " The category was empty so it was removed too." : ""));
+            return Result.pass(Messages.get(ShopText.ENTRY_REMOVED, "item", Names.of(removed.itemId()), "category", c.name)
+                    + (dropped ? " " + Messages.get(ShopText.CATEGORY_DROPPED) : ""));
         }
     }
 
@@ -309,11 +311,11 @@ public final class ShopServiceImpl implements ShopService {
         synchronized (lock) {
             Category c = category == null ? null : catalogue.remove(key(category));
             if (c == null) {
-                return Result.fail("There is no category called " + category + ".");
+                return Result.fail(Messages.get(ShopText.NO_SUCH_CATEGORY, "category", category));
             }
             saveAdmin();
-            return Result.pass("Removed the category " + c.name + " and its " + c.entries.size()
-                    + (c.entries.size() == 1 ? " entry." : " entries."));
+            return Result.pass(Messages.get(c.entries.size() == 1 ? ShopText.CATEGORY_REMOVED_ONE : ShopText.CATEGORY_REMOVED_MANY,
+                    "category", c.name, "count", c.entries.size()));
         }
     }
 
@@ -352,10 +354,11 @@ public final class ShopServiceImpl implements ShopService {
             saveAdmin();
         }
         if (added == 0) {
-            return Result.fail(missing > 0 && missing == seed.length ? "None of the starter items exist on this server."
-                    : "The starter catalogue is already in place.");
+            return Result.fail(Messages.get(missing > 0 && missing == seed.length ? ShopText.SEED_NONE_EXIST
+                    : ShopText.SEED_IN_PLACE));
         }
-        return Result.pass("Added " + added + " starter entries." + (missing > 0 ? " " + missing + " items do not exist on this server and were skipped." : ""));
+        return Result.pass(Messages.get(ShopText.SEED_ADDED, "count", added)
+                + (missing > 0 ? " " + Messages.get(ShopText.SEED_SKIPPED, "count", missing) : ""));
     }
 
     /** The first category entry that buys this item back, or null. */
@@ -382,30 +385,30 @@ public final class ShopServiceImpl implements ShopService {
 
     Result buyAdmin(UUID buyer, String category, String itemId, int qty) {
         if (!adminEnabled()) {
-            return Result.fail("The admin shop is closed.");
+            return Result.fail(Messages.get(ShopText.ADMIN_CLOSED));
         }
         if (qty < 1 || qty > MAX_QUANTITY) {
-            return Result.fail("Buy between 1 and " + MAX_QUANTITY + " at a time.");
+            return Result.fail(Messages.get(ShopText.BUY_RANGE, "max", MAX_QUANTITY));
         }
         AdminEntry e = entry(category, itemId);
         if (e == null || e.buy() <= 0) {
-            return Result.fail("That item is not for sale.");
+            return Result.fail(Messages.get(ShopText.NOT_FOR_SALE));
         }
         if (!Items.exists(e.itemId())) {
-            return Result.fail("That item no longer exists on this server.");
+            return Result.fail(Messages.get(ShopText.ITEM_GONE));
         }
         PlayerRef p = Players.online(buyer);
         if (p == null) {
-            return Result.fail("You need to be online to buy from the shop.");
+            return Result.fail(Messages.get(ShopText.BUY_OFFLINE));
         }
         double total = round(e.buy() * qty);
-        String what = qty + " " + Names.of(e.itemId());
+        String what = Messages.get(ShopText.LOT, "count", qty, "item", Names.of(e.itemId()));
         CompletableFuture<Result> f = Items.onWorld(p, (store, ref) -> {
             List<ItemStack> stacks = Items.split(null, e.itemId(), qty);
             if (quantity(stacks) != qty) {
-                return Result.fail("That item could not be made right now.");
+                return Result.fail(Messages.get(ShopText.CANNOT_MAKE));
             }
-            Result paid = economy().withdraw(buyer, total, "Admin shop purchase of " + what);
+            Result paid = economy().withdraw(buyer, total, Messages.get(ShopText.MEMO_ADMIN_PURCHASE, "lot", what));
             if (paid.failed()) {
                 return Result.fail(paid.message());
             }
@@ -415,75 +418,75 @@ public final class ShopServiceImpl implements ShopService {
                 MarketService market = ctx.serviceOrNull(MarketService.class);
                 if (market != null) {
                     market.mail(buyer, left, 0);
-                    extra = " Your inventory was full so the rest went to your market mailbox.";
+                    extra = " " + Messages.get(ShopText.REST_MAILED);
                 } else {
                     int n = left.stream().mapToInt(ItemStack::getQuantity).sum();
                     double refund = round(e.buy() * n);
-                    economy().deposit(buyer, refund, "Admin shop refund");
-                    extra = " Your inventory was full so " + n + " were refunded.";
+                    economy().deposit(buyer, refund, Messages.get(ShopText.MEMO_ADMIN_REFUND));
+                    extra = " " + Messages.get(ShopText.REST_REFUNDED, "count", n);
                 }
             }
-            return Result.pass("You bought " + what + " for " + fmt(total) + "." + extra);
+            return Result.pass(Messages.get(ShopText.BOUGHT, "lot", what, "amount", fmt(total)) + extra);
         });
-        return await(p, f, "Buying " + what + ".");
+        return await(p, f, Messages.get(ShopText.BUYING_LOT, "lot", what));
     }
 
     /** Sells up to qty of an item from the player's inventory at the admin sell price. */
     Result sellAdmin(UUID seller, String category, String itemId, int qty) {
         if (!adminEnabled()) {
-            return Result.fail("The admin shop is closed.");
+            return Result.fail(Messages.get(ShopText.ADMIN_CLOSED));
         }
         if (qty < 1 || qty > MAX_QUANTITY) {
-            return Result.fail("Sell between 1 and " + MAX_QUANTITY + " at a time.");
+            return Result.fail(Messages.get(ShopText.SELL_RANGE, "max", MAX_QUANTITY));
         }
         AdminEntry e = entry(category, itemId);
         if (e == null || e.sell() <= 0) {
-            return Result.fail("The shop does not buy that item.");
+            return Result.fail(Messages.get(ShopText.DOES_NOT_BUY_THAT));
         }
         PlayerRef p = Players.online(seller);
         if (p == null) {
-            return Result.fail("You need to be online to sell to the shop.");
+            return Result.fail(Messages.get(ShopText.SELL_OFFLINE));
         }
         CompletableFuture<Result> f = Items.onWorld(p, (store, ref) -> {
             ItemContainer inv = Items.inventory(store, ref);
             int have = inv == null ? 0 : Items.count(inv, e.itemId());
             if (have <= 0) {
-                return Result.fail("You have no " + Names.of(e.itemId()) + " to sell.");
+                return Result.fail(Messages.get(ShopText.NONE_TO_SELL, "item", Names.of(e.itemId())));
             }
             List<ItemStack> taken = Items.take(inv, e.itemId(), Math.min(qty, have));
             return payForSale(seller, store, ref, taken, e);
         });
-        return await(p, f, "Selling.");
+        return await(p, f, Messages.get(ShopText.SELLING));
     }
 
     /** Sells the stack in the player's hand at the admin sell price. */
     Result sellHeld(UUID seller) {
         if (!adminEnabled()) {
-            return Result.fail("The admin shop is closed.");
+            return Result.fail(Messages.get(ShopText.ADMIN_CLOSED));
         }
         PlayerRef p = Players.online(seller);
         if (p == null) {
-            return Result.fail("You need to be online to sell to the shop.");
+            return Result.fail(Messages.get(ShopText.SELL_OFFLINE));
         }
         CompletableFuture<Result> f = Items.onWorld(p, (store, ref) -> {
             Items.Held held = Items.held(store, ref);
             if (held == null) {
-                return Result.fail("Hold the item you want to sell in your hand.");
+                return Result.fail(Messages.get(ShopText.HOLD_TO_SELL));
             }
             if (held.stack().isBroken()) {
-                return Result.fail("The shop does not buy broken items.");
+                return Result.fail(Messages.get(ShopText.NO_BROKEN));
             }
             AdminEntry e = sellableEntry(held.stack().getItemId());
             if (e == null) {
-                return Result.fail("The shop does not buy " + Names.of(held.stack().getItemId()) + ".");
+                return Result.fail(Messages.get(ShopText.DOES_NOT_BUY, "item", Names.of(held.stack().getItemId())));
             }
             ItemStack taken = Items.takeHeld(held, 0);
             if (taken == null) {
-                return Result.fail("That item could not be taken from your hand.");
+                return Result.fail(Messages.get(ShopText.HAND_TAKE_FAILED));
             }
             return payForSale(seller, store, ref, List.of(taken), e);
         });
-        return await(p, f, "Selling.");
+        return await(p, f, Messages.get(ShopText.SELLING));
     }
 
     /** Pays for taken items, giving them back when the payment fails. World thread only. */
@@ -492,13 +495,13 @@ public final class ShopServiceImpl implements ShopService {
                               List<ItemStack> taken, AdminEntry e) {
         int got = taken.stream().mapToInt(ItemStack::getQuantity).sum();
         if (got <= 0) {
-            return Result.fail("Those items could not be taken from your inventory.");
+            return Result.fail(Messages.get(ShopText.INVENTORY_TAKE_FAILED));
         }
         // An item currency pays whole units, so a boosted fraction is dropped.
         double total = ShopRules.saleTotal(boostedUnitSell(e, sellBoost(seller)), got, wholeOnly());
         Result r;
         try {
-            r = economy().deposit(seller, total, "Admin shop sale of " + got + " " + Names.of(e.itemId()));
+            r = economy().deposit(seller, total, Messages.get(ShopText.MEMO_ADMIN_SALE, "count", got, "item", Names.of(e.itemId())));
         } catch (RuntimeException ex) {
             ctx.logger().at(Level.WARNING).withCause(ex).log("Dominion admin shop payment failed");
             r = Result.fail("");
@@ -511,9 +514,9 @@ public final class ShopServiceImpl implements ShopService {
                     market.mail(seller, left, 0);
                 }
             }
-            return Result.fail(r.message().isBlank() ? "You could not be paid so your items were returned." : r.message());
+            return Result.fail(r.message().isBlank() ? Messages.get(ShopText.NOT_PAID) : r.message());
         }
-        return Result.pass("You sold " + got + " " + Names.of(e.itemId()) + " for " + fmt(total) + ".");
+        return Result.pass(Messages.get(ShopText.SOLD, "count", got, "item", Names.of(e.itemId()), "amount", fmt(total)));
     }
 
     // ---- faction shops -----------------------------------------------------------------
@@ -545,32 +548,32 @@ public final class ShopServiceImpl implements ShopService {
      */
     Result factionStock(UUID actor, int vaultPage, int slot, double price, String expectedItemId) {
         if (!factionEnabled()) {
-            return Result.fail("Faction shops are turned off on this server.");
+            return Result.fail(Messages.get(ShopText.FACTION_SHOPS_OFF));
         }
         Faction f = factions().factionOf(actor);
         if (f == null) {
-            return Result.fail("You are not in a faction.");
+            return Result.fail(Messages.get(CommonText.NOT_IN_FACTION));
         }
         if (!isOfficer(actor, f)) {
-            return Result.fail("Only officers and the leader can stock the faction shop.");
+            return Result.fail(Messages.get(ShopText.STOCK_OFFICERS));
         }
         if (!factions().can(actor, FactionAction.VAULT)) {
-            return Result.fail("Your rank cannot use the faction vault.");
+            return Result.fail(Messages.get(ShopText.VAULT_RANK));
         }
         dev.ryvrook.dominion.model.Member member = f.member(actor);
         if (member != null && member.onHold(Time.now())) {
-            return Result.fail("New members cannot use the vault yet. Try again in " + Time.remaining(member.holdUntil() - Time.now()) + ".");
+            return Result.fail(Messages.get(ShopText.NEW_MEMBER_VAULT, "time", Time.remaining(member.holdUntil() - Time.now())));
         }
         VaultService vault = ctx.serviceOrNull(VaultService.class);
         if (vault == null) {
-            return Result.fail("The faction vault is not available on this server.");
+            return Result.fail(Messages.get(ShopText.VAULT_UNAVAILABLE));
         }
         int pages = vault.pages(f);
         if (vaultPage < 1 || vaultPage > pages) {
-            return Result.fail(pages == 1 ? "Your vault has one page." : "Your vault has pages 1 to " + pages + ".");
+            return Result.fail(pages == 1 ? Messages.get(ShopText.VAULT_ONE_PAGE) : Messages.get(ShopText.VAULT_PAGE_RANGE, "pages", pages));
         }
         if (slot < 1) {
-            return Result.fail("Pick a vault slot from 1 upwards.");
+            return Result.fail(Messages.get(ShopText.PICK_SLOT));
         }
         String bad = priceProblem(price, false);
         if (bad != null) {
@@ -583,45 +586,45 @@ public final class ShopServiceImpl implements ShopService {
             List<Stock> list = stockList(f.id());
             int max = maxFactionEntries();
             if (list.size() >= max) {
-                return Result.fail("Your faction shop already holds " + list.size() + " entries. The limit is " + max + ".");
+                return Result.fail(Messages.get(ShopText.SHOP_FULL, "count", list.size(), "max", max));
             }
             ItemStack peek = vault.peekSlot(f, vaultPage, slot);
             if (peek == null || ItemStack.isEmpty(peek)) {
-                return Result.fail("Vault page " + vaultPage + " slot " + slot + " is empty.");
+                return Result.fail(Messages.get(ShopText.SLOT_EMPTY, "page", vaultPage, "slot", slot));
             }
             if (expectedItemId != null && !expectedItemId.equals(peek.getItemId())) {
-                return Result.fail("Vault page " + vaultPage + " slot " + slot + " changed. Check the list and try again.");
+                return Result.fail(Messages.get(ShopText.SLOT_CHANGED, "page", vaultPage, "slot", slot));
             }
             if (peek.isBroken()) {
-                return Result.fail("Broken items cannot be stocked.");
+                return Result.fail(Messages.get(ShopText.NO_BROKEN_STOCK));
             }
             ItemStack taken = vault.takeSlot(f, vaultPage, slot);
             if (taken == null || ItemStack.isEmpty(taken)) {
-                return Result.fail("That vault slot could not be taken. The vault may be sealed by a breach.");
+                return Result.fail(Messages.get(ShopText.SLOT_TAKE_FAILED));
             }
             s = new Stock(UUID.randomUUID(), taken.getItemId(), Items.toDocument(taken), taken.getQuantity(), each,
                     actor, actorName, Time.now());
             list.add(s);
             saveFaction(f.id());
         }
-        String what = s.quantity() + " " + Names.of(s.itemId());
-        factions().audit(f, actor, actorName, "shop", "Stocked " + what + " from vault page " + vaultPage + " slot " + slot
-                + " at " + fmt(each) + " each");
+        String what = lot(s.quantity(), s.itemId());
+        factions().audit(f, actor, actorName, "shop", Messages.get(ShopText.AUDIT_STOCKED_VAULT, "lot", what, "page", vaultPage,
+                "slot", slot, "price", fmt(each)));
         ctx.bus().publish(new DominionEvent.FactionChanged(f.id()));
-        return Result.pass("Stocked " + what + " from the vault at " + fmt(each) + " each.");
+        return Result.pass(Messages.get(ShopText.STOCKED_VAULT, "lot", what, "price", fmt(each)));
     }
 
     @Override
     public Result factionStockHeld(UUID actor, double price) {
         if (!factionEnabled()) {
-            return Result.fail("Faction shops are turned off on this server.");
+            return Result.fail(Messages.get(ShopText.FACTION_SHOPS_OFF));
         }
         Faction f = factions().factionOf(actor);
         if (f == null) {
-            return Result.fail("You are not in a faction.");
+            return Result.fail(Messages.get(CommonText.NOT_IN_FACTION));
         }
         if (!isOfficer(actor, f)) {
-            return Result.fail("Only officers and the leader can stock the faction shop.");
+            return Result.fail(Messages.get(ShopText.STOCK_OFFICERS));
         }
         String bad = priceProblem(price, false);
         if (bad != null) {
@@ -630,49 +633,49 @@ public final class ShopServiceImpl implements ShopService {
         double each = round(price);
         PlayerRef p = Players.online(actor);
         if (p == null) {
-            return Result.fail("You need to be online to stock the shop.");
+            return Result.fail(Messages.get(ShopText.STOCK_OFFLINE));
         }
         String actorName = name(actor);
         CompletableFuture<Result> fut = Items.onWorld(p, (store, ref) -> {
             Items.Held held = Items.held(store, ref);
             if (held == null) {
-                return Result.fail("Hold the item you want to stock in your hand.");
+                return Result.fail(Messages.get(ShopText.HOLD_TO_STOCK));
             }
             if (held.stack().isBroken()) {
-                return Result.fail("Broken items cannot be stocked.");
+                return Result.fail(Messages.get(ShopText.NO_BROKEN_STOCK));
             }
             Stock s;
             synchronized (lock) {
                 List<Stock> list = stockList(f.id());
                 int max = maxFactionEntries();
                 if (list.size() >= max) {
-                    return Result.fail("Your faction shop already holds " + list.size() + " entries. The limit is " + max + ".");
+                    return Result.fail(Messages.get(ShopText.SHOP_FULL, "count", list.size(), "max", max));
                 }
                 ItemStack taken = Items.takeHeld(held, 0);
                 if (taken == null) {
-                    return Result.fail("That item could not be taken from your hand.");
+                    return Result.fail(Messages.get(ShopText.HAND_TAKE_FAILED));
                 }
                 s = new Stock(UUID.randomUUID(), taken.getItemId(), Items.toDocument(taken), taken.getQuantity(), each,
                         actor, actorName, Time.now());
                 list.add(s);
                 saveFaction(f.id());
             }
-            String what = s.quantity() + " " + Names.of(s.itemId());
-            factions().audit(f, actor, actorName, "shop", "Stocked " + what + " at " + fmt(each) + " each");
+            String what = lot(s.quantity(), s.itemId());
+            factions().audit(f, actor, actorName, "shop", Messages.get(ShopText.AUDIT_STOCKED, "lot", what, "price", fmt(each)));
             ctx.bus().publish(new DominionEvent.FactionChanged(f.id()));
-            return Result.pass("Stocked " + what + " in the faction shop at " + fmt(each) + " each.");
+            return Result.pass(Messages.get(ShopText.STOCKED, "lot", what, "price", fmt(each)));
         });
-        return await(p, fut, "Stocking the shop.");
+        return await(p, fut, Messages.get(ShopText.STOCKING));
     }
 
     @Override
     public Result factionUnstock(UUID actor, String entryId) {
         Faction f = factions().factionOf(actor);
         if (f == null) {
-            return Result.fail("You are not in a faction.");
+            return Result.fail(Messages.get(CommonText.NOT_IN_FACTION));
         }
         if (!isOfficer(actor, f)) {
-            return Result.fail("Only officers and the leader can take items out of the faction shop.");
+            return Result.fail(Messages.get(ShopText.TAKE_OFFICERS));
         }
         // Stock usually came from the vault, so taking someone else's entry needs the same rights as the vault.
         boolean vaultRights = factions().can(actor, FactionAction.VAULT);
@@ -680,7 +683,7 @@ public final class ShopServiceImpl implements ShopService {
         boolean onHold = member != null && member.onHold(Time.now());
         PlayerRef p = Players.online(actor);
         if (p == null) {
-            return Result.fail("You need to be online to take items out of the shop.");
+            return Result.fail(Messages.get(ShopText.TAKE_OFFLINE));
         }
         String actorName = name(actor);
         CompletableFuture<Result> fut = Items.onWorld(p, (store, ref) -> {
@@ -691,20 +694,20 @@ public final class ShopServiceImpl implements ShopService {
                 List<Stock> list = stockList(f.id());
                 int index = find(list, entryId);
                 if (index < 0) {
-                    return Result.fail("That entry is no longer in the shop.");
+                    return Result.fail(Messages.get(ShopText.ENTRY_GONE));
                 }
                 s = list.get(index);
                 if (!actor.equals(s.stockedBy())) {
                     if (!vaultRights) {
-                        return Result.fail("Your rank cannot use the faction vault, so you can only take back what you stocked.");
+                        return Result.fail(Messages.get(ShopText.TAKE_OWN_ONLY_RANK));
                     }
                     if (onHold) {
-                        return Result.fail("New members can only take back what they stocked until their hold ends.");
+                        return Result.fail(Messages.get(ShopText.TAKE_OWN_ONLY_NEW));
                     }
                 }
                 List<ItemStack> stacks = Items.split(s.item(), s.itemId(), s.quantity());
                 if (Items.quantity(stacks) != s.quantity()) {
-                    return Result.fail("That item could not be made right now.");
+                    return Result.fail(Messages.get(ShopText.CANNOT_MAKE));
                 }
                 List<ItemStack> left = giveSafely(store, ref, stacks);
                 int leftQty = left.stream().mapToInt(ItemStack::getQuantity).sum();
@@ -723,31 +726,31 @@ public final class ShopServiceImpl implements ShopService {
                 saveFaction(f.id());
             }
             if (returned <= 0) {
-                return Result.fail("Your inventory is full. Make some room and try again.");
+                return Result.fail(Messages.get(ShopText.INVENTORY_FULL));
             }
-            String what = returned + " " + Names.of(s.itemId());
-            factions().audit(f, actor, actorName, "shop", "Took " + what + " out of the faction shop");
+            String what = lot(returned, s.itemId());
+            factions().audit(f, actor, actorName, "shop", Messages.get(ShopText.AUDIT_TOOK, "lot", what));
             ctx.bus().publish(new DominionEvent.FactionChanged(f.id()));
-            return Result.pass("Took " + what + " out of the faction shop."
-                    + (mailed ? " Some did not fit and went to your market mailbox." : ""));
+            return Result.pass(Messages.get(ShopText.TOOK, "lot", what)
+                    + (mailed ? " " + Messages.get(ShopText.TOOK_MAILED) : ""));
         });
-        return await(p, fut, "Taking the items back.");
+        return await(p, fut, Messages.get(ShopText.TAKING));
     }
 
     Result buyStock(UUID buyer, UUID factionId, String entryId, int qty) {
         if (!factionEnabled()) {
-            return Result.fail("Faction shops are turned off on this server.");
+            return Result.fail(Messages.get(ShopText.FACTION_SHOPS_OFF));
         }
         if (qty < 1 || qty > MAX_QUANTITY) {
-            return Result.fail("Buy between 1 and " + MAX_QUANTITY + " at a time.");
+            return Result.fail(Messages.get(ShopText.BUY_RANGE, "max", MAX_QUANTITY));
         }
         Faction f = factions().byId(factionId);
         if (f == null) {
-            return Result.fail("That faction no longer exists.");
+            return Result.fail(Messages.get(ShopText.FACTION_GONE));
         }
         PlayerRef p = Players.online(buyer);
         if (p == null) {
-            return Result.fail("You need to be online to buy from a shop.");
+            return Result.fail(Messages.get(ShopText.BUY_OFFLINE_FACTION));
         }
         String buyerName = name(buyer);
         CompletableFuture<Result> fut = Items.onWorld(p, (store, ref) -> {
@@ -759,13 +762,13 @@ public final class ShopServiceImpl implements ShopService {
                 List<Stock> list = stockList(f.id());
                 int index = find(list, entryId);
                 if (index < 0) {
-                    return Result.fail("That item is no longer in stock.");
+                    return Result.fail(Messages.get(ShopText.OUT_OF_STOCK));
                 }
                 s = list.get(index);
                 n = Math.min(qty, s.quantity());
                 stacks = Items.split(s.item(), s.itemId(), n);
                 if (quantity(stacks) != n) {
-                    return Result.fail("That item could not be made right now.");
+                    return Result.fail(Messages.get(ShopText.CANNOT_MAKE));
                 }
                 if (n < s.quantity()) {
                     list.set(index, s.withQuantity(s.quantity() - n));
@@ -775,17 +778,17 @@ public final class ShopServiceImpl implements ShopService {
                 saveFaction(f.id());
             }
             double total = round(s.price() * n);
-            String reserved = n + " " + Names.of(s.itemId());
-            Result paid = economy().withdraw(buyer, total, "Bought " + reserved + " from the shop of " + f.tag());
+            String reserved = lot(n, s.itemId());
+            Result paid = economy().withdraw(buyer, total, Messages.get(ShopText.MEMO_BOUGHT_FROM, "lot", reserved, "faction", f.tag()));
             if (paid.failed()) {
                 returnStock(f.id(), s, n);
                 return Result.fail(paid.message());
             }
-            Result credit = economy().bankCredit(f, total, buyerName + " bought " + reserved + " from the faction shop");
+            Result credit = economy().bankCredit(f, total, Messages.get(ShopText.MEMO_BANK_SALE, "buyer", buyerName, "lot", reserved));
             if (credit.failed()) {
                 refundBuyer(buyer, total);
                 returnStock(f.id(), s, n);
-                return Result.fail("The faction bank could not take the payment so nothing was bought.");
+                return Result.fail(Messages.get(ShopText.BANK_REFUSED));
             }
             List<ItemStack> left = giveSafely(store, ref, stacks);
             int leftQty = quantity(left);
@@ -800,7 +803,7 @@ public final class ShopServiceImpl implements ShopService {
             if (leftQty > 0) {
                 // Without a mailbox the items that did not fit go back into the shop and are paid back.
                 double refund = round(s.price() * leftQty);
-                if (economy().bankCharge(f, refund, "Faction shop refund to " + buyerName).success()) {
+                if (economy().bankCharge(f, refund, Messages.get(ShopText.MEMO_REFUND_TO, "buyer", buyerName)).success()) {
                     refundBuyer(buyer, refund);
                     total = round(total - refund);
                 } else {
@@ -812,20 +815,19 @@ public final class ShopServiceImpl implements ShopService {
                 returnStock(f.id(), s, leftQty);
             }
             int bought = n - leftQty;
-            String owed = unrefunded > 0 ? " " + fmt(unrefunded) + " for the items that did not fit could not be paid back. Ask "
-                    + f.tag() + " to refund you." : "";
+            String owed = unrefunded > 0 ? " " + Messages.get(ShopText.OWED, "amount", fmt(unrefunded), "faction", f.tag()) : "";
             if (bought <= 0) {
-                return Result.fail("Your inventory is full. Make some room and try again." + owed);
+                return Result.fail(Messages.get(ShopText.INVENTORY_FULL) + owed);
             }
-            String what = bought + " " + Names.of(s.itemId());
+            String what = lot(bought, s.itemId());
             traded(s, bought, total, buyer, f);
             if (s.stockedBy() != null && !s.stockedBy().equals(buyer)) {
-                Msg.send(Players.online(s.stockedBy()), Msg.good(buyerName + " bought " + what + " from your faction shop for " + fmt(total) + "."));
+                Msg.send(Players.online(s.stockedBy()), Msg.good(Messages.get(ShopText.SOLD_FROM_SHOP, "buyer", buyerName, "lot", what, "amount", fmt(total))));
             }
-            return Result.pass("You bought " + what + " from " + f.tag() + " for " + fmt(total) + "."
-                    + (mailed ? " Your inventory was full so the rest went to your market mailbox." : "") + owed);
+            return Result.pass(Messages.get(ShopText.BOUGHT_FROM, "lot", what, "faction", f.tag(), "amount", fmt(total))
+                    + (mailed ? " " + Messages.get(ShopText.REST_MAILED) : "") + owed);
         });
-        return await(p, fut, "Buying.");
+        return await(p, fut, Messages.get(ShopText.BUYING));
     }
 
     /**
@@ -865,7 +867,7 @@ public final class ShopServiceImpl implements ShopService {
 
     /** Pays a buyer back, keeping the coins in their mailbox when the economy refuses. */
     private void refundBuyer(UUID buyer, double amount) {
-        if (amount <= 0 || economy().deposit(buyer, amount, "Faction shop refund").success()) {
+        if (amount <= 0 || economy().deposit(buyer, amount, Messages.get(ShopText.MEMO_FACTION_REFUND)).success()) {
             return;
         }
         MarketService market = ctx.serviceOrNull(MarketService.class);
@@ -1002,12 +1004,12 @@ public final class ShopServiceImpl implements ShopService {
             return;
         }
         if (!adminEnabled()) {
-            Msg.send(player, Msg.bad("The admin shop is closed."));
+            Msg.send(player, Msg.bad(Messages.get(ShopText.ADMIN_CLOSED)));
             return;
         }
         String cat = categoryName(category);
         if (category != null && !category.isBlank() && cat == null) {
-            Msg.send(player, Msg.warn("There is no shop category called " + category + "."));
+            Msg.send(player, Msg.warn(Messages.get(ShopText.NO_SUCH_SHOP_CATEGORY, "category", category)));
         }
         if (cat == null) {
             List<String> all = adminCategories();
@@ -1031,11 +1033,11 @@ public final class ShopServiceImpl implements ShopService {
             return;
         }
         if (faction == null) {
-            Msg.send(player, Msg.bad("That faction does not exist."));
+            Msg.send(player, Msg.bad(Messages.get(CommonText.NO_SUCH_FACTION)));
             return;
         }
         if (!factionEnabled()) {
-            Msg.send(player, Msg.bad("Faction shops are turned off on this server."));
+            Msg.send(player, Msg.bad(Messages.get(ShopText.FACTION_SHOPS_OFF)));
             return;
         }
         open(player, new FactionShopPage(player, ctx, this, faction.id()));
@@ -1048,11 +1050,11 @@ public final class ShopServiceImpl implements ShopService {
         }
         Faction f = factions().factionOf(player.getUuid());
         if (f == null) {
-            Msg.send(player, Msg.bad("You are not in a faction."));
+            Msg.send(player, Msg.bad(Messages.get(CommonText.NOT_IN_FACTION)));
             return;
         }
         if (!isOfficer(player.getUuid(), f)) {
-            Msg.send(player, Msg.bad("Only officers and the leader can manage the faction shop."));
+            Msg.send(player, Msg.bad(Messages.get(ShopText.MANAGE_OFFICERS)));
             return;
         }
         open(player, new FactionManagerPage(player, ctx, this, f.id()));
@@ -1072,7 +1074,7 @@ public final class ShopServiceImpl implements ShopService {
                 ctx.logger().at(Level.WARNING).withCause(err).log("Dominion shop page failed to open");
             }
             if (err != null || !Boolean.TRUE.equals(ok)) {
-                Msg.send(player, Msg.bad("The shop could not be opened right now."));
+                Msg.send(player, Msg.bad(Messages.get(ShopText.OPEN_FAILED)));
             }
         });
     }
@@ -1094,10 +1096,10 @@ public final class ShopServiceImpl implements ShopService {
     private Result outcome(CompletableFuture<Result> f) {
         try {
             Result r = f.join();
-            return r == null ? Result.fail("You need to be in a world to do that.") : r;
+            return r == null ? Result.fail(Messages.get(ShopText.NEED_WORLD)) : r;
         } catch (RuntimeException e) {
             ctx.logger().at(Level.WARNING).withCause(e).log("Dominion shop action failed");
-            return Result.fail("Something went wrong and nothing was changed.");
+            return Result.fail(Messages.get(ShopText.SOMETHING_WRONG));
         }
     }
 
@@ -1141,9 +1143,13 @@ public final class ShopServiceImpl implements ShopService {
 
     String priceWords(double buy, double sell) {
         if (buy > 0 && sell > 0) {
-            return "Players buy it for " + fmt(buy) + " and sell it for " + fmt(sell) + ".";
+            return Messages.get(ShopText.PRICES_BOTH, "buy", fmt(buy), "sell", fmt(sell));
         }
-        return buy > 0 ? "Players buy it for " + fmt(buy) + " and cannot sell it." : "Players sell it for " + fmt(sell) + " and cannot buy it.";
+        return buy > 0 ? Messages.get(ShopText.PRICES_BUY_ONLY, "buy", fmt(buy)) : Messages.get(ShopText.PRICES_SELL_ONLY, "sell", fmt(sell));
+    }
+
+    private static String lot(int count, String itemId) {
+        return Messages.get(ShopText.LOT, "count", count, "item", Names.of(itemId));
     }
 
     String name(UUID player) {
@@ -1152,7 +1158,7 @@ public final class ShopServiceImpl implements ShopService {
             return p.getUsername();
         }
         String n = ctx.player(player).name();
-        return n == null || n.isBlank() ? "Someone" : n;
+        return n == null || n.isBlank() ? Messages.get(ShopText.SOMEONE) : n;
     }
 
     String fmt(double amount) {

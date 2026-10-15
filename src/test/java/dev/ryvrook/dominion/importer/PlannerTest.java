@@ -137,9 +137,11 @@ class PlannerTest {
 
     @Test
     void pluralsReadNaturally() {
-        assertEquals("1 faction", Planner.plural(1, "faction"));
-        assertEquals("2 factions", Planner.plural(2, "faction"));
-        assertEquals("1 of its chunks is", Planner.plural(1, "of its chunks"));
-        assertEquals("3 of its chunks are", Planner.plural(3, "of its chunks"));
+        assertEquals("1 faction", Planner.plural(1, ImporterText.FACTIONS_ONE, ImporterText.FACTIONS_MANY));
+        assertEquals("2 factions", Planner.plural(2, ImporterText.FACTIONS_ONE, ImporterText.FACTIONS_MANY));
+        assertEquals("1 of its chunks is already claimed in Dominion and skipped",
+                Planner.plural(1, ImporterText.TAKEN_ONE, ImporterText.TAKEN_MANY));
+        assertEquals("3 of its chunks are already claimed in Dominion and skipped",
+                Planner.plural(3, ImporterText.TAKEN_ONE, ImporterText.TAKEN_MANY));
     }
 }

@@ -5,6 +5,7 @@
 ### Messages
 - Every player sentence of the faction, land, home, relation, economy and nation packages and the time words players see are now messages.json ids that a server can reword or translate without a rebuild, including audit log lines, bank ledger reasons and the reasons sent with payments to the server economy.
 - Every player sentence of the command, admin, chat, ui, combat, shield, progress and integration packages is read from messages.json by id, including command and argument descriptions, help pages, panel and sidebar labels, mission names and audit lines, so a server can reword or translate them without a rebuild.
+- Every player sentence of the shop, events, market, siege, vault, importer, web map feed and map markers now comes from messages.json, including page labels, command help, audit lines and payment notes.
 
 ## 0.3.0 - 2026-10-15
 

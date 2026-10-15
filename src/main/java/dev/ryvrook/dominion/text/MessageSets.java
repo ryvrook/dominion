@@ -18,17 +18,25 @@ public final class MessageSets {
             "dev.ryvrook.dominion.combat.CombatText",
             "dev.ryvrook.dominion.command.CommandText",
             "dev.ryvrook.dominion.economy.EconomyText",
+            "dev.ryvrook.dominion.events.EventsText",
+            "dev.ryvrook.dominion.export.ExportText",
             "dev.ryvrook.dominion.faction.FactionText",
             "dev.ryvrook.dominion.home.HomeText",
+            "dev.ryvrook.dominion.importer.ImporterText",
             "dev.ryvrook.dominion.integration.IntegrationText",
             "dev.ryvrook.dominion.land.LandText",
+            "dev.ryvrook.dominion.map.MapText",
+            "dev.ryvrook.dominion.market.MarketText",
             "dev.ryvrook.dominion.nation.NationText",
             "dev.ryvrook.dominion.progress.ProgressText",
             "dev.ryvrook.dominion.relation.RelationText",
             "dev.ryvrook.dominion.shield.ShieldText",
+            "dev.ryvrook.dominion.shop.ShopText",
+            "dev.ryvrook.dominion.siege.SiegeText",
             "dev.ryvrook.dominion.text.CommonText",
             "dev.ryvrook.dominion.ui.UiText",
-            "dev.ryvrook.dominion.util.UtilText"
+            "dev.ryvrook.dominion.util.UtilText",
+            "dev.ryvrook.dominion.vault.VaultText"
     };
 
     static void load(HytaleLogger logger) {
