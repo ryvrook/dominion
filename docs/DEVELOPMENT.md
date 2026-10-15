@@ -192,20 +192,24 @@ dependency through the plugin bridge loader, so the bridges can name the sibling
 - Jars. `-PtrackerApiJar=<path>`, `-PfeatsJar=<path>`, `-PatlasJar=<path>` and `-PcoinageJar=<path>` name them.
   Without a property the build takes `../trackerapi/build/libs/TrackerAPI-1.0.3.jar`, `../feats/build/libs/Feats-1.5.1.jar`,
   `../atlas/build/libs/Atlas-1.6.0.jar` and `../coinage/build/libs/Coinage-api-1.0.0.jar` (the api packages only), then the
-  same paths under `~/Projects`. The tests load no sibling class except Coinage's api, which is on the test classpath so
-  the Coinage link runs over a stand in Coinage API (`economy/FakeCoinage`).
+  same paths under `~/Projects`. The tests have the Coinage api, Atlas and TrackerAPI jars on their classpath. The
+  Coinage link runs over a stand in Coinage API (`economy/FakeCoinage`), the Atlas bridge over a stand in `AtlasApi`
+  with the jar's real static hooks, and the gather test builds TrackerAPI's event records.
 - Package `integration`. `IntegrationModule` runs last in `Wiring.MODULES`. For each sibling it reads the setting
   (`integrations.tracker`, `integrations.feats`, `integrations.atlas`, `integrations.coinage` with `auto`, `always` or `never`), looks the
   plugin up in `PluginManager` (`Presence`), decides with `Choice` and only then loads the bridge class by name and
   calls its static `install(Host)`. `Binding` keeps the link and polls the plugin object every 5 seconds. A sibling that was
   reloaded or installed late has classes in a new loader the bridge cannot follow, so once it is running Dominion
   logs one line and reloads itself through `PluginManager.reload` on a thread of its own 3 seconds later, which
-  links to the new instance. TrackerAPI 1.0.3 and newer reload Dominion themselves, so that case stays quiet. A
+  links to the new instance. TrackerAPI 1.0.3 and newer reload Dominion themselves, so that case stays quiet.
+  Coinage 1.1.0 reloads the plugins that list it too, so `SelfReload` takes the lock TrackerAPI and Coinage hold for
+  their reload pass (a `ReentrantLock` under the system property `ryvrook.dependents.lock`, waited on for up to 30
+  seconds) and only reloads when the plugin manager still holds the Dominion instance that asked. A
   sibling that was unloaded logs one warning. `Integrations` is registered as a service under its own
   class and feeds `/fa integrations`.
 - Bridges. `integration.tracker.TrackerBridge`, `integration.feats.FeatsBridge`, `integration.atlas.AtlasBridge` and
   `integration.coinage.CoinageLink` are the only classes that name sibling types. Every call into a sibling is guarded, and stop sets a stopped flag
-  before removing hooks. TrackerAPI and Coinage have `removeHooks`, Atlas has it after 1.6.0 and the bridge looks it up by reflection.
+  before removing hooks. TrackerAPI and Coinage have `removeHooks`. Atlas got it late in 1.6.0, so the bridge looks it up by reflection.
   Feats publishes `FeatsApi` in its own setup with no enable hook, so the Feats bridge links on install or on a later
   poll.
 - Counters. `StatFanout` is one bus listener. It maps each `DominionEvent` with `StatMapper` (pure, facts behind the
@@ -226,7 +230,12 @@ dependency through the plugin bridge loader, so the bridges can name the sibling
   counting back within the 5 second poll. Both feeds go through the same `GatherFeed` methods and Dominion's own
   `FarmGuard`, not TrackerAPI's `playerPlaced` and `fresh` flags, because Dominion's guard is wider (a block any
   player placed, a crop a faction mate dropped, both memories configurable), so the counts are the same either way.
-  Drops on death are skipped, as the engine drop event Dominion hooks never sees them.
+  `GatherEquivalenceTest` runs one session through both paths and compares the credits. Drops on death are skipped,
+  as the engine drop event Dominion hooks never sees them. While the switch is on Dominion's own systems, events that
+  still arrive for the other kinds are ignored, or one break would count twice. The listener runs on
+  TrackerAPI-dispatch and only reads memory, the farm guard, the claims and the mission stats under the faction lock.
+  A finished mission pays the bank and sends chat from that thread, as it does from the scheduler. TrackerAPI drops
+  events when its async queue is full and logs a warning, and Dominion does not count those.
 - Hooks that stay Dominion's own. `combat/DeathTrackingSystem` applies the power loss, pays kill rewards from bank to
   bank, informs sieges and bounties and needs the victim's chunk and the killer's ref in the tick of the death. A
   TrackerAPI listener can be suspended or turned off, which would silently stop the power loss, and TrackerAPI also
@@ -238,8 +247,8 @@ dependency through the plugin bridge loader, so the bridges can name the sibling
   and envoys. Only while `export.enabled` is off does the bridge push a `Ryvrook:Dominion:sieges` layer of circles
   whose popups name the phase and the end time, at the tier `integrations.atlasSiegeTier` names (set it to Atlas's
   `visibility.territories`, the API does not expose it), redrawn on `SiegePhase`, `BreachChanged`,
-  `FactionDisbanded` and when the export switch flips. Stop calls `AtlasApi.removeHooks` by reflection, Atlas 1.6.0
-  does not have it. `PlayerToggles.onWebMap` tells it about `/f map hide`
+  `FactionDisbanded` and when the export switch flips. Stop calls `AtlasApi.removeHooks` by reflection, and on an
+  older Atlas build without it the hooks stay and do nothing. `PlayerToggles.onWebMap` tells it about `/f map hide`
   from the command and the panel, and it passes hidden players on to `AtlasApi.setHidden` at bind and on join,
   since Atlas does not save API hides.
 - Chronicle Stats has no link. It reads `tag`, `name`, `color`, `nation`, `claims`, `power`, `maxPower`, `level`,
@@ -299,8 +308,9 @@ How Dominion uses it.
   account that `/f withdraw` would refuse and writes moves made outside Dominion to the faction log. The veto books
   the amount against the daily allowance under the ledger lock, so two withdrawals at once cannot both fit, and
   remembers the booking by thread. Coinage runs the veto and the after listener on the same thread, so the after
-  listener settles the booking, and a booking whose move failed is given back on the next veto of that thread or
-  after 10 seconds on the minute tick.
+  listener settles the booking. A booking whose move failed is given back on the next veto of that thread, or once
+  it is 10 seconds old on the next veto from any thread or the minute tick. Shutdown gives every booking back before
+  the factions are saved and books nothing after, so a move in flight then is counted once by the after listener.
   Dues and upkeep round up to the smallest unit of the currency, the same as the whole unit VaultUnlocked path, so
   an upkeep of 0.4 on a whole coin currency costs one coin instead of nothing. Interest rounds down.
   When Coinage answers but no longer knows a faction's handle, an admin deleted the account in Coinage. Coinage only
@@ -319,9 +329,11 @@ How Dominion uses it.
 ## Hot paths
 
 - Claims overlay. `OverlayPainter.paint` works out a fill and an outline colour per palette entry and only moves
-  indexes per pixel. It took 6.5 us for a 32 by 32 chunk image with 40 colours when it blended every pixel and takes
-  2.9 us now (Apple M series, JDK 25). `DOMINION_BENCH=1 ./gradlew test --tests '*PaintBench*' -i` prints the
-  numbers, and `PaintBench` also checks the result is the image the per pixel version drew. `MapOverlay` keeps what
+  indexes per pixel. It took about 7 us for a 32 by 32 chunk image with 40 colours when it blended every pixel and
+  takes 2.9 us now (Apple M series, JDK 25). `DOMINION_BENCH=1 ./gradlew test --tests '*PaintBench*' --rerun -i`
+  prints the numbers, and `PaintBench` also checks the result is the image the per pixel version drew, for palettes
+  with repeated and unused entries too, and that an index past the palette still throws so the chunk is left as the
+  engine drew it. `MapOverlay` keeps what
   it painted in one primitive map per world, locked on itself, with one `Painted` per faction and colour.
 - Sidebar. `DominionHud.refresh` fills the values into a map and sends only those that changed since the last push,
   nothing at all when none did, and everything again every 30 seconds in case the client dropped an update.

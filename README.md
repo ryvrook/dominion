@@ -268,8 +268,9 @@ leaderboard for all ten. Siege and mission credit goes to every member, online o
 Feats has no file for server defined feats yet, so the counters show in its stats and wait there for feats that read
 them. Atlas draws claims, homes, warps, hills, outposts and envoys from the map snapshot whether or not it is linked,
 so the link only adds what the snapshot cannot carry. After a `/plugin reload` of Feats, Atlas or Coinage, or when
-one of them is installed while the server runs, Dominion notices within 5 seconds and reloads itself to link to the
-new instance. TrackerAPI 1.0.3 and newer reload Dominion by themselves.
+one of them is installed while the server runs, Dominion notices within 5 seconds and reloads itself 3 seconds later
+to link to the new instance. TrackerAPI 1.0.3 and newer and Coinage 1.1.0 reload Dominion by themselves, and Dominion
+then skips its own reload.
 
 ### Coinage
 
