@@ -92,7 +92,8 @@ Chat channels switch with `/f chat` or a prefix on one line, `!` for faction, `@
 
 ## Settings
 
-`config.json` has 256 keys, every one listed with its default, limits and description in
+`config.json` sits in the data folder. There are 256 keys grouped into
+Factions, Power, Land, Raiding, Relations, Combat, Homes, Chat, Economy, Market, Sieges, Shields, Events, Progression, Storage, Map, Integrations, Commands, Interface, Colours and Permissions. Every key is listed with its default, limits and description in
 [docs/SETTINGS.md](docs/SETTINGS.md), which is generated from `config/Defaults.java`. You rarely need the file.
 `/fa settings` has a tab per group and applies changes live. `/fa set` and `/fa get` work from the console.
 `/fa preset` only changes the keys the preset names. `/fa config dump` writes everything to `config-dump.txt`,
