@@ -210,6 +210,7 @@ public final class Defaults {
         s.define("map.overlayOpacity", "Map", "Claims overlay opacity in percent", 55);
         s.define("map.overlayBorder", "Map", "Claims overlay border width in pixels", 2);
         s.define("map.claimMarkers", "Map", "Show an icon on every claimed chunk instead of one label per faction", false);
+        s.define("map.compass", "Map", "Which Dominion markers the compass shows, none, events (homes, sieges, hills, outposts and envoys) or all", "none");
 
         // Storage and misc
         s.define("storage.autosaveSeconds", "Storage", "Autosave interval in seconds", 30);
@@ -366,6 +367,7 @@ public final class Defaults {
         // Map overlay brief
         s.range("map.overlayOpacity", 10, 90);
         s.range("map.overlayBorder", 0, 4);
+        s.choices("map.compass", "none", "events", "all");
         s.range("storage.autosaveSeconds", 10, 3600);
         s.range("storage.backupKeep", 0, 365);
         s.choices("misc.preset", "classic", "singleplayer", "hardcore", "peaceful");

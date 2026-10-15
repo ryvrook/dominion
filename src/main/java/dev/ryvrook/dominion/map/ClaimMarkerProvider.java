@@ -56,6 +56,8 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
     static final String HILL_IMAGE = "Dominion_Hill.png";
     static final String OUTPOST_IMAGE = "Dominion_Outpost.png";
     static final String ENVOY_IMAGE = "Dominion_Envoy.png";
+    /** A fully transparent image, used as the compass image of markers the compass should not show. */
+    static final String BLANK_IMAGE = "Dominion_Blank.png";
     private static final long EVENT_REFRESH_MS = 2_000L;
     private static final long SIEGE_REFRESH_MS = 30_000L;
 
@@ -132,18 +134,18 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
                     .withContextMenuItem(new ContextMenuItem(Messages.get(MapText.MENU_FACTION_INFO), "/" + CommandNames.root() + " who " + f.tag()));
             // No unclaim entry here. /f unclaim acts on the chunk the player stands in, not the
             // chunk that was clicked, so offering it on a distant marker would unclaim the wrong land.
-            collector.add(b.build());
+            collector.add(onCompass(b, false).build());
         }
 
         Faction mine = own == null ? null : ctx.repo().faction(own);
         Location home = mine == null ? null : mine.home();
         if (home != null && worldName.equals(home.world())) {
-            collector.add(new MapMarkerBuilder(MarkerIds.of("home", mine.id()), HOME_IMAGE,
+            collector.add(onCompass(new MapMarkerBuilder(MarkerIds.of("home", mine.id()), HOME_IMAGE,
                     new Transform(new Vector3d(home.x(), home.y(), home.z())))
                     .withName(Message.raw(Messages.get(MapText.HOME, "faction", mine.tag())).color(colorOf(mine)))
                     .withComponent(new TintComponent(tint(colorOf(mine))))
                     .withContextMenuItem(new ContextMenuItem(Messages.get(MapText.MENU_FACTION_INFO), "/" + CommandNames.root() + " who " + mine.tag()))
-                    .build());
+                    , true).build());
         }
 
         if (mine != null) {
@@ -175,7 +177,7 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
             if (owner != null) {
                 b.withContextMenuItem(new ContextMenuItem(Messages.get(MapText.MENU_HOLDER_INFO), "/" + CommandNames.root() + " who " + owner.tag()));
             }
-            collector.add(b.build());
+            collector.add(onCompass(b, true).build());
         }
     }
 
@@ -224,12 +226,12 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
                     || !ally.relationCan(Relation.ALLY, FactionAction.USE_HOME) || rs.between(mine, ally) != Relation.ALLY) {
                 continue;
             }
-            collector.add(new MapMarkerBuilder(MarkerIds.of("allyhome", ally.id()), HOME_IMAGE,
+            collector.add(onCompass(new MapMarkerBuilder(MarkerIds.of("allyhome", ally.id()), HOME_IMAGE,
                     new Transform(new Vector3d(home.x(), home.y(), home.z())))
                     .withName(Message.raw(Messages.get(MapText.ALLY_HOME, "faction", ally.tag())).color(Relation.ALLY.color()))
                     .withComponent(new TintComponent(tint(Relation.ALLY.color())))
                     .withContextMenuItem(new ContextMenuItem(Messages.get(MapText.MENU_FACTION_INFO), "/" + CommandNames.root() + " who " + ally.tag()))
-                    .build());
+                    , true).build());
         }
     }
 
@@ -238,12 +240,12 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
             if (!worldName.equals(m.world()) || !collector.isInViewDistance(m.x(), m.z())) {
                 continue;
             }
-            collector.add(new MapMarkerBuilder(MarkerIds.of("siege", m.id()), SIEGE_IMAGE,
+            collector.add(onCompass(new MapMarkerBuilder(MarkerIds.of("siege", m.id()), SIEGE_IMAGE,
                     new Transform(new Vector3d(m.x(), m.y(), m.z())))
                     .withName(Message.raw(m.label()).color(m.color()))
                     .withComponent(new TintComponent(tint(m.color())))
                     .withContextMenuItem(new ContextMenuItem(Messages.get(MapText.MENU_ATTACKER_INFO), "/" + CommandNames.root() + " who " + m.attackerTag()))
-                    .build());
+                    , true).build());
         }
     }
 
@@ -410,6 +412,27 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
             }
         }
         return true;
+    }
+
+    /**
+     * Keeps a marker off the compass by giving it a transparent compass image, as map.compass says. The
+     * client puts every marker on the compass unless a player toggles it by hand, so this is the only way
+     * to keep a field of claims from crowding the compass. none hides every Dominion marker, events keeps
+     * homes, sieges, hills, outposts and envoys, all keeps the claim labels too.
+     */
+    private MapMarkerBuilder onCompass(MapMarkerBuilder b, boolean eventLike) {
+        String image = compassImage(ctx.settings().text("map.compass"), eventLike);
+        return image == null ? b : b.withCompassImage(image);
+    }
+
+    /** The compass image to set, or null to leave the marker as it is. Pure, for the test. */
+    static String compassImage(String setting, boolean eventLike) {
+        String s = setting == null ? "none" : setting.trim().toLowerCase(java.util.Locale.ROOT);
+        return switch (s) {
+            case "all" -> null;
+            case "events" -> eventLike ? null : BLANK_IMAGE;
+            default -> BLANK_IMAGE;
+        };
     }
 
     private static String colorOf(Faction f) {

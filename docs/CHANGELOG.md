@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.1 - 2026-10-15
+
+### Changed
+- Dominion markers stay off the compass. The client shows every world map marker on the compass unless a player toggles it by hand, so claim labels, homes and sieges crowded it. New setting `map.compass` with `none` (default, no Dominion marker on the compass), `events` (homes, sieges, hills, outposts and envoys stay, claim labels and chunk icons go) and `all` (as before). Hidden markers carry a transparent compass image, the map itself is unchanged.
+
 ## 0.5.0 - 2026-10-15
 
 Dominion Factions 0.5.0 puts the faction economy on Coinage when it is installed. Wallets, faction banks, upkeep,
