@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Messages
+- Every player sentence of the faction, land, home, relation, economy and nation packages and the time words players see are now messages.json ids that a server can reword or translate without a rebuild, including audit log lines, bank ledger reasons and the reasons sent with payments to the server economy.
+
 ## 0.3.0 - 2026-10-15
 
 Dominion Factions 0.3.0 is the first release shaped by a client session. Faction names show once, the sidebar,
