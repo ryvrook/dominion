@@ -1,405 +1,211 @@
 # Dominion Factions
 
-Dominion Factions is a factions plugin for Hytale servers. Players found factions, claim chunks, protect
-them with the combined power of their members, make allies and enemies, join nations, trade on a
-player market and lay siege to each other's land. Almost everything runs from an in game panel
-opened with `/f`, a sidebar keeps the important numbers on screen and the world map shows who owns
-what. Server owners get a live settings page, four presets, a full admin command tree and an
-importer for land from other claim and faction mods. Dominion is a single jar with no required
-dependencies and is released under the MIT License.
-
-| | |
-| --- | --- |
-| Version | 0.1.0 |
-| Hytale server | 0.7.1 or 0.7.0 (Chapter 1), 0.6.8 still compiles |
-| Java | 25 |
-| Build | Gradle |
-| License | MIT |
-
-## Features
-
-### Factions and ranks
-
-- Found a faction with a short tag and an optional display name, then set a description, a message of the day and a colour.
-- Four ranks (recruit, member, officer and leader). Each faction can rename any rank.
-- Invites, join requests, open or invite only joining, kicks, bans, promotions, demotions, member titles and leadership transfer.
-- A permission grid per rank and per relation covering building, containers, doors, homes, warps, the bank, the vault, relations, sieges and more.
-- A faction audit log, faction statistics and player profiles.
-- Optional cleanup of inactive members and factions, and optional roster rotation when a faction is full.
-
-### Claims and zones
-
-- Claim the chunk you stand in, a square around you, a line in the direction you face, or turn on auto claim.
-- Claims can be required to touch, kept a buffer away from other factions and kept away from spawn. Claiming can be limited to chosen worlds.
-- Optional claim costs that grow with each claim, and refunds when land is released.
-- Zones split faction land into named areas with their own permission grid.
-- Server SafeZones and WarZones created by admins.
-- A chat map, territory banners at borders and land decay for abandoned factions.
-
-### Power and raiding modes
-
-- Every player has power that regenerates while online and drops on death. Faction power sets how much land a faction can hold.
-- An alternative deaths pool mode in the classic DTR style.
-- Raiding modes that switch on and off one by one (overextended, dominance by a stronger enemy, sieges, low power ratio and unpaid upkeep). Any one mode or all of them together can be required.
-- Minimum defenders online, attacker cooldowns and protection of the home chunk until it is the last one left.
-
-### Relations and nations
-
-- Ally, truce, neutral and enemy. Alliances and truces need both sides to agree, with limits on allies and truces, request expiry and PvP rules by relation with friendly fire, ally fire and truce fire switches.
-- A combat tag and an optional bank reward for kills. Tagged players cannot use homes, warps or stuck, cannot claim or unclaim land, and are moved back out of SafeZones they walk into.
-- Allied factions can form a nation under one tag with a leading faction, with invites, kicks, leadership transfer and a nation chat channel.
-
-### CombatLog integration
-
-Dominion reads combat tags from [CombatLog](https://www.curseforge.com/hytale/mods/combatlog) by Devify when that mod is installed. A player counts as tagged while either Dominion's own tag or CombatLog's tag runs, and the remaining time shown is the longer of the two. Every combat rule in Dominion uses this shared tag.
-
-- `/f home`, ally homes, warps and `/f stuck` are refused while tagged, and a running teleport warmup is cancelled when the player becomes tagged.
-- A tagged player who walks into a SafeZone is moved back to where they stood and told so (`combat.blockSafeZoneEntry`).
-- Claiming and unclaiming are refused while tagged (`combat.blockClaimsWhileTagged`).
-
-Punishing players who log out in combat stays with CombatLog. Dominion only reads its tag state, through reflection, so it has no compile time dependency on the mod and runs the same without it. Set `combat.useCombatLog` to `off` to ignore CombatLog and use Dominion's own tag only. The start log and `/fa diag` say which tag source is in use.
-
-### Homes and warps
-
-- A faction home with a warmup, a cooldown, an enemy nearby check and an option to respawn at home.
-- Ally homes that allies can open to each other.
-- Named warps with optional passwords, and `/f stuck` to escape to the nearest wilderness.
-
-### Economy, bank, shops, market and auctions
-
-- A built in coin ledger, an item currency that uses a chosen item, an optional bridge to VaultUnlocked, or Coinage, which holds wallets and faction banks when it is installed.
-- A faction bank with deposits, withdrawals, payments to other factions and a daily withdraw limit for officers.
-- Optional daily upkeep per claim, member dues, playtime stipends and bank interest.
-- A server shop with categories and an in game editor for admins, plus faction shops stocked by officers from the hand or from the faction vault, with sales paid into the faction bank.
-- A player market with listings, buy orders, auctions with a buyout price and anti snipe extensions, a faction storefront and a mailbox for earnings and returned items.
-
-### Vault
-
-- A shared faction vault with pages that open as a chest window. Extra pages come from the vault upgrade, and the vault is sealed while faction land is breached by a siege.
-
-### Chat
-
-- Public, faction, ally, officer and nation channels, faction tags in chat, announcements, login alerts and a server wide line when a faction is renamed. Switch with `/f chat` or send one line with a prefix (`!` faction, `@` ally and `#` nation by default).
-
-### Sieges, shields and grace
-
-- Plant a siege banner on enemy land next to you and hold it until the capture timer runs out to breach the chunk for a while. Defenders near the banner hold up the capture, and a siege fails when the attackers leave.
-- Raid history with raid points, immunity after a successful defence and a daily shield window chosen by each faction that protects the core land around its home.
-- A server grace period and an end of the world mode for the close of a season.
-
-### Upgrades and missions
-
-- Seven upgrades (members, regen, maxpower, warps, vault, shield and immunity) paid from the bank or with faction points.
-- Daily and weekly missions such as mining, chopping, farming, fishing, market trades, claiming and winning sieges.
-- A faction value leaderboard built from land, members, power, kills, sieges, bank and outpost time, and admin strikes that lower a faction's value.
-
-### Events
-
-- **KOTH.** Hills open on demand or on a schedule, and the holding faction wins coins and faction points.
-- **Outposts.** Controlled outposts grant an xp, missions, tax or sell boost. The xp boost is offered to other mods through the API.
-- **Envoys.** Loot chests dropped in WarZones on demand or on a timer.
-- **Bounties.** Any player can put money on another player's head.
-- **Season clock.** Season start and end, an end of the world finale, a frozen leaderboard and payout commands for the top factions.
-
-### Interface and admin
-
-- A faction panel with tabs for every enabled feature, a permission grid page, zone permissions, faction info pages, a top factions page, a tutorial and confirmation pages before anything destructive.
-- A sidebar HUD and world map markers for factions, homes, sieges, hills, outposts and envoys.
-- Claimed land on the in game world map is tinted in the owner's colour with a darker outline around each
-  region, so neighbouring claims of one faction read as one area and the terrain stays visible underneath.
-  Each faction gets one label in the middle of its largest region. `map.claimMarkers` brings back one icon
-  per claimed chunk.
-- An admin settings page with every setting grouped by topic. Changes save at once and apply live.
-- Classic, hardcore, peaceful and singleplayer presets. Singleplayer worlds get the singleplayer preset automatically on first run, which turns off raiding, sieges, shields, events and power loss.
-- An importer for Simple Claims, HyFactions, HyperFactions and Ultimate Factions data, with a required preview.
+Factions for Hytale servers. Players found a faction, claim chunks, hold them with the power of their members,
+pick allies and enemies, form nations and lay siege to each other's land. There is a faction bank, a vault, a
+server shop, faction shops, a player market and events such as KOTH and outposts. Almost all of it runs from a
+panel opened with `/f`, a sidebar keeps the key numbers on screen and the world map is tinted in each faction's
+colour. One jar, no required dependencies.
 
 ## Requirements
 
-- A Hytale server on 0.7.0 or 0.6.8, dedicated or a singleplayer world.
-- No other mods. Coinage, VaultUnlocked and CombatLog 1.7.0 or newer are optional.
-- JDK 25 only if you build from source.
+Hytale server 0.7.0 or newer, built against 0.7.1, and Java 25. It still compiles against 0.6.8 and the
+manifest allows it, but I only run it on 0.7. Coinage, VaultUnlocked, CombatLog 1.7.0 or newer, TrackerAPI,
+Feats and Atlas are optional.
 
 ## Install
 
-1. Get `DominionFactions-0.5.1.jar` from a release or build it from source and drop it into the Mods folder.
+Drop `DominionFactions-0.6.0.jar` into the server's `mods` folder, or `UserData/Mods` for a singleplayer
+world, and start the server. Dominion writes `config.json` with every setting and logs
+`Dominion started with 23 modules`. A singleplayer world gets the singleplayer preset on first run, which turns
+off raiding, sieges, shields, events and power loss.
 
-| Setup | Mods folder |
-| --- | --- |
-| Windows client | `%APPDATA%\Hytale\UserData\Mods` |
-| macOS client | `~/Library/Application Support/Hytale/UserData/Mods` |
-| Dedicated server | the server's `mods` directory |
+For players, `/f` opens the panel, `/f create <tag>` founds a faction, `/f claim` takes the chunk you stand in and
+`/f help` lists the rest. For admins, grant `dominion.admin` to staff, pick a preset with
+`/fa preset classic|hardcore|peaceful|singleplayer`, open `/fa settings`, and make a spawn SafeZone with
+`/fa zone safe <name>`.
 
-2. Start the server once. Dominion writes `config.json` with every setting at its default.
-3. Look for `Dominion started with 23 modules` in the server log.
+## How it plays
 
-## Quick start
+Every player has power that regenerates while online and drops by 4 on death, up to 20. A faction can hold one
+claim per point of power by default. Claims can be required to touch, kept a buffer chunk away from other
+factions and kept off spawn, and can cost money that grows with each claim. Zones split faction land into named
+areas with their own permissions. A permission grid per rank and per relation covers building, containers,
+doors, homes, warps, the bank, the vault and sieges.
 
-### Players
+A faction becomes raidable through modes you switch on one by one, overextended, dominated by a stronger enemy,
+under siege, low power ratio or unpaid upkeep, and any one or all of them can be required. A siege means planting a
+banner on enemy land and holding it for 15 minutes to breach the chunk. Defenders near the banner hold up the
+capture. Each faction can pick a daily shield window that protects the core land around its home, and a
+successful defence buys immunity. There is also a DTR style deaths pool mode if you prefer it.
 
-1. Type `/f` to open the panel, or `/f create <tag> [name]` to found a faction.
-2. Stand in a chunk and run `/f claim`.
-3. Bring friends in with `/f invite <player>`. They join with `/f join <tag>`.
-4. Set a home with `/f sethome` and return with `/f home`.
-5. Run `/f help` for every command, or `/f help <topic>` for one area.
+Relations are ally, truce, neutral and enemy, and alliances and truces need both sides. Allies can form a nation
+under one tag with its own chat. A combat tag blocks homes, warps, `/f stuck` and claiming, and pushes tagged
+players back out of SafeZones. With [CombatLog](https://www.curseforge.com/hytale/mods/combatlog) installed,
+Dominion reads its tag too and takes the longer of the two. Punishing combat logging stays with CombatLog.
 
-### Admins
+Progress comes from seven upgrades bought with the bank or faction points, daily and weekly missions such as
+mining, chopping, farming and winning sieges, and a value leaderboard built from land, members, power, kills,
+sieges, bank and outpost time. Events are KOTH hills, outposts that grant an xp, missions, tax or sell boost,
+envoy chests in WarZones, bounties and a season clock with an end of the world finale and payouts.
 
-1. Grant the `dominion.admin` permission to staff. Players need no permission for `/f`.
-2. Pick a profile with `/fa preset classic|hardcore|peaceful|singleplayer`.
-3. Open `/fa settings` to adjust individual rules.
-4. Create a spawn SafeZone with `/fa zone safe <name>` and WarZones with `/fa zone war <name>`. Run `/fa` alone for the full admin command list.
+The importer reads Simple Claims, HyFactions, HyperFactions and Ultimate Factions data, always with a preview
+first.
 
 ## Commands
 
-| Command | Description |
-| --- | --- |
-| `/f` | Open the faction panel. Aliases `/faction` and `/factions` |
+`/f` (aliases `/faction`, `/factions`) needs no permission. `/fa` and the admin parts of `/fe` and `/fashop`
+need `dominion.admin`. `/f help <topic>` and `/fa` alone list everything.
+
+| Command | What it does |
+|---|---|
+| `/f` | Open the panel |
 | `/f create <tag> [name]` | Found a faction |
-| `/f invite <player>`, `/f join <tag>`, `/f leave` | Manage membership |
-| `/f promote`, `/f demote`, `/f kick`, `/f ban <player>` | Manage members |
-| `/f perms`, `/f rankname` | Edit the permission grid and rename ranks |
-| `/f claim`, `/f claim radius <r>`, `/f claim line <n>`, `/f claim auto` | Claim land |
-| `/f unclaim`, `/f unclaim radius <r>`, `/f unclaim all` | Release land |
-| `/f zone create <name>`, `/f zone assign <name>` | Manage zones |
-| `/f map`, `/f power [player]`, `/f who [tag or player]` | Show land, power and faction info. `/f who` prints the classic layout with age, land, power, relations and the roster |
-| `/f map hide`, `/f map show` | Hide yourself from the web map or show yourself again. Also a button on the Overview tab |
-| `/f ally`, `/f truce`, `/f neutral`, `/f enemy <tag>` | Set relations. Answer with `/f accept` or `/f decline` |
+| `/f invite <player>`, `/f join <tag>`, `/f leave` | Membership |
+| `/f promote`, `/f demote`, `/f kick`, `/f ban <player>` | Members |
+| `/f perms`, `/f rankname` | Permission grid and rank names |
+| `/f claim`, `claim radius <r>`, `claim line <n>`, `claim auto` | Claim land |
+| `/f unclaim`, `unclaim radius <r>`, `unclaim all` | Release land |
+| `/f map`, `/f power [player]`, `/f who [tag or player]` | Land, power and faction info |
+| `/f map hide`, `/f map show` | Hide yourself from the web map |
+| `/f ally`, `/f truce`, `/f neutral`, `/f enemy <tag>` | Relations, answered with `/f accept` or `/f decline` |
 | `/f home`, `/f sethome`, `/f warp <name> [password]`, `/f stuck` | Homes and warps |
 | `/f bank`, `/f deposit <amount>`, `/f withdraw <amount>` | Faction bank |
-| `/f market`, `/f market sell <price> [amount]` | Player market |
-| `/f auction sell <start> [buyout] [hours]` | Auction the stack in your hand |
-| `/f vault [page]`, `/f upgrades`, `/f missions`, `/f top [page]` | Vault and progression. `/f top` pages the value leaderboard |
+| `/f market`, `/f market sell <price> [amount]`, `/f auction sell <start> [buyout] [hours]` | Player market |
+| `/f vault [page]`, `/f upgrades`, `/f missions`, `/f top [page]` | Vault and progression |
 | `/f siege`, `/f shield set <hour>`, `/f raids` | Sieges and shields |
 | `/f nation create <tag> [name]`, `/f nation invite <tag>` | Nations |
-| `/f chat [channel]`, `/f hud`, `/f tutorial` | Chat channel, sidebar and tutorial |
+| `/f chat [channel]`, `/f hud`, `/f tutorial` | Chat channel, sidebar, tutorial |
 | `/balance [player]`, `/pay <player> <amount>`, `/baltop` | Personal money |
 | `/shop`, `/fshop [tag]`, `/fshop manage` | Server shop and faction shops |
-| `/fe`, `/fe panel`, `/fe bounty place <player> <amount>` | Events |
-| `/fa` | Admin tools. Requires `dominion.admin` |
+| `/fe`, `/fe bounty place <player> <amount>` | Events |
 | `/fa settings`, `/fa set <key> <value>`, `/fa get <key>` | Settings |
 | `/fa preset <name>`, `/fa reload` | Presets and reloading the file |
-| `/fa config [section\|key\|dump] [value]`, `/fa messages [id\|search\|reset]` | Browse and dump settings, look up and reset messages |
 | `/fa claim <tag> [radius]`, `/fa unclaim [radius]`, `/fa bypass` | Land overrides |
 | `/fa force join\|kick\|leader\|disband\|rename` | Membership overrides |
-| `/fa grace on <duration>`, `/fa eotw on\|off` | Grace and end of the world |
+| `/fa grace on <duration>`, `/fa eotw on\|off` | Grace period and end of the world |
 | `/fa import preview <source>`, `/fa import <source>` | Import from another mod |
-| `/fa backup`, `/fa diag`, `/fa export` | Backups, diagnostics and a manual snapshot |
-| `/fashop edit` | Server shop editor. Requires `dominion.admin` |
-| `/fe koth`, `/fe outpost`, `/fe envoy`, `/fe season`, `/fe payouts` | Event management. Admin sub commands require `dominion.admin` |
+| `/fa backup`, `/fa diag`, `/fa export`, `/fa integrations` | Backups, diagnostics, a manual snapshot, link status |
+| `/fashop edit` | Server shop editor |
+| `/fe koth`, `/fe outpost`, `/fe envoy`, `/fe season`, `/fe payouts` | Event management |
 
-## Configuration
+Chat channels switch with `/f chat` or a prefix on one line, `!` for faction, `@` for ally and `#` for nation.
 
-Settings live in `config.json` inside the plugin data folder. There are 256 keys grouped into
-Factions, Power, Land, Raiding, Relations, Combat, Homes, Chat, Economy, Market, Sieges, Shields, Events, Progression, Storage, Map, Integrations, Commands, Interface, Colours and Permissions. Every key is listed with its default, its limits and a description in
-[docs/SETTINGS.md](docs/SETTINGS.md), which is generated from
-`src/main/java/dev/ryvrook/dominion/config/Defaults.java`.
+## Settings
 
-Admins rarely need to touch the file.
+`config.json` sits in the data folder. There are 256 keys grouped into
+Factions, Power, Land, Raiding, Relations, Combat, Homes, Chat, Economy, Market, Sieges, Shields, Events, Progression, Storage, Map, Integrations, Commands, Interface, Colours and Permissions. Every key is listed with its default, limits and description in
+[docs/SETTINGS.md](docs/SETTINGS.md), which is generated from `config/Defaults.java`. You rarely need the file.
+`/fa settings` has a tab per group and applies changes live. `/fa set` and `/fa get` work from the console.
+`/fa preset` only changes the keys the preset names. `/fa config dump` writes everything to `config-dump.txt`,
+and `/fa messages` looks up and resets player messages in `messages.json`. Command names, aliases and permission
+nodes on commands apply at the next start or `/plugin reload`.
 
-- `/fa settings` opens the settings page. Each group is a tab, and changes save and apply live.
-- `/fa set <key> <value>` and `/fa get <key>` work from chat or the server console.
-- `/fa reload` reads the file again after a manual edit.
-- `/fa preset <name>` applies a preset. A preset only changes the keys it names.
-- `/fa config` lists the sections, `/fa config <section>` pages through one, `/fa config <key> <value>` changes a key
-  and `/fa config dump` writes every key with its description, value, default and limits to `config-dump.txt`.
-- `/fa messages` counts the message ids in `messages.json`, `/fa messages <id>` shows one, `/fa messages search <text>`
-  finds ids and `/fa messages reset <id>` puts the default wording back.
-- Colours, command names and aliases, the disabled sub commands, permission nodes and a switch for every feature
-  are settings too. Command names and permission nodes on commands apply at the next start or `/plugin reload`.
-
-A few keys worth knowing
-
-| Key | Default | Meaning |
-| --- | --- | --- |
+| Key | Default | What it does |
+|---|---|---|
 | `faction.maxMembers` | `20` | Members per faction |
 | `power.max` | `20.0` | Maximum power per player |
 | `power.lossPerDeath` | `4.0` | Power lost per death |
-| `power.dtrMode` | `false` | Use the deaths pool mode instead of power |
-| `land.claimsPerPower` | `1.0` | Claims allowed per point of faction power |
+| `power.dtrMode` | `false` | Deaths pool instead of power |
+| `land.claimsPerPower` | `1.0` | Claims per point of faction power |
 | `land.bufferChunks` | `1` | Empty chunks required between factions |
-| `raid.enabled` | `true` | Raiding enabled at all |
-| `raid.combineAny` | `true` | Any raid mode makes a faction raidable, otherwise all |
-| `combat.useCombatLog` | `auto` | `auto` reads combat tags from CombatLog when it is installed, `off` ignores it |
-| `combat.blockSafeZoneEntry` | `true` | Move combat tagged players back out of SafeZones |
-| `combat.blockClaimsWhileTagged` | `true` | Refuse claiming and unclaiming while combat tagged |
-| `chat.showTag` | `true` | Show the faction tag before player names in public chat |
-| `chat.nameplateTag` | `false` | Experimental. Show the faction tag before the name above each player's head |
-| `chat.announceRenames` | `true` | Tell every online player when a faction changes its tag or name |
-| `top.pageSize` | `10` | Factions per page of `/f top`, 5 to 25 |
+| `raid.enabled` | `true` | Raiding at all |
+| `raid.combineAny` | `true` | Any raid mode makes a faction raidable, otherwise all of them |
+| `combat.useCombatLog` | `auto` | Read CombatLog's tag when installed, `off` ignores it |
+| `chat.nameplateTag` | `false` | Experimental. Faction tag above each player's head |
 | `eco.provider` | `auto` | `auto`, `internal`, `vaultunlocked`, `item` or `coinage` |
 | `market.taxPercent` | `5.0` | Faction tax on market sales |
 | `siege.captureMinutes` | `15` | Siege capture time |
-| `events.enabled` | `true` | Events layer enabled |
-| `export.enabled` | `true` | Write the web map snapshot file |
-| `map.overlay` | `true` | Tint claimed land on the in game world map |
-| `map.overlayOpacity` | `55` | Overlay opacity in percent, 10 to 90 |
-| `map.overlayBorder` | `2` | Overlay outline width in pixels, 0 to 4 |
-| `map.claimMarkers` | `false` | One icon per claimed chunk instead of one label per faction |
-| `misc.singleplayerAutoPreset` | `true` | Apply the singleplayer preset automatically |
+| `export.enabled` | `true` | Write the web map snapshot |
+| `map.overlay` | `true` | Tint claimed land on the in game map |
+| `map.compass` | `none` | Which Dominion markers show on the compass, `none`, `events` or `all` |
 
-## Integrations
+## With the other mods
 
-Dominion works on its own and works better next to the other Ryvrook mods. Each link is optional. When a mod is
-missing Dominion behaves exactly as before, logs one line that it runs without it and never fails. The manifest lists
-TrackerAPI, Feats, Atlas and Coinage as optional dependencies, so the server loads them first when they are installed.
+Every link is optional. A missing mod gets one log line and Dominion carries on. TrackerAPI, Feats, Atlas and
+Coinage are listed as optional dependencies so they load first. Each link has a setting under `integrations.`
+with `auto` (link when installed and new enough, the default), `always` or `never`, read at start.
+`/fa integrations` shows each as bound, missing or off.
 
-| Mod | What it adds | Setting |
-| --- | --- | --- |
-| [TrackerAPI](https://www.curseforge.com/hytale/mods/trackerapi) 1.0.0 or newer | Dominion publishes ten per player counters under `dominion:` with a leaderboard for each, and counts the gather missions from its block and item events | `integrations.tracker` |
-| Feats 1.5.0 or newer | The same counters are mirrored into Feats, and every feat a player unlocks is posted to their faction chat | `integrations.feats`, `integrations.featsAnnounce` |
-| Atlas 1.6.0 or newer | `/f map hide` hides the player in Atlas as well, and a live Sieges layer while `export.enabled` is off | `integrations.atlas`, `integrations.atlasSiegeTier` |
-| Coinage 1.0.0 or newer | Wallets and faction banks live in Coinage, every move shows in Coinage's history under Dominion, a member's share of the faction bank counts in `/networth`, and the panel Market tab opens Coinage's market | `integrations.coinage`, `eco.provider`, `eco.coinageBanks`, `market.useCoinage` |
-| Chronicle Stats | Reads factions, members, kills and deaths from the map snapshot. Nothing to set up | none |
+**TrackerAPI** 1.0.0 or newer. Dominion publishes ten counters per player, `dominion:claims`, `unclaims`,
+`enemy_kills`, `enemy_land_deaths`, `sieges_won`, `sieges_lost`, `missions`, `bank_deposited`,
+`factions_founded` and `invites`, each with a TrackerAPI leaderboard. Siege and mission credit goes to every
+member, online or not. A chunk released within seven days counts for neither claim nor unclaim, invites count once
+per player and faction, and bank deposits count net per day, so loops do not farm them. With TrackerAPI tracking
+blocks and items, the mine, chop, farm and fish missions count from its events, and Dominion's own systems take
+over again within 5 seconds if it stops.
 
-The four link settings take `auto` (link when the mod is installed and new enough, the default), `always` (link to
-any installed version and warn at start when the mod is missing) or `never` (ignore the mod). They are read when the
-server starts. `integrations.featsAnnounce` is `true` by default and can be changed at any time.
-`/fa integrations` lists each mod as bound, missing or off, and the start log has one line per mod, for example
-`Dominion is bound to TrackerAPI 1.0.3`.
+**Feats** 1.5.0 or newer. The same counters go into Feats, where 15 faction feats read them, and every feat a
+player unlocks is posted to their faction chat (`integrations.featsAnnounce`).
 
-The counters are `dominion:claims` and `dominion:unclaims` (a chunk the faction released within the last seven days counts for neither when it is claimed or released again), `dominion:enemy_kills` (a kill of a member of a faction at
-war with yours), `dominion:enemy_land_deaths` (deaths on the land of a faction at war with yours),
-`dominion:sieges_won`, `dominion:sieges_lost` (every member of both factions when a siege ends), `dominion:missions`
-(every member when the faction completes a mission), `dominion:bank_deposited` (whole coins, counted as what a
-player deposited minus what they withdrew that day, so a deposit and withdraw loop counts once),
-`dominion:factions_founded` and `dominion:invites` (once per invited player and faction). TrackerAPI keeps a
-leaderboard for all ten. Siege and mission credit goes to every member, online or not.
+**Atlas** 1.6.0 or newer. Atlas reads `export/snapshot.json` for territories, factions, nations, sieges and
+events whether or not it is linked. The link adds `/f map hide` on the map and a live sieges layer while
+`export.enabled` is off (`integrations.atlasSiegeTier` sets who sees it).
 
-Feats has no file for server defined feats yet, so the counters show in its stats and wait there for feats that read
-them. Atlas draws claims, homes, warps, hills, outposts and envoys from the map snapshot whether or not it is linked,
-so the link only adds what the snapshot cannot carry. After a `/plugin reload` of Feats, Atlas or Coinage, or when
-one of them is installed while the server runs, Dominion notices within 5 seconds and reloads itself 3 seconds later
-to link to the new instance. TrackerAPI 1.0.3 and newer and Coinage 1.1.0 reload Dominion by themselves, and Dominion
-then skips its own reload.
+**Coinage** 1.0.0 or newer. With `eco.provider` on `auto` or `coinage`, wallets live in Coinage and every move
+shows in `/coinage history` under Dominion. Balances left in Dominion's own ledger move over once, each zeroed and
+saved before the deposit. With `eco.coinageBanks` on, each faction bank becomes a Coinage shared account
+`dominion:<faction id>` owned by the leader, with member rights by rank. Dominion's rules still sit in front of
+every move, including moves from the Coinage pages, so a rank without withdraw rights or an officer past the daily
+limit is refused there too. A member's share of the bank counts toward `/networth` as the `faction` part. With
+`market.useCoinage` on, the Market tab opens Coinage's market. Faction shops stay Dominion's, since a Coinage shop
+cannot be owned by a faction account yet. A disbanded faction's account goes to the leader, or the server with
+`eco.coinageDisbandTo` set to `server`.
 
-### Coinage
+**Chronicle Stats** reads factions, members, kills and deaths from the snapshot, and the counters above through
+TrackerAPI. Nothing to set up.
 
-With Coinage installed and `eco.provider` on `auto`, the default for new servers, or `coinage`, player money lives in
-Coinage. `/f balance`, `/f pay`, `/f baltop`, the Bank page and every cost and reward read and move Coinage wallets, and each move
-shows in `/coinage history` with Dominion as the plugin. Amounts are converted through the decimals of the currency
-in `eco.coinageCurrency` (blank for Coinage's primary currency), and an amount the currency cannot hold, such as
-cents in a whole coin currency, is refused. `auto` picks Coinage when it is linked, else VaultUnlocked when one is
-found, else the built in ledger. A server that upgrades keeps the provider it had in config.json. Balances left in
-the built in ledger move into Coinage once Coinage is linked, each one zeroed and saved before it is deposited, so
-none moves twice, and the run repeats at most once a day for anything earned while Coinage was away. Dominion grants
-`eco.startingBalance` only while the internal ledger holds the wallets, since Coinage and VaultUnlocked give new
-players their own, and the move leaves out a balance that never changed since the record was made, or for a record
-from an older version, one that still equals the starting balance.
+Lullaby does not touch factions.
 
-While `eco.coinageBanks` is on, the default, each faction bank becomes a Coinage shared account named
-`dominion:<faction id>` the first time it is used, and what the bank held moves in once. The leader owns it, and
-members get the balance, deposit and withdraw rights their rank gives, so the Coinage pages show the account too.
-Dominion's rules stay in front of every move, including moves made from the Coinage pages, which are refused for
-non members, ranks without withdraw rights, members on their new member hold and officers past their daily limit.
-Upkeep, dues, interest, claim costs and every other bank charge go through the account, moves made in Coinage are
-written to the faction log, and the bank number in the panel, the snapshot, Atlas and Chronicle mirrors the account.
-A disbanded faction's account is paid to the leader, or to the server treasury with `eco.coinageDisbandTo` set to
-`server`, and deleted. Turning `eco.coinageBanks` off, or leaving the Coinage provider, moves each bank back into
-Dominion within a minute while Coinage is linked. While Coinage is away, banks that live there refuse moves rather
-than spend the mirror.
+After a `/plugin reload` of Feats, Atlas or Coinage, or when one is installed while the server runs, Dominion
+notices within 5 seconds and reloads itself 3 seconds later. TrackerAPI 1.0.3 and newer and Coinage 1.1.0 reload
+Dominion themselves, and Dominion then skips its own pass.
 
-Dominion adds the net worth part `faction` to Coinage. A player's part is their faction bank divided by the member
-count, so `/networth`, the net worth board and Chronicle's Money tab count it. With `market.useCoinage` on, the
-default, the panel Market tab opens Coinage's market page and hides Dominion's own listing tabs. Dominion's market
-keeps settling what was listed before, and its mailbox stays on the tab while it holds something. `shop.useCoinage`
-is reserved and off, since a Coinage shop cannot be owned by a faction account yet, so faction shops stay Dominion's.
+## Web map snapshot
 
-Dominion also uses [CombatLog](https://www.curseforge.com/hytale/mods/combatlog) when it is installed, see CombatLog
-integration above.
+Dominion writes `export/snapshot.json` in its data folder, every 2 seconds while it carries player positions and
+otherwise when something changed. It holds factions with claims and homes, nations, sieges, the grace and end of
+the world state, events, an activity feed and recent public chat. Private channels are never written. The format
+has `"version": 1` and is documented in the Atlas README. Any tool can read it.
 
-## Web map export
+## Data
 
-Dominion writes `export/snapshot.json` in its data folder every few seconds while something
-changes (`export.intervalSeconds`, default 2). The snapshot holds factions with their claims and
-homes, nations, sieges, the grace and end of the world state, events, an activity feed and recent
-public chat. Private channels are never written.
+Everything is JSON in the data folder, `factions/<id>.json`, `players/<uuid>.json`, `claims/<world>.json`, the
+market, vault, shops, progress, economy and imports folders, `nations.json`, `sieges.json`, `events.json`,
+`bounties.json`, `strikes.json` and `export/snapshot.json`. It autosaves every 30 seconds
+(`storage.autosaveSeconds`) and keeps 7 daily zipped backups under `backups/` (`storage.backupKeep`).
 
-The snapshot is meant for **Atlas**, a separate live web map plugin that reads the file and shows
-the server's factions on a map. Dominion does not serve the map itself. Other tools can read the
-file too. The format carries a `version` field, currently `1`. Turn the export off with
-`/fa set export.enabled false`.
+## Limits
 
-## Data layout
+Dominion boots headless with all 23 modules next to Atlas and CombatLog and has 659 JUnit tests over money, storage,
+claims, power, relations, sieges, the market, the importer and the snapshot contract. I have not played it in a
+game client yet, so these are unverified until someone does.
 
-Everything lives in the plugin data folder as JSON.
+- How the panel, its pages, the sidebar, shop rows, item icons and the pickers render.
+- Map marker images and tints, vault chest windows and windows closing on disconnect or breach.
+- Cross world teleports, home respawn, warmup cancellation and command parsing with apostrophes, multi word zone
+  names and custom rank names.
+- Item currency counting, VaultUnlocked class names, envoy chest placement and console command payouts.
+- Nation chat, the importer against real data, live CombatLog tags and the SafeZone push back.
+- The tutorial on first join, the first daily backup and public chat reaching Atlas.
 
-```text
-config.json              settings
-factions/<id>.json       one file per faction
-players/<uuid>.json      one file per player
-claims/<world>.json      claims per world
-market/                  listings, history and mailboxes
-vault/  shops/  progress/  economy/  imports/
-nations.json  sieges.json  events.json  bounties.json  strikes.json
-export/snapshot.json     web map snapshot
-backups/                 daily zipped backups (storage.backupKeep, default 7)
-```
+A faction tag in the tab list cannot be done server side.
 
-Data autosaves every 30 seconds by default (`storage.autosaveSeconds`).
+## Building
 
-## Building from source
-
-Requires JDK 25. The build compiles against the Hytale server artifact from Hytale's Maven
-repository. The channel and version come from `gradle.properties` and can be overridden on the
-command line.
+JDK 25.
 
 ```bash
 git clone https://github.com/ryvrook/dominion-factions.git
-cd dominion
+cd dominion-factions
 ./gradlew build
-./gradlew build -Phytale_channel=release -Phytale_version=0.6.8
+./gradlew installMod     # also copies the jar to your local Mods folder, -PmodsDir=<path> for elsewhere
 ```
 
-The jar lands in `build/libs/DominionFactions-0.5.1.jar`. To copy it straight into your local Mods folder
-run the `installMod` task, optionally with `-PmodsDir=<path>`.
+The jar lands in `build/libs/DominionFactions-0.6.0.jar`. `-Phytale_channel` and `-Phytale_version` pick
+another server artifact. Each feature is a `DominionModule` loaded by name from `Wiring.MODULES`, and
+`DominionApi.get()` is the read API for other mods. [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) has the conventions.
+Read it before a pull request, keep changes inside one module, and say which server version you tested on.
 
-```bash
-./gradlew installMod
-```
+## Licence
 
-## Project layout
-
-```text
-src/main/java/dev/ryvrook/dominion/
-  DominionPlugin, DominionContext, Wiring   plugin entry and module loading
-  model, storage, config, service, util, text   shared skeleton
-  api/                                      public API for other mods
-  economy, faction, power, relation, land, combat, chat, home, shield, siege,
-  market, vault, progress, nation, shop, events, importer, ui, map,
-  command, admin, export                    one package per feature module
-src/main/resources/                         manifest, UI markup and assets
-docs/                                      DEVELOPMENT.md conventions and STATUS.md
-```
-
-- Each feature module implements `DominionModule` and is loaded by class name from `Wiring.MODULES`. A missing module is logged and skipped.
-- Modules register services with the context and look up other services lazily. Mutations go through services and return a `Result` with a readable reason.
-- The `api` package is the read API for other mods. Call `DominionApi.get()` after Dominion has started to query factions, claims, relations, power, raidable state, permission checks, outpost boosts and the event bus.
-- `docs/DEVELOPMENT.md` is the conventions doc. Read it before opening a pull request.
-
-## Status
-
-Dominion Factions 0.5.1 builds against server 0.7.1 and still compiles on 0.7.0 and 0.6.8, boots headless with all
-23 modules next to Atlas and next to CombatLog, and has a JUnit suite of 627 tests over money moves, storage, settings, parsers, claims,
-power, membership, relations, nations, sieges, shields, the PvP table, events, missions, the market, shops, homes,
-the importer and the web map snapshot contract. **It has not been played in a game client yet.** The following
-are unverified until someone does.
-
-- Rendering of the panel, every page, the HUD sidebar, shop rows and vault stocking, item icons and the hour and quantity pickers.
-- Map marker images and tints, vault chest windows, container change events and windows closing on disconnect or breach.
-- Cross world teleports, home respawn, warmup cancellation and command parsing with apostrophes, multiword zone names and custom rank names.
-- Item currency counting, VaultUnlocked class names, owed item delivery, envoy chest placement and console command payouts.
-- Nation chat delivery and importer results against real data from the other mods.
-- Live CombatLog tags blocking homes, claims and SafeZone entry, and the SafeZone push back teleport itself.
-- The tutorial on first join, the first daily backup, truce door refusal and public chat reaching Atlas.
-
-Tab list integration is not possible server side and is out of scope.
-
-## Contributing
-
-Bug reports and pull requests are welcome. Please test in a client if you can and say which server
-version you used. Keep changes inside the module you are touching, follow `docs/DEVELOPMENT.md`, and
-make sure `./gradlew build` passes on both 0.7.0 and 0.6.8. For larger changes open an issue first.
-
-## License
-
-Dominion is released under the MIT License. Copyright (c) 2026 ryvrook. See [LICENSE](LICENSE).
+MIT, copyright (c) 2026 ryvrook. See [LICENSE](LICENSE).

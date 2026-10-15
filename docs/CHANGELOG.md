@@ -1,24 +1,45 @@
 # Changelog
 
-## Unreleased
+## 0.6.0 - 2026-10-15
 
-- A runtime reload under a new jar name no longer leaves the UI pack refused. Dominion drops the stale asset pack registration at setup and releases its own at shutdown, the same way Feats and Coinage do.
-
-### Changed
-- With TrackerAPI bound and tracking block breaks, places, pickups and drops, the mine, chop, farm and fish missions count from its events. Dominion's own systems take over again within 5 seconds when TrackerAPI stops, pauses the listener or stops tracking one of those kinds. The counts are the same either way, both go through Dominion's own anti farm memory. Deaths, kills and the land protection stay on Dominion's own hooks.
-- After a `/plugin reload` of Feats, Atlas or Coinage, or when one is installed while the server runs, Dominion reloads itself within about 8 seconds and links to the new instance. TrackerAPI 1.0.3 and newer already reload Dominion, so that case logs nothing. Coinage 1.1.0 reloads Dominion too, and Dominion waits for its pass and skips its own reload when Coinage already did it, so Dominion starts once.
-- `dominion:invites` counts once per invited player and faction, and `dominion:bank_deposited` counts a player's net deposits of the day, so revoke and invite loops and deposit and withdraw loops count once. TrackerAPI keeps a leaderboard for all ten `dominion:` counters.
-- The Atlas siege layer is drawn only while `export.enabled` is off, since the snapshot already gives Atlas every siege with its phase and end time. New key `integrations.atlasSiegeTier` sets who sees it. Dominion removes its Atlas hooks on stop when Atlas has `removeHooks`.
-- Coinage dues and upkeep round up to the smallest unit of the currency, so an upkeep of 0.4 on a whole coin currency costs one coin instead of nothing. Interest still rounds down.
-- The balance move into Coinage takes the whole coins of a balance on a currency with 0 or 1 decimals and leaves the fraction, instead of failing every day.
-- The claims overlay paints a chunk image in 2.9 us instead of about 7 us and keeps less memory per painted chunk.
-- The sidebar sends only the values that changed since the last refresh.
-- The map snapshot is rewritten every two seconds only while it carries player positions, otherwise when something changed, and the first one is written right after start.
+### For players
+- With TrackerAPI bound, the mine, chop, farm and fish missions count from its events. The counts are the same
+  either way, both go through Dominion's own anti farm memory.
+- Coinage dues and upkeep round up to the smallest unit of the currency, so an upkeep of 0.4 on a whole coin
+  currency costs one coin instead of nothing. Interest still rounds down.
 - `/f stats` no longer lists the per player withdraw allowance and counter bookkeeping.
 
-### Fixed
-- The daily withdraw allowance is booked when Coinage asks Dominion about a withdrawal from its pages, so two withdrawals at once can no longer both fit under it. A booking whose move failed is given back within 10 seconds, and at shutdown.
-- A faction account deleted by an admin in Coinage no longer leaves the bank refusing every move. Dominion opens a new empty account under the same handle and logs one warning.
+### For admins
+- After a `/plugin reload` of Feats, Atlas or Coinage, or when one is installed while the server runs, Dominion
+  reloads itself within about 8 seconds and links to the new instance. TrackerAPI 1.0.3 and newer and Coinage
+  1.1.0 already reload Dominion, and Dominion then skips its own pass, so it starts once.
+- A runtime reload drops the stale asset pack registration the way Feats and Coinage do, so a reload with a new jar
+  name no longer refuses the UI pack.
+- The Atlas siege layer is drawn only while `export.enabled` is off, since the snapshot already gives Atlas every
+  siege. New key `integrations.atlasSiegeTier` sets who sees it.
+- `dominion:invites` counts once per invited player and faction, and `dominion:bank_deposited` counts a player's
+  net deposits of the day, so invite loops and deposit and withdraw loops count once. TrackerAPI keeps a
+  leaderboard for all ten `dominion:` counters.
+
+### Upgrading
+- Swap the jar. One key is added with its default, `integrations.atlasSiegeTier` (`public`). Set it to match
+  Atlas's `visibility.territories` if you changed that.
+
+### Other changes
+- Dominion's own mission systems take over again within 5 seconds when TrackerAPI stops, pauses the listener or
+  stops tracking one of those kinds. Deaths, kills and land protection stay on Dominion's own hooks.
+- The balance move into Coinage takes the whole coins of a balance on a currency with 0 or 1 decimals and leaves
+  the fraction, instead of failing every day.
+- The claims overlay paints a chunk image in 2.9 us instead of about 7 us and keeps less memory per chunk.
+- The sidebar sends only the values that changed since the last refresh.
+- The map snapshot is rewritten every two seconds only while it carries player positions, otherwise when something
+  changed, and the first one is written right after start.
+- Dominion removes its Atlas hooks on stop when Atlas has `removeHooks`.
+- The daily withdraw allowance is booked when Coinage asks Dominion about a withdrawal from its pages, so two
+  withdrawals at once can no longer both fit under it. A booking whose move failed is given back within 10
+  seconds, and at shutdown.
+- A faction account deleted by an admin in Coinage no longer leaves the bank refusing every move. Dominion opens a
+  new empty account under the same handle and logs one warning.
 
 ## 0.5.1 - 2026-10-15
 
