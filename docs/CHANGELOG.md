@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Messages
+- Every player sentence of the command, admin, chat, ui, combat, shield, progress and integration packages is read from messages.json by id, including command and argument descriptions, help pages, panel and sidebar labels, mission names and audit lines, so a server can reword or translate them without a rebuild.
+
 ## 0.3.0 - 2026-10-15
 
 Dominion Factions 0.3.0 is the first release shaped by a client session. Faction names show once, the sidebar,
