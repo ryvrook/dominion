@@ -212,6 +212,21 @@ dependency through the plugin bridge loader, so the bridges can name the sibling
   `counts` flag that `ClaimChanged` carries (false for admin moves, decay and any chunk the faction released within
   the seven day mission window, so a chunk claimed, released and claimed again counts once each way), and kills, deposits and invites from the `PlayerDied`,
   `BankDeposited` and `MemberInvited` events. Both siblings only count for online players.
+- Gather missions from TrackerAPI. While TrackerAPI is bound and tracks `block_broken`, `block_placed`,
+  `item_picked_up` and `item_dropped`, the bridge subscribes to those four kinds (ASYNC) and hands them to
+  `progress.GatherFeed`, and Dominion's own four `GatherSystems` return at once. The systems stay registered, so a
+  TrackerAPI stop, a kind turned off in its config or a listener it suspended for running over budget hands the
+  counting back within the 5 second poll. Both feeds go through the same `GatherFeed` methods and Dominion's own
+  `FarmGuard`, not TrackerAPI's `playerPlaced` and `fresh` flags, because Dominion's guard is wider (a block any
+  player placed, a crop a faction mate dropped, both memories configurable), so the counts are the same either way.
+  Drops on death are skipped, as the engine drop event Dominion hooks never sees them.
+- Hooks that stay Dominion's own. `combat/DeathTrackingSystem` applies the power loss, pays kill rewards from bank to
+  bank, informs sieges and bounties and needs the victim's chunk and the killer's ref in the tick of the death. A
+  TrackerAPI listener can be suspended or turned off, which would silently stop the power loss, and TrackerAPI also
+  credits kills through an effect, so the counts would change. The protection guards cancel the engine event and
+  must run on it. `PvpFilterSystem` and `WarmupDamageSystem` cancel or react to damage in the same tick,
+  `HomeRespawnSystem` moves the respawn, and chat, nameplates and the map react to engine events TrackerAPI does not
+  publish.
 - Atlas. The snapshot already carries claims, homes, warps, siege pins, hills, outposts and envoys, so the bridge
   pushes only a `Ryvrook:Dominion:sieges` layer of circles whose popups name the phase and the end time, redrawn on
   `SiegePhase`, `BreachChanged` and `FactionDisbanded`. `PlayerToggles.onWebMap` tells it about `/f map hide`

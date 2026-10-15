@@ -11,6 +11,7 @@ import java.util.logging.Level;
 /** Value, leaderboard, upgrades, missions, levels and strikes. */
 public final class ProgressModule implements DominionModule {
     private ProgressServiceImpl service;
+    private GatherFeed feed;
 
     public ProgressModule() {}
 
@@ -23,6 +24,8 @@ public final class ProgressModule implements DominionModule {
     public void init(DominionContext ctx) {
         service = new ProgressServiceImpl(ctx);
         ctx.register(ProgressService.class, service);
+        feed = new GatherFeed(ctx, service);
+        ctx.register(GatherFeed.class, feed);
     }
 
     @Override
@@ -30,6 +33,7 @@ public final class ProgressModule implements DominionModule {
         service.tick();
         ctx.everyMinute(service::tick);
         FarmGuard guard = new FarmGuard(ctx);
+        feed.guard(guard);
         ctx.everyMinute(() -> guard.sweep(Time.now()));
         // Drop memory is not cleared on quit, or a player could drop crops, log out and let a friend collect them.
         ctx.bus().subscribe(event -> {
@@ -44,10 +48,11 @@ public final class ProgressModule implements DominionModule {
         });
         try {
             var registry = ctx.plugin().getEntityStoreRegistry();
-            registry.registerSystem(new GatherSystems.Place(service, guard));
-            registry.registerSystem(new GatherSystems.Drop(service, guard));
-            registry.registerSystem(new GatherSystems.Break(service, ctx, guard));
-            registry.registerSystem(new GatherSystems.Pickup(service, guard));
+            // Registered even when TrackerAPI feeds the counters, so they take over the moment it stops.
+            registry.registerSystem(new GatherSystems.Place(feed));
+            registry.registerSystem(new GatherSystems.Drop(feed));
+            registry.registerSystem(new GatherSystems.Break(feed));
+            registry.registerSystem(new GatherSystems.Pickup(feed));
         } catch (Exception e) {
             ctx.logger().at(Level.WARNING).withCause(e).log("Dominion could not register mission counters");
         }
