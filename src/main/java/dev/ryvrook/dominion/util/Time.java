@@ -1,5 +1,7 @@
 package dev.ryvrook.dominion.util;
 
+import dev.ryvrook.dominion.text.Messages;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -21,26 +23,26 @@ public final class Time {
     /** Compact remaining-time text such as 2d 4h, 3h 12m, 45s. */
     public static String remaining(long millis) {
         if (millis <= 0) {
-            return "now";
+            return Messages.get(UtilText.TIME_NOW);
         }
         long s = millis / 1000;
         long d = s / 86400;
         long h = (s % 86400) / 3600;
         long m = (s % 3600) / 60;
         if (d > 0) {
-            return d + "d " + h + "h";
+            return Messages.get(UtilText.TIME_DAYS_HOURS, "days", d, "hours", h);
         }
         if (h > 0) {
-            return h + "h " + m + "m";
+            return Messages.get(UtilText.TIME_HOURS_MINUTES, "hours", h, "minutes", m);
         }
         if (m > 0) {
-            return m + "m " + (s % 60) + "s";
+            return Messages.get(UtilText.TIME_MINUTES_SECONDS, "minutes", m, "seconds", s % 60);
         }
-        return s + "s";
+        return Messages.get(UtilText.TIME_SECONDS, "seconds", s);
     }
 
     public static String ago(long epochMillis) {
-        return remaining(now() - epochMillis) + " ago";
+        return Messages.get(UtilText.TIME_AGO, "time", remaining(now() - epochMillis));
     }
 
     /** Longest duration parse accepts, about 100 years, so later millisecond maths never overflows. */
