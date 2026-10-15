@@ -15,6 +15,8 @@ import dev.ryvrook.dominion.service.FactionService;
 import dev.ryvrook.dominion.service.MarketService;
 import dev.ryvrook.dominion.service.ProgressService;
 import dev.ryvrook.dominion.service.UiService;
+import dev.ryvrook.dominion.text.CommonText;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Players;
 import dev.ryvrook.dominion.util.Time;
@@ -66,7 +68,7 @@ public final class MarketServiceImpl implements MarketService {
     private final java.util.Set<UUID> busy = new java.util.HashSet<>();
     /** True while the listings file holds an older state than memory. Guarded by the lock. */
     private boolean listingsDirty;
-    static final String BUSY = "Someone is buying that right now. Try again in a moment.";
+    static final String BUSY = MarketText.BUSY;
 
     public MarketServiceImpl(DominionContext ctx) {
         this.ctx = ctx;
@@ -138,9 +140,9 @@ public final class MarketServiceImpl implements MarketService {
             Msg.send(player, Msg.warn(note));
         }
         if (items > 0 || coins > 0) {
-            Msg.send(player, Msg.info("You have " + (items > 0 ? items + " item stacks" : "")
-                    + (items > 0 && coins > 0 ? " and " : "") + (coins > 0 ? fmt(coins) : "")
-                    + " waiting in your market mailbox."));
+            String id = items > 0 && coins > 0 ? MarketText.MAILBOX_ITEMS_AND_COINS
+                    : items > 0 ? MarketText.MAILBOX_ITEMS : MarketText.MAILBOX_COINS;
+            Msg.send(player, Msg.info(Messages.get(id, "stacks", items, "coins", coins > 0 ? fmt(coins) : "")));
         }
     }
 
@@ -258,12 +260,12 @@ public final class MarketServiceImpl implements MarketService {
         double each = round(price);
         PlayerRef p = Players.online(player);
         if (p == null) {
-            return Result.fail("You need to be online to sell an item.");
+            return Result.fail(Messages.get(MarketText.SELL_OFFLINE));
         }
         CompletableFuture<Result> f = Items.onWorld(p, (store, ref) -> {
             Items.Held held = Items.held(store, ref);
             if (held == null) {
-                return Result.fail("Hold the item you want to sell in your hand.");
+                return Result.fail(Messages.get(MarketText.HOLD_TO_SELL));
             }
             synchronized (lock) {
                 Result limit = limitCheck(player);
@@ -277,24 +279,24 @@ public final class MarketServiceImpl implements MarketService {
                 listings.put(l.id(), l);
                 if (!saveListings()) {
                     listings.remove(l.id());
-                    return Result.fail("The listing could not be saved, so your item stays in your hand.");
+                    return Result.fail(Messages.get(MarketText.LISTING_NOT_SAVED_ITEM_KEPT));
                 }
                 ItemStack taken = Items.takeHeld(held, qty);
                 if (taken == null) {
                     close(l);
                     persist();
-                    return Result.fail("That item could not be taken from your hand.");
+                    return Result.fail(Messages.get(MarketText.HAND_TAKE_FAILED));
                 }
                 return listed(qty, l.itemId(), each);
             }
         });
-        return await(p, f, "Listing your item.");
+        return await(p, f, Messages.get(MarketText.LISTING_PENDING));
     }
 
     @Override
     public Result sellStack(UUID player, ItemStack stack, double price) {
         if (ItemStack.isEmpty(stack)) {
-            return Result.fail("There is nothing to sell.");
+            return Result.fail(Messages.get(MarketText.NOTHING_TO_SELL));
         }
         Result pre = preSell(player, price);
         if (pre != null) {
@@ -311,7 +313,7 @@ public final class MarketServiceImpl implements MarketService {
 
     private Result preSell(UUID player, double price) {
         if (!enabled()) {
-            return Result.fail("The market is disabled.");
+            return Result.fail(Messages.get(MarketText.DISABLED));
         }
         String bad = priceProblem(price);
         if (bad != null) {
@@ -331,7 +333,7 @@ public final class MarketServiceImpl implements MarketService {
                 open++;
             }
         }
-        return open >= max ? Result.fail("You already have " + open + " open listings. The limit is " + max + ".") : null;
+        return open >= max ? Result.fail(Messages.get(MarketText.LISTING_LIMIT, "open", open, "max", max)) : null;
     }
 
     /** Caller holds the lock. */
@@ -340,7 +342,7 @@ public final class MarketServiceImpl implements MarketService {
         listings.put(l.id(), l);
         if (!saveListings()) {
             listings.remove(l.id());
-            return Result.fail("The listing could not be saved. Try again in a moment.");
+            return Result.fail(Messages.get(MarketText.LISTING_NOT_SAVED));
         }
         return listed(stack.getQuantity(), stack.getItemId(), each);
     }
@@ -353,7 +355,7 @@ public final class MarketServiceImpl implements MarketService {
     }
 
     private Result listed(int quantity, String itemId, double each) {
-        return Result.pass("Listed " + quantity + " " + Items.displayName(itemId) + " for " + fmt(each) + " each.");
+        return Result.pass(Messages.get(MarketText.LISTED, "count", quantity, "item", Items.displayName(itemId), "price", fmt(each)));
     }
 
     // ---- buying -------------------------------------------------------------------
@@ -361,7 +363,7 @@ public final class MarketServiceImpl implements MarketService {
     @Override
     public Result buy(UUID buyer, UUID listingId, int amount) {
         if (!enabled()) {
-            return Result.fail("The market is disabled.");
+            return Result.fail(Messages.get(MarketText.DISABLED));
         }
         Listing l;
         int qty;
@@ -369,26 +371,26 @@ public final class MarketServiceImpl implements MarketService {
         synchronized (lock) {
             l = listings.get(listingId);
             if (l == null || l.closed() || l.expiresAt() <= Time.now()) {
-                return Result.fail("That listing is no longer available.");
+                return Result.fail(Messages.get(MarketText.LISTING_GONE));
             }
             if (l.kind() != Listing.Kind.SALE) {
-                return Result.fail(l.kind() == Listing.Kind.AUCTION ? "Auctions take bids, not purchases."
-                        : "Fill buy orders by selling to them.");
+                return Result.fail(Messages.get(l.kind() == Listing.Kind.AUCTION ? MarketText.AUCTIONS_TAKE_BIDS
+                        : MarketText.ORDERS_TAKE_SALES));
             }
             if (l.seller().equals(buyer)) {
-                return Result.fail("You cannot buy your own listing.");
+                return Result.fail(Messages.get(MarketText.OWN_LISTING));
             }
             if (busy.contains(l.id())) {
-                return Result.fail(BUSY);
+                return Result.fail(Messages.get(BUSY));
             }
             qty = amount <= 0 ? l.quantity() : amount;
             if (qty > l.quantity()) {
-                return Result.fail("Only " + l.quantity() + " are left on that listing.");
+                return Result.fail(Messages.get(MarketText.ONLY_LEFT, "count", l.quantity()));
             }
             total = round(l.price() * qty);
             busy.add(l.id());
         }
-        Result paid = withdraw(buyer, total, "Market purchase");
+        Result paid = withdraw(buyer, total, Messages.get(MarketText.MEMO_PURCHASE));
         synchronized (lock) {
             busy.remove(l.id());
             if (paid.success()) {
@@ -400,11 +402,12 @@ public final class MarketServiceImpl implements MarketService {
         if (paid.failed()) {
             return Result.fail(paid.message());
         }
-        double net = payout(l.seller(), total, "Market sale of " + qty + " " + Items.displayName(l.itemId()));
+        double net = payout(l.seller(), total, Messages.get(MarketText.MEMO_SALE, "count", qty, "item", Items.displayName(l.itemId())));
         deliverLot(buyer, l, qty);
         traded(l, qty, total, buyer, l.seller());
-        notify(l.seller(), Msg.good(name(buyer) + " bought " + qty + " " + Items.displayName(l.itemId()) + " from you. You received " + fmt(net) + "."));
-        return Result.pass("You bought " + qty + " " + Items.displayName(l.itemId()) + " for " + fmt(total) + ".");
+        notify(l.seller(), Msg.good(Messages.get(MarketText.SOLD_TO, "buyer", name(buyer), "count", qty,
+                "item", Items.displayName(l.itemId()), "amount", fmt(net))));
+        return Result.pass(Messages.get(MarketText.BOUGHT, "count", qty, "item", Items.displayName(l.itemId()), "amount", fmt(total)));
     }
 
     @Override
@@ -413,22 +416,22 @@ public final class MarketServiceImpl implements MarketService {
         synchronized (lock) {
             l = listings.get(listingId);
             if (l == null || l.closed()) {
-                return Result.fail("That listing is no longer available.");
+                return Result.fail(Messages.get(MarketText.LISTING_GONE));
             }
             if (!l.seller().equals(player)) {
-                return Result.fail("That listing is not yours.");
+                return Result.fail(Messages.get(MarketText.NOT_YOURS));
             }
             if (busy.contains(l.id())) {
-                return Result.fail(BUSY);
+                return Result.fail(Messages.get(BUSY));
             }
             if (l.kind() == Listing.Kind.AUCTION && l.topBidder() != null) {
-                return Result.fail("An auction cannot be cancelled once it has bids.");
+                return Result.fail(Messages.get(MarketText.AUCTION_HAS_BIDS));
             }
             listings.remove(l.id());
             // Saved before anything is handed back, so a restart can never return the same lot twice.
             if (!saveListings()) {
                 listings.put(l.id(), l);
-                return Result.fail("The listing could not be saved, so it was not cancelled. Try again in a moment.");
+                return Result.fail(Messages.get(MarketText.CANCEL_NOT_SAVED));
             }
             l.close();
             if (l.kind() != Listing.Kind.ORDER) {
@@ -437,10 +440,10 @@ public final class MarketServiceImpl implements MarketService {
         }
         if (l.kind() == Listing.Kind.ORDER) {
             double refund = MarketRules.orderEscrow(l);
-            refundCoins(player, refund, "Market order cancelled");
-            return Result.pass("Your order was cancelled and " + fmt(refund) + " was returned.");
+            refundCoins(player, refund, Messages.get(MarketText.MEMO_ORDER_CANCELLED));
+            return Result.pass(Messages.get(MarketText.ORDER_CANCELLED, "amount", fmt(refund)));
         }
-        return Result.pass("Your listing was cancelled. The items are in your market mailbox.");
+        return Result.pass(Messages.get(MarketText.LISTING_CANCELLED));
     }
 
     // ---- buy orders ---------------------------------------------------------------
@@ -448,17 +451,17 @@ public final class MarketServiceImpl implements MarketService {
     @Override
     public Result placeOrder(UUID player, String itemId, double pricePerItem, int amount) {
         if (!enabled()) {
-            return Result.fail("The market is disabled.");
+            return Result.fail(Messages.get(MarketText.DISABLED));
         }
         String bad = priceProblem(pricePerItem);
         if (bad != null) {
             return Result.fail(bad);
         }
         if (amount <= 0 || amount > MAX_ORDER_AMOUNT) {
-            return Result.fail("Order between 1 and " + Msg.number((long) MAX_ORDER_AMOUNT) + " items.");
+            return Result.fail(Messages.get(MarketText.ORDER_AMOUNT_RANGE, "max", Msg.number((long) MAX_ORDER_AMOUNT)));
         }
         if (!Items.exists(itemId)) {
-            return Result.fail("There is no item called " + itemId + ".");
+            return Result.fail(Messages.get(MarketText.NO_SUCH_ITEM, "item", itemId));
         }
         String id = Items.item(itemId).getId();
         double each = round(pricePerItem);
@@ -469,7 +472,7 @@ public final class MarketServiceImpl implements MarketService {
                 return limit;
             }
         }
-        Result paid = withdraw(player, total, "Market buy order");
+        Result paid = withdraw(player, total, Messages.get(MarketText.MEMO_BUY_ORDER));
         if (paid.failed()) {
             return Result.fail(paid.message());
         }
@@ -485,33 +488,33 @@ public final class MarketServiceImpl implements MarketService {
                 listings.put(l.id(), l);
                 if (!saveListings()) {
                     listings.remove(l.id());
-                    refused = "The order could not be saved, so your money was returned.";
+                    refused = Messages.get(MarketText.ORDER_NOT_SAVED);
                 }
             }
         }
         if (refused != null) {
-            refundCoins(player, total, "Market buy order refund");
+            refundCoins(player, total, Messages.get(MarketText.MEMO_BUY_ORDER_REFUND));
             return Result.fail(refused);
         }
-        return Result.pass("Placed an order for " + amount + " " + Items.displayName(id) + " at " + fmt(each) + " each. "
-                + fmt(total) + " is held until it fills.");
+        return Result.pass(Messages.get(MarketText.ORDER_PLACED, "count", amount, "item", Items.displayName(id),
+                "price", fmt(each), "total", fmt(total)));
     }
 
     @Override
     public Result fulfilOrder(UUID seller, UUID orderId, int amount) {
         if (!enabled()) {
-            return Result.fail("The market is disabled.");
+            return Result.fail(Messages.get(MarketText.DISABLED));
         }
         Listing pre = byId(orderId);
         if (pre == null || pre.closed() || pre.kind() != Listing.Kind.ORDER) {
-            return Result.fail("That order is no longer open.");
+            return Result.fail(Messages.get(MarketText.ORDER_CLOSED));
         }
         if (pre.seller().equals(seller)) {
-            return Result.fail("You cannot fill your own order.");
+            return Result.fail(Messages.get(MarketText.OWN_ORDER));
         }
         PlayerRef p = Players.online(seller);
         if (p == null) {
-            return Result.fail("You need to be online to fill an order.");
+            return Result.fail(Messages.get(MarketText.FILL_OFFLINE));
         }
         CompletableFuture<Result> f = Items.onWorld(p, (store, ref) -> {
             Listing l;
@@ -522,27 +525,27 @@ public final class MarketServiceImpl implements MarketService {
             synchronized (lock) {
                 l = listings.get(orderId);
                 if (l == null || l.closed() || l.expiresAt() <= Time.now()) {
-                    return Result.fail("That order is no longer open.");
+                    return Result.fail(Messages.get(MarketText.ORDER_CLOSED));
                 }
                 if (busy.contains(l.id())) {
-                    return Result.fail(BUSY);
+                    return Result.fail(Messages.get(BUSY));
                 }
                 if (amount > l.quantity()) {
-                    return Result.fail("That order only needs " + l.quantity() + " more.");
+                    return Result.fail(Messages.get(MarketText.ORDER_NEEDS_ONLY, "count", l.quantity()));
                 }
                 ItemContainer inv = Items.inventory(store, ref);
                 int have = inv == null ? 0 : Items.count(inv, l.itemId());
                 if (have <= 0) {
-                    return Result.fail("You have no " + Items.displayName(l.itemId()) + " to sell.");
+                    return Result.fail(Messages.get(MarketText.NONE_TO_SELL, "item", Items.displayName(l.itemId())));
                 }
                 int want = amount <= 0 ? Math.min(l.quantity(), have) : amount;
                 if (have < want) {
-                    return Result.fail("You only carry " + have + " " + Items.displayName(l.itemId()) + ".");
+                    return Result.fail(Messages.get(MarketText.ONLY_CARRY, "count", have, "item", Items.displayName(l.itemId())));
                 }
                 taken = Items.take(inv, l.itemId(), want);
                 got = taken.stream().mapToInt(ItemStack::getQuantity).sum();
                 if (got <= 0) {
-                    return Result.fail("Those items could not be taken from your inventory.");
+                    return Result.fail(Messages.get(MarketText.INVENTORY_TAKE_FAILED));
                 }
                 shrink(l, got);
                 total = round(l.price() * got);
@@ -550,13 +553,15 @@ public final class MarketServiceImpl implements MarketService {
                 persist();
             }
             // The money was held when the order was placed, so the seller is paid from it outside the lock.
-            net = payout(seller, total, "Filled a market order for " + got + " " + Items.displayName(l.itemId()));
+            net = payout(seller, total, Messages.get(MarketText.MEMO_FILLED_ORDER, "count", got, "item", Items.displayName(l.itemId())));
             deliver(l.seller(), taken);
             traded(l, got, total, l.seller(), seller);
-            notify(l.seller(), Msg.good(name(seller) + " filled " + got + " " + Items.displayName(l.itemId()) + " of your order."));
-            return Result.pass("You sold " + got + " " + Items.displayName(l.itemId()) + " and received " + fmt(net) + ".");
+            notify(l.seller(), Msg.good(Messages.get(MarketText.ORDER_FILLED_BY, "seller", name(seller), "count", got,
+                    "item", Items.displayName(l.itemId()))));
+            return Result.pass(Messages.get(MarketText.SOLD_TO_ORDER, "count", got, "item", Items.displayName(l.itemId()),
+                    "amount", fmt(net)));
         });
-        return await(p, f, "Filling the order.");
+        return await(p, f, Messages.get(MarketText.FILL_PENDING));
     }
 
     // ---- auctions -----------------------------------------------------------------
@@ -564,10 +569,10 @@ public final class MarketServiceImpl implements MarketService {
     @Override
     public Result auctionHeld(UUID player, double startingBid, double buyout, int hours) {
         if (!enabled()) {
-            return Result.fail("The market is disabled.");
+            return Result.fail(Messages.get(MarketText.DISABLED));
         }
         if (!AUCTION_HOURS.contains(hours)) {
-            return Result.fail("Auctions run for 1, 6, 12, 24 or 48 hours.");
+            return Result.fail(Messages.get(MarketText.AUCTION_HOURS));
         }
         String bad = priceProblem(startingBid);
         if (bad == null && buyout > 0) {
@@ -579,16 +584,16 @@ public final class MarketServiceImpl implements MarketService {
         double start = round(startingBid);
         double out = buyout > 0 ? round(buyout) : 0;
         if (out > 0 && (out <= start || out > MAX_PRICE)) {
-            return Result.fail("The buyout must be higher than the starting bid.");
+            return Result.fail(Messages.get(MarketText.BUYOUT_TOO_LOW));
         }
         PlayerRef p = Players.online(player);
         if (p == null) {
-            return Result.fail("You need to be online to start an auction.");
+            return Result.fail(Messages.get(MarketText.AUCTION_OFFLINE));
         }
         CompletableFuture<Result> f = Items.onWorld(p, (store, ref) -> {
             Items.Held held = Items.held(store, ref);
             if (held == null) {
-                return Result.fail("Hold the item you want to auction in your hand.");
+                return Result.fail(Messages.get(MarketText.HOLD_TO_AUCTION));
             }
             synchronized (lock) {
                 Result limit = limitCheck(player);
@@ -603,26 +608,27 @@ public final class MarketServiceImpl implements MarketService {
                 listings.put(l.id(), l);
                 if (!saveListings()) {
                     listings.remove(l.id());
-                    return Result.fail("The auction could not be saved, so your item stays in your hand.");
+                    return Result.fail(Messages.get(MarketText.AUCTION_NOT_SAVED));
                 }
                 ItemStack taken = Items.takeHeld(held, 0);
                 if (taken == null) {
                     listings.remove(l.id());
                     l.close();
                     persist();
-                    return Result.fail("That item could not be taken from your hand.");
+                    return Result.fail(Messages.get(MarketText.HAND_TAKE_FAILED));
                 }
-                return Result.pass("Your auction for " + taken.getQuantity() + " " + Items.displayName(taken.getItemId())
-                        + " runs for " + hours + (hours == 1 ? " hour" : " hours") + ". Bids start at " + fmt(start) + ".");
+                return Result.pass(Messages.get(hours == 1 ? MarketText.AUCTION_STARTED_ONE_HOUR : MarketText.AUCTION_STARTED,
+                        "count", taken.getQuantity(), "item", Items.displayName(taken.getItemId()), "hours", hours,
+                        "start", fmt(start)));
             }
         });
-        return await(p, f, "Starting your auction.");
+        return await(p, f, Messages.get(MarketText.AUCTION_PENDING));
     }
 
     @Override
     public Result bid(UUID bidder, UUID auctionId, double amount) {
         if (!enabled()) {
-            return Result.fail("The market is disabled.");
+            return Result.fail(Messages.get(MarketText.DISABLED));
         }
         String bad = priceProblem(amount);
         if (bad != null) {
@@ -638,11 +644,11 @@ public final class MarketServiceImpl implements MarketService {
                 return Result.fail(b.error());
             }
             if (busy.contains(l.id())) {
-                return Result.fail("Someone else is bidding right now. Try again in a moment.");
+                return Result.fail(Messages.get(MarketText.BIDDING_BUSY));
             }
             busy.add(l.id());
         }
-        Result paid = b.charge() > 0 ? withdraw(bidder, b.charge(), "Market auction bid") : Result.pass();
+        Result paid = b.charge() > 0 ? withdraw(bidder, b.charge(), Messages.get(MarketText.MEMO_BID)) : Result.pass();
         synchronized (lock) {
             busy.remove(l.id());
             if (paid.success()) {
@@ -662,27 +668,27 @@ public final class MarketServiceImpl implements MarketService {
             return Result.fail(paid.message());
         }
         if (b.refundTo() != null) {
-            refundCoins(b.refundTo(), b.refund(), "Market outbid refund");
+            refundCoins(b.refundTo(), b.refund(), Messages.get(MarketText.MEMO_OUTBID_REFUND));
         }
-        double net = b.boughtOut() ? payout(l.seller(), b.offer(), "Auction of " + l.quantity() + " " + Items.displayName(l.itemId())) : 0;
+        double net = b.boughtOut() ? payout(l.seller(), b.offer(), Messages.get(MarketText.MEMO_AUCTION, "lot", lot(l))) : 0;
         UUID previous = b.refundTo();
         double previousBid = b.refund();
         double offer = b.offer();
         boolean boughtOut = b.boughtOut();
         boolean extended = b.extended();
-        String what = l.quantity() + " " + Items.displayName(l.itemId());
+        String what = lot(l);
         if (previous != null) {
-            notify(previous, Msg.warn("You were outbid on " + what + ". Your bid of " + fmt(previousBid) + " was returned."));
+            notify(previous, Msg.warn(Messages.get(MarketText.OUTBID, "lot", what, "amount", fmt(previousBid))));
         }
         if (boughtOut) {
             deliverLot(bidder, l, l.quantity());
             traded(l, l.quantity(), offer, bidder, l.seller());
-            notify(l.seller(), Msg.good(name(bidder) + " bought out your auction of " + what + ". You received " + fmt(net) + "."));
-            return Result.pass("You bought out the auction of " + what + " for " + fmt(offer) + ".");
+            notify(l.seller(), Msg.good(Messages.get(MarketText.BOUGHT_OUT_SELLER, "buyer", name(bidder), "lot", what, "amount", fmt(net))));
+            return Result.pass(Messages.get(MarketText.BOUGHT_OUT, "lot", what, "amount", fmt(offer)));
         }
-        notify(l.seller(), Msg.info(name(bidder) + " bid " + fmt(offer) + " on your auction of " + what + "."));
-        String extra = extended ? " The auction was extended by " + ctx.settings().integer("market.auctionAntiSnipeMinutes") + " minutes." : "";
-        return Result.pass("Your bid of " + fmt(offer) + " on " + what + " is the highest." + extra);
+        notify(l.seller(), Msg.info(Messages.get(MarketText.BID_PLACED_SELLER, "bidder", name(bidder), "amount", fmt(offer), "lot", what)));
+        return Result.pass(Messages.get(extended ? MarketText.BID_HIGHEST_EXTENDED : MarketText.BID_HIGHEST,
+                "amount", fmt(offer), "lot", what, "minutes", ctx.settings().integer("market.auctionAntiSnipeMinutes")));
     }
 
     // ---- storefronts --------------------------------------------------------------
@@ -692,37 +698,37 @@ public final class MarketServiceImpl implements MarketService {
         FactionService factions = factions();
         Faction f = factions.factionOf(actor);
         if (f == null) {
-            return Result.fail("You are not in a faction.");
+            return Result.fail(Messages.get(CommonText.NOT_IN_FACTION));
         }
         if (!factions.can(actor, FactionAction.SETTINGS)) {
-            return Result.fail("Your rank cannot change the storefront.");
+            return Result.fail(Messages.get(MarketText.STOREFRONT_RANK));
         }
         Listing l;
         synchronized (lock) {
             l = listings.get(listingId);
             if (l == null || l.closed()) {
-                return Result.fail("That listing is no longer available.");
+                return Result.fail(Messages.get(MarketText.LISTING_GONE));
             }
             if (l.kind() == Listing.Kind.ORDER) {
-                return Result.fail("Buy orders cannot be pinned to a storefront.");
+                return Result.fail(Messages.get(MarketText.STOREFRONT_NO_ORDERS));
             }
             if (!f.isMember(l.seller())) {
-                return Result.fail("Only listings from your own members can go on the storefront.");
+                return Result.fail(Messages.get(MarketText.STOREFRONT_OWN_MEMBERS));
             }
             if (l.storefront() == pinned) {
-                return Result.pass(pinned ? "That listing is already on the storefront." : "That listing is not on the storefront.");
+                return Result.pass(Messages.get(pinned ? MarketText.STOREFRONT_ALREADY_PINNED : MarketText.STOREFRONT_NOT_PINNED));
             }
             if (pinned && storefront(f).size() >= STOREFRONT_LIMIT) {
-                return Result.fail("Your storefront already holds " + STOREFRONT_LIMIT + " listings.");
+                return Result.fail(Messages.get(MarketText.STOREFRONT_FULL, "limit", STOREFRONT_LIMIT));
             }
             l.setStorefront(pinned);
             persist();
         }
-        String what = l.quantity() + " " + Items.displayName(l.itemId());
-        factions.audit(f, actor, name(actor), "market", (pinned ? "Pinned " : "Unpinned ") + what + " by " + l.sellerName()
-                + (pinned ? " to the storefront" : " from the storefront"));
+        String what = lot(l);
+        factions.audit(f, actor, name(actor), "market", Messages.get(pinned ? MarketText.AUDIT_PINNED : MarketText.AUDIT_UNPINNED,
+                "lot", what, "seller", l.sellerName()));
         ctx.bus().publish(new DominionEvent.FactionChanged(f.id()));
-        return Result.pass(pinned ? "Pinned " + what + " to the storefront." : "Removed " + what + " from the storefront.");
+        return Result.pass(Messages.get(pinned ? MarketText.PINNED : MarketText.UNPINNED, "lot", what));
     }
 
     // ---- mailbox ------------------------------------------------------------------
@@ -776,7 +782,7 @@ public final class MarketServiceImpl implements MarketService {
     public Result collect(UUID player) {
         PlayerRef p = Players.online(player);
         if (p == null) {
-            return Result.fail("You need to be online to collect your mailbox.");
+            return Result.fail(Messages.get(MarketText.COLLECT_OFFLINE));
         }
         CompletableFuture<Result> f = Items.onWorld(p, (store, ref) -> {
             int moved = 0;
@@ -785,7 +791,7 @@ public final class MarketServiceImpl implements MarketService {
             synchronized (lock) {
                 Mailboxes.Box b = mail.box(player);
                 if (b.items.isEmpty() && b.coins <= 0) {
-                    return Result.fail("Your market mailbox is empty.");
+                    return Result.fail(Messages.get(MarketText.MAILBOX_EMPTY));
                 }
                 List<Document> kept = new ArrayList<>();
                 for (Document d : b.items) {
@@ -814,7 +820,7 @@ public final class MarketServiceImpl implements MarketService {
             }
             boolean paid = false;
             if (coins > 0) {
-                Result r = economy().enabled() ? deposit(player, coins, "Market mailbox") : Result.fail("");
+                Result r = economy().enabled() ? deposit(player, coins, Messages.get(MarketText.MEMO_MAILBOX)) : Result.fail("");
                 paid = r.success();
                 if (!paid) {
                     synchronized (lock) {
@@ -822,21 +828,19 @@ public final class MarketServiceImpl implements MarketService {
                     }
                 }
             }
-            StringBuilder sb = new StringBuilder("Collected ").append(moved).append(moved == 1 ? " item" : " items");
-            if (paid) {
-                sb.append(" and ").append(fmt(coins));
-            }
-            sb.append('.');
+            String collected = paid
+                    ? (moved == 1 ? MarketText.COLLECTED_ONE_AND_COINS : MarketText.COLLECTED_MANY_AND_COINS)
+                    : (moved == 1 ? MarketText.COLLECTED_ONE : MarketText.COLLECTED_MANY);
+            StringBuilder sb = new StringBuilder(Messages.get(collected, "count", moved, "coins", paid ? fmt(coins) : ""));
             if (full) {
-                sb.append(" Some items did not fit and are still in your mailbox.");
+                sb.append(' ').append(Messages.get(MarketText.COLLECTED_NOT_ALL));
             }
             if (moved > 0 || paid) {
                 return Result.pass(sb.toString());
             }
-            return Result.fail(full ? "Your inventory is full. Make some room and try again."
-                    : "Your coins cannot be collected right now. They stay in your mailbox.");
+            return Result.fail(Messages.get(full ? MarketText.INVENTORY_FULL : MarketText.COINS_NOT_COLLECTED));
         });
-        return await(p, f, "Collecting your mailbox.");
+        return await(p, f, Messages.get(MarketText.COLLECT_PENDING));
     }
 
     // ---- history ------------------------------------------------------------------
@@ -891,20 +895,20 @@ public final class MarketServiceImpl implements MarketService {
             }
             for (Listing l : due) {
                 l.close();
-                String what = l.quantity() + " " + Items.displayName(l.itemId());
+                String what = lot(l);
                 switch (MarketRules.expiry(l)) {
                     case RETURN_ITEMS -> {
                         mail.addDocuments(l.seller(), Items.splitDocuments(l.item(), l.itemId(), l.quantity()));
                         String text = l.kind() == Listing.Kind.AUCTION
-                                ? "Your auction of " + what + " ended with no bids. The items are in your market mailbox."
-                                : "Your listing of " + what + " expired. The items are in your market mailbox.";
+                                ? Messages.get(MarketText.AUCTION_NO_BIDS, "lot", what)
+                                : Messages.get(MarketText.LISTING_EXPIRED, "lot", what);
                         after.add(() -> notify(l.seller(), Msg.info(text)));
                     }
                     case REFUND_ORDER -> {
                         double refund = MarketRules.orderEscrow(l);
                         after.add(() -> {
-                            refundCoins(l.seller(), refund, "Market order expired");
-                            notify(l.seller(), Msg.info("Your order for " + what + " expired and " + fmt(refund) + " was returned."));
+                            refundCoins(l.seller(), refund, Messages.get(MarketText.MEMO_ORDER_EXPIRED));
+                            notify(l.seller(), Msg.info(Messages.get(MarketText.ORDER_EXPIRED, "lot", what, "amount", fmt(refund))));
                         });
                     }
                     case AWARD_WINNER -> {
@@ -913,10 +917,11 @@ public final class MarketServiceImpl implements MarketService {
                         mail.addDocuments(winner, Items.splitDocuments(l.item(), l.itemId(), l.quantity()));
                         record(l.itemId(), round(price / Math.max(1, l.quantity())), l.quantity());
                         after.add(() -> {
-                            double net = payout(l.seller(), price, "Auction of " + what);
+                            double net = payout(l.seller(), price, Messages.get(MarketText.MEMO_AUCTION, "lot", what));
                             traded(l, l.quantity(), price, winner, l.seller());
-                            notify(winner, Msg.good("You won the auction of " + what + " for " + fmt(price) + ". Collect it from your market mailbox."));
-                            notify(l.seller(), Msg.good("Your auction of " + what + " sold to " + l.topBidderName() + ". You received " + fmt(net) + "."));
+                            notify(winner, Msg.good(Messages.get(MarketText.AUCTION_WON, "lot", what, "amount", fmt(price))));
+                            notify(l.seller(), Msg.good(Messages.get(MarketText.AUCTION_SOLD, "lot", what, "buyer", l.topBidderName(),
+                                    "amount", fmt(net))));
                         });
                     }
                 }
@@ -973,7 +978,7 @@ public final class MarketServiceImpl implements MarketService {
         if (tax > 0) {
             Result r;
             try {
-                r = economy().bankCredit(f, tax, "Market tax from " + name(seller));
+                r = economy().bankCredit(f, tax, Messages.get(MarketText.MEMO_TAX, "player", name(seller)));
             } catch (RuntimeException e) {
                 r = Result.fail(String.valueOf(e.getMessage()));
             }
@@ -1023,7 +1028,7 @@ public final class MarketServiceImpl implements MarketService {
             return economy().withdraw(player, amount, reason);
         } catch (RuntimeException e) {
             ctx.logger().at(Level.WARNING).withCause(e).log("Dominion market payment failed");
-            return Result.fail("The payment could not be made right now.");
+            return Result.fail(Messages.get(MarketText.PAYMENT_FAILED));
         }
     }
 
@@ -1033,7 +1038,7 @@ public final class MarketServiceImpl implements MarketService {
             return economy().deposit(player, amount, reason);
         } catch (RuntimeException e) {
             ctx.logger().at(Level.WARNING).withCause(e).log("Dominion market payout failed");
-            return Result.fail("The payment could not be made right now.");
+            return Result.fail(Messages.get(MarketText.PAYMENT_FAILED));
         }
     }
 
@@ -1088,7 +1093,7 @@ public final class MarketServiceImpl implements MarketService {
         synchronized (lock) {
             mail.addDocuments(player, Items.splitDocuments(l.item(), l.itemId(), qty));
         }
-        notify(player, Msg.warn("Your " + Items.displayName(l.itemId()) + " went to your market mailbox."));
+        notify(player, Msg.warn(Messages.get(MarketText.ITEM_TO_MAILBOX, "item", Items.displayName(l.itemId()))));
     }
 
     /** Gives items to an online player on their world thread, or sends them to the mailbox. */
@@ -1108,7 +1113,7 @@ public final class MarketServiceImpl implements MarketService {
             List<ItemStack> rest = err != null || left == null ? stacks : left;
             if (!rest.isEmpty()) {
                 mail(player, rest, 0);
-                Msg.send(p, Msg.warn("Your inventory is full so the items went to your market mailbox."));
+                Msg.send(p, Msg.warn(Messages.get(MarketText.FULL_TO_MAILBOX)));
             }
         });
     }
@@ -1128,10 +1133,10 @@ public final class MarketServiceImpl implements MarketService {
     private Result outcome(CompletableFuture<Result> f) {
         try {
             Result r = f.join();
-            return r == null ? Result.fail("You need to be in a world to do that.") : r;
+            return r == null ? Result.fail(Messages.get(MarketText.NEED_WORLD)) : r;
         } catch (RuntimeException e) {
             ctx.logger().at(Level.WARNING).withCause(e).log("Dominion market action failed");
-            return Result.fail("Something went wrong and nothing was changed.");
+            return Result.fail(Messages.get(MarketText.SOMETHING_WRONG));
         }
     }
 
@@ -1171,7 +1176,11 @@ public final class MarketServiceImpl implements MarketService {
             return p.getUsername();
         }
         String n = ctx.player(player).name();
-        return n == null || n.isBlank() ? "Someone" : n;
+        return n == null || n.isBlank() ? Messages.get(MarketText.SOMEONE) : n;
+    }
+
+    private static String lot(Listing l) {
+        return Messages.get(MarketText.LOT, "count", l.quantity(), "item", Items.displayName(l.itemId()));
     }
 
     private UUID factionId(UUID player) {
@@ -1204,7 +1213,7 @@ public final class MarketServiceImpl implements MarketService {
     private String priceProblem(double price) {
         String bad = invalidPrice(price);
         if (bad == null && wholeOnly() && Math.abs(price - Math.rint(price)) > 1e-6) {
-            return "Prices must be whole numbers because the currency is an item.";
+            return Messages.get(MarketText.PRICE_WHOLE);
         }
         return bad;
     }

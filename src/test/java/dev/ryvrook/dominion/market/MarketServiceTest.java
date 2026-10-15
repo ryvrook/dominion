@@ -6,6 +6,7 @@ import dev.ryvrook.dominion.api.Result;
 import dev.ryvrook.dominion.model.Listing;
 import dev.ryvrook.dominion.service.EconomyService;
 import dev.ryvrook.dominion.service.FactionService;
+import dev.ryvrook.dominion.text.Messages;
 import org.bson.Document;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -168,13 +169,13 @@ class MarketServiceTest {
         assertTrue(inFlight.await(5, TimeUnit.SECONDS));
         assertTimeoutPreemptively(Duration.ofSeconds(2), () -> {
             assertEquals(2, market.browse(null, "", "", 1, 10).size());
-            assertEquals(MarketServiceImpl.BUSY, market.cancel(seller, l.id()).message());
+            assertEquals(Messages.get(MarketServiceImpl.BUSY), market.cancel(seller, l.id()).message());
             market.tick();
             assertNotNull(market.byId(l.id()));
         });
         gate = null;
         Result second = market.buy(rival, l.id(), 1);
-        assertEquals(MarketServiceImpl.BUSY, second.message(), "a second buyer waits for the first");
+        assertEquals(Messages.get(MarketServiceImpl.BUSY), second.message(), "a second buyer waits for the first");
         held.countDown();
         t.join(5000);
         assertTrue(first[0].success(), String.valueOf(first[0]));

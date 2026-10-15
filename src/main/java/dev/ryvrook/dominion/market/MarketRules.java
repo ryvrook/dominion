@@ -1,6 +1,7 @@
 package dev.ryvrook.dominion.market;
 
 import dev.ryvrook.dominion.model.Listing;
+import dev.ryvrook.dominion.text.Messages;
 
 import java.util.UUID;
 import java.util.function.DoubleFunction;
@@ -23,13 +24,13 @@ final class MarketRules {
     /** Null when the price can be used, otherwise the reason. */
     static String invalidPrice(double price, double max) {
         if (Double.isNaN(price) || Double.isInfinite(price) || price <= 0) {
-            return "The price must be more than zero.";
+            return Messages.get(MarketText.PRICE_NOT_POSITIVE);
         }
         if (price > max) {
-            return "That price is too high.";
+            return Messages.get(MarketText.PRICE_TOO_HIGH);
         }
         if (round(price) <= 0) {
-            return "The price must be at least 0.01.";
+            return Messages.get(MarketText.PRICE_TOO_SMALL);
         }
         return null;
     }
@@ -90,13 +91,13 @@ final class MarketRules {
     static Bid decideBid(Listing l, UUID bidder, double amount, long now, double stepPercent, boolean whole, long antiSnipeMs,
                          DoubleFunction<String> fmt) {
         if (l == null || l.closed() || l.expiresAt() <= now) {
-            return Bid.fail("That auction has ended.");
+            return Bid.fail(Messages.get(MarketText.AUCTION_ENDED));
         }
         if (l.kind() != Listing.Kind.AUCTION) {
-            return Bid.fail("That listing is not an auction.");
+            return Bid.fail(Messages.get(MarketText.NOT_AN_AUCTION));
         }
         if (l.seller().equals(bidder)) {
-            return Bid.fail("You cannot bid on your own auction.");
+            return Bid.fail(Messages.get(MarketText.OWN_AUCTION));
         }
         double offer = round(amount);
         UUID previous = l.topBidder();
@@ -107,7 +108,7 @@ final class MarketRules {
         } else {
             double min = minBid(previousBid, previous != null, stepPercent, whole);
             if (offer < min) {
-                return Bid.fail("The lowest bid you can place is " + fmt.apply(min) + ".");
+                return Bid.fail(Messages.get(MarketText.BID_TOO_LOW, "amount", fmt.apply(min)));
             }
         }
         boolean raise = bidder.equals(previous);
