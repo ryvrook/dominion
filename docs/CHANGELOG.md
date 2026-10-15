@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Coinage
+- Coinage is a new optional link, `integrations.coinage`. With `eco.provider` on `coinage`, or on `auto`, the new default that picks Coinage, then VaultUnlocked, then the built in ledger, wallets live in Coinage and every move shows in its history under Dominion. Amounts convert through the decimals of `eco.coinageCurrency`, blank for the primary currency, and balances left in the built in ledger move over once. Existing servers keep the provider they had.
+- Faction banks become Coinage shared accounts `dominion:<faction id>` while `eco.coinageBanks` is on. The old balance moves in once, the leader owns the account, members get the rights their rank gives, Dominion's rank, hold and daily limit checks also guard moves made from the Coinage pages, and moves made in Coinage are written to the faction log. Disband pays the account to the leader or, with `eco.coinageDisbandTo` on `server`, to the treasury and deletes it.
+- The `faction` net worth part counts a member's share of the faction bank in `/networth` and Chronicle's Money tab.
+- With `market.useCoinage` on, the panel Market tab opens Coinage's market. `shop.useCoinage` is reserved and off until Coinage shops can belong to a faction account.
+
 ## 0.4.0 - 2026-10-15
 
 Dominion Factions 0.4.0 makes everything a server owner might want to change a setting or a sentence. Every player

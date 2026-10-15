@@ -7,7 +7,7 @@ Please read it before opening a pull request.
 ## Conventions
 
 - The plugin targets Java 25 and has no runtime dependencies beyond the Hytale server jar and the JDK.
-  It compiles against the TrackerAPI, Feats and Atlas jars for the optional integrations, see Integrations below.
+  It compiles against the TrackerAPI, Feats, Atlas and Coinage api jars for the optional integrations, see Integrations below.
   Set JAVA_HOME to a JDK 25 and build with `./gradlew build`. To check the older server, build with
   `./gradlew build -Phytale_channel=release -Phytale_version=0.6.8`.
 - Player facing text, log lines and comments are written as plain sentences. Avoid em dashes,
@@ -185,21 +185,23 @@ with `MethodHandles.publicLookup().findStatic`. Only the public API package belo
 
 ## Integrations
 
-TrackerAPI, Feats and Atlas are optional. Dominion compiles against their jars with `compileOnly`, lists them under
+TrackerAPI, Feats, Atlas and Coinage are optional. Dominion compiles against their jars with `compileOnly`, lists them under
 `OptionalDependencies` in the manifest and never ships them. The engine resolves the classes of a listed optional
 dependency through the plugin bridge loader, so the bridges can name the sibling types directly.
 
-- Jars. `-PtrackerApiJar=<path>`, `-PfeatsJar=<path>` and `-PatlasJar=<path>` name them. Without a property the build
-  takes `../trackerapi/build/libs/TrackerAPI-1.0.3.jar`, `../feats/build/libs/Feats-1.5.1.jar` and
-  `../atlas/build/libs/Atlas-1.6.0.jar`, then the same paths under `~/Projects`. The tests never load a sibling class.
+- Jars. `-PtrackerApiJar=<path>`, `-PfeatsJar=<path>`, `-PatlasJar=<path>` and `-PcoinageJar=<path>` name them.
+  Without a property the build takes `../trackerapi/build/libs/TrackerAPI-1.0.3.jar`, `../feats/build/libs/Feats-1.5.1.jar`,
+  `../atlas/build/libs/Atlas-1.6.0.jar` and `../coinage/build/libs/Coinage-api-1.0.0.jar` (the api packages only), then the
+  same paths under `~/Projects`. The tests load no sibling class except Coinage's api, which is on the test classpath so
+  the Coinage link runs over a stand in Coinage API (`economy/FakeCoinage`).
 - Package `integration`. `IntegrationModule` runs last in `Wiring.MODULES`. For each sibling it reads the setting
-  (`integrations.tracker`, `integrations.feats`, `integrations.atlas` with `auto`, `always` or `never`), looks the
+  (`integrations.tracker`, `integrations.feats`, `integrations.atlas`, `integrations.coinage` with `auto`, `always` or `never`), looks the
   plugin up in `PluginManager` (`Presence`), decides with `Choice` and only then loads the bridge class by name and
   calls its static `install(Host)`. `Binding` keeps the link, polls the plugin object every 5 seconds and logs once
   when a sibling was reloaded, removed or installed late. `Integrations` is registered as a service under its own
   class and feeds `/fa integrations`.
-- Bridges. `integration.tracker.TrackerBridge`, `integration.feats.FeatsBridge` and `integration.atlas.AtlasBridge`
-  are the only classes that name sibling types. Every call into a sibling is guarded, and stop sets a stopped flag
+- Bridges. `integration.tracker.TrackerBridge`, `integration.feats.FeatsBridge`, `integration.atlas.AtlasBridge` and
+  `integration.coinage.CoinageLink` are the only classes that name sibling types. Every call into a sibling is guarded, and stop sets a stopped flag
   before removing hooks. TrackerAPI has `removeHooks`. Atlas does not, so its hooks stay and do nothing after a stop.
   Feats publishes `FeatsApi` in its own setup with no enable hook, so the Feats bridge links on install or on a later
   poll.
@@ -218,17 +220,59 @@ dependency through the plugin bridge loader, so the bridges can name the sibling
 - Chronicle Stats has no link. It reads `tag`, `name`, `color`, `nation`, `claims`, `power`, `maxPower`, `level`,
   `kills`, `deaths`, `createdAt` and `memberIds` of each faction from the snapshot, which `SnapshotContractTest` checks.
 
-### Coinage, the next step
+### Coinage
 
-Coinage registers as a VaultUnlocked provider, so `eco.provider` set to `vaultunlocked` already moves wallets through
-it. A native `coinage` provider is the next step once Coinage's api-services wave lands, and nothing of it is built
-yet. It would add a `coinage` choice to `eco.provider` in `config/Defaults`, a Coinage `BalanceProvider` bridge in
-`economy` next to `VaultUnlockedBridge` that reads and moves wallets through the `CoinageApi` ledger, chosen in
-`EconomyServiceImpl.provider()`, a Coinage shared account per faction for the bank in place of the `Books` ledger and
-`Faction.bank`, with `LedgerMigration` moving existing balances once, and the Dominion market and faction shop
-(`market/MarketServiceImpl`, `shop/ShopServiceImpl`) handing listings and sales to Coinage's market and shops. It would
-follow the same pattern as the other siblings, with `Ryvrook:Coinage` under `OptionalDependencies`, a `-PcoinageJar`
-property and one bridge class loaded after the presence check.
+Coinage is linked like the others, `Ryvrook:Coinage` under `OptionalDependencies`, `integrations.coinage` and one
+bridge, `integration.coinage.CoinageLink`, loaded by name after the presence check. It needs Coinage API 3 for the
+service facades and uses the net worth parts of API 4. The version is read from `CoinageApi.API_VERSION` by
+reflection at bind, since the compiled constant would be the one built against. Facts checked with javap on
+`Coinage-api-1.0.0.jar` on 2026-10-15, API version 4.
+
+- `CoinageApi.onEnable(Consumer)` runs at once when Coinage is up and on every start, `onDisable(Runnable)` on every
+  stop, `removeHooks(enable, disable)`. `currencies().resolve(id)` gives the primary currency for a null id,
+  `Currency.decimals()` is 0 to 4. `ledger().deposit/withdraw/transfer/set(Request)` return a `Result` with `ok`,
+  `failure` (`Failure`), `message`, `fromAfter` and `toAfter`. `Request.deposit/withdraw/transfer/set(...)` take minor
+  units, `.plugin("Dominion").reason(text).by(Initiator.plugin("Dominion"))`. A player initiator moving money out of
+  a shared account needs its WITHDRAW permission, a plugin initiator does not.
+- `accounts().createShared(handle, name, owner, plugin)` returns the existing account for a known handle, handles
+  match `[a-z0-9_:.-]{1,64}`. `delete(id, by, plugin)` refuses an account with money unless `by` is the server.
+  `setOwner` empties the new owner's member entry. `setPermissions(id, member, set, by)` with an empty set removes
+  the member. `get(id)`, `byHandle`, `player(uuid)` (creates the account with the starting balance), `rename`.
+- `subscribe(owner, EconomyListener)`. `beforeTransaction(TransactionPre)` runs outside the ledger lock before every
+  move and may `cancel(reason)`, Coinage warns about listeners slower than 5 ms. `afterTransaction(Transaction)` runs
+  after the move on the same thread. `netWorth().add/remove(NetWorthPart)`, parts are read on the board timer and must
+  answer from memory. `service(MarketService.class)` is empty while the market module is off,
+  `MarketService.openPage(UUID)` opens the market page. `ShopService.createShop(owner, ...)` takes a player owner and
+  charges them, so a faction account cannot own a Coinage shop yet.
+
+How Dominion uses it.
+
+- Seam. The economy package never names a Coinage type. `economy.CoinagePort` is the interface it needs, in minor
+  units with Dominion's own copy of the failure cases. `CoinageLink` implements it and attaches itself to
+  `economy.CoinageSeam`, a service registered under its own class, while Coinage is up. The seam forwards the
+  listener calls and the net worth part to the economy service.
+- Wallets. `economy.CoinageBridge` is the `coinage` `BalanceProvider`. `EconomyServiceImpl.select` picks the provider,
+  `auto` takes Coinage when linked, else VaultUnlocked when found, else internal. `CoinageAmounts` converts both ways,
+  refusing amounts with more decimals than the currency has and rounding minor units down to cents. `LedgerMigration`
+  runs into Coinage the same way it runs into VaultUnlocked, with its own summary file `economy/coinage-migrated.json`.
+- Banks. `economy.CoinageBanks` keeps each faction bank in the shared account `dominion:<faction id>` while the
+  provider is coinage and `eco.coinageBanks` is on. `Faction.coinageAccount` holds the handle once the old balance
+  moved in, persisted as `CoinageAccount` with a null default. An account that already holds money while the faction
+  has no handle was seeded before a crash and is not seeded again. `Faction.bank` mirrors the account after every
+  move, from the listener and on the minute tick, so every reader of `bank()` stays right. `EconomyServiceImpl.route`
+  sends each bank move to `Books`, to `CoinageBanks`, or refuses it while a bank that lives in Coinage cannot be
+  reached. The minute tick also sets the owner to the leader, gives members the rights their rank and hold allow,
+  and moves banks back when Coinage banks are turned off. The listener vetoes player withdrawals from a faction
+  account that `/f withdraw` would refuse, records them against the daily allowance, and writes moves made outside
+  Dominion to the faction log.
+- Disband. `bankDrain` transfers the account to its owner, the leader, or to `Accounts.SERVER` with
+  `eco.coinageDisbandTo` on `server`, deletes it and returns zero, so `FactionSupport` pays nothing twice. Only when
+  Coinage refuses the transfer is the money withdrawn and returned for the usual payout.
+- Net worth. The part `faction` answers a member's bank divided by the member count, from a member index rebuilt on
+  the minute tick, in the Coinage currency only.
+- Market. `market.MarketHandoff` is a service the link attaches a target to. `ui.MarketTab` opens Coinage's market on
+  a tab click and shows a button and Dominion's mailbox instead of its listing tabs while `market.useCoinage` is on.
+  `shop.useCoinage` is defined but off and unused until Coinage shops can have a shared account owner.
 
 ## Headless boot test
 

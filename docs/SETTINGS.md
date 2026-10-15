@@ -1,6 +1,6 @@
 # Dominion settings
 
-Every key in `config.json`, generated from `config/Defaults.java`. There are 248 keys in 21 sections. Change them with `/fa set`, `/fa config` or the settings page, or edit the file and run `/fa reload`. A test fails when this file and the defaults disagree, so after adding a key run `DOMINION_WRITE_DOCS=1 ./gradlew test` to write it again.
+Every key in `config.json`, generated from `config/Defaults.java`. There are 254 keys in 21 sections. Change them with `/fa set`, `/fa config` or the settings page, or edit the file and run `/fa reload`. A test fails when this file and the defaults disagree, so after adding a key run `DOMINION_WRITE_DOCS=1 ./gradlew test` to write it again.
 
 ## Factions
 
@@ -147,7 +147,7 @@ Every key in `config.json`, generated from `config/Defaults.java`. There are 248
 | Key | Default | Accepts | Description |
 | --- | --- | --- | --- |
 | `eco.enabled` | `true` | true or false | Economy enabled |
-| `eco.provider` | `internal` | one of internal, vaultunlocked, vault, item, items | Provider, internal or vaultunlocked or item |
+| `eco.provider` | `auto` | one of auto, internal, vaultunlocked, vault, item, items, coinage | Provider, auto, internal, vaultunlocked, item or coinage. auto picks Coinage, then VaultUnlocked, then internal |
 | `eco.currencyName` | `Coins` |  | Currency name |
 | `eco.currencySymbol` | `c` |  | Currency symbol |
 | `eco.startingBalance` | `100.0` | 0 to any size | Starting player balance |
@@ -162,6 +162,9 @@ Every key in `config.json`, generated from `config/Defaults.java`. There are 248
 | `eco.playtimeStipendPerHour` | `0.0` | 0 to any size | Coins per hour of playtime |
 | `eco.bankInterestPercentPerDay` | `0.0` | 0 to 100 | Bank interest per day in percent |
 | `eco.withdrawDailyLimitOfficer` | `0.0` | 0 to any size | Daily withdraw limit for officers |
+| `eco.coinageCurrency` | `""` | a Coinage currency id of lower case letters, digits or _, or blank | Coinage currency id for wallets and banks, blank for the primary currency |
+| `eco.coinageBanks` | `true` | true or false | Keep faction banks in Coinage shared accounts while the provider is coinage |
+| `eco.coinageDisbandTo` | `leader` | one of leader, server | Where a disbanded faction's Coinage bank goes, leader or server |
 
 ## Market
 
@@ -179,6 +182,8 @@ Every key in `config.json`, generated from `config/Defaults.java`. There are 248
 | `shop.adminEnabled` | `true` | true or false | Admin shop available |
 | `shop.factionEnabled` | `true` | true or false | Faction shops available |
 | `shop.factionMaxEntries` | `24` | 0 to 1000 | Entries per faction shop |
+| `market.useCoinage` | `true` | true or false | Open Coinage's market from the panel Market tab while Coinage is linked |
+| `shop.useCoinage` | `false` | true or false | Reserved. Faction shops stay Dominion's, since Coinage shops cannot be owned by a faction account yet |
 | `market.auctionHours` | `24` | 1 to 8760 | Auction length in hours when the seller names none |
 | `vault.memberPages` | `1` | 0 to 64 | Vault pages every member may open, later pages need an officer |
 | `vault.enabled` | `true` | true or false | Faction vaults enabled |
@@ -296,8 +301,9 @@ Every key in `config.json`, generated from `config/Defaults.java`. There are 248
 | `integrations.feats` | `auto` | one of auto, always, never | Mirror faction counters to Feats. auto when installed, always warns when missing, never ignores it |
 | `integrations.atlas` | `auto` | one of auto, always, never | Push live sieges and the map hide switch to Atlas. auto when installed, always warns when missing, never ignores it |
 | `integrations.featsAnnounce` | `true` | true or false | Post Feats unlocks to the player's faction chat |
+| `integrations.coinage` | `auto` | one of auto, always, never | Link to Coinage for wallets, faction banks, net worth and the market. auto when installed, always warns when missing, never ignores it |
 | `integrations.foundedWindowSeconds` | `60` | 1 to 86400 | Seconds after a faction is created in which its leader is credited as founder |
-| `integrations.enabled` | `true` | true or false | Links to TrackerAPI, Feats and Atlas at all, read at start |
+| `integrations.enabled` | `true` | true or false | Links to TrackerAPI, Feats, Atlas and Coinage at all, read at start |
 
 ## Commands
 

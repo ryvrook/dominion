@@ -67,7 +67,7 @@ Punishing players who log out in combat stays with CombatLog. Dominion only read
 
 ### Economy, bank, shops, market and auctions
 
-- A built in coin ledger, an item currency that uses a chosen item, or an optional bridge to VaultUnlocked.
+- A built in coin ledger, an item currency that uses a chosen item, an optional bridge to VaultUnlocked, or Coinage, which holds wallets and faction banks when it is installed.
 - A faction bank with deposits, withdrawals, payments to other factions and a daily withdraw limit for officers.
 - Optional daily upkeep per claim, member dues, playtime stipends and bank interest.
 - A server shop with categories and an in game editor for admins, plus faction shops stocked by officers from the hand or from the faction vault, with sales paid into the faction bank.
@@ -116,7 +116,7 @@ Punishing players who log out in combat stays with CombatLog. Dominion only read
 ## Requirements
 
 - A Hytale server on 0.7.0 or 0.6.8, dedicated or a singleplayer world.
-- No other mods. VaultUnlocked and CombatLog 1.7.0 or newer are optional.
+- No other mods. Coinage, VaultUnlocked and CombatLog 1.7.0 or newer are optional.
 - JDK 25 only if you build from source.
 
 ## Install
@@ -189,7 +189,7 @@ Punishing players who log out in combat stays with CombatLog. Dominion only read
 
 ## Configuration
 
-Settings live in `config.json` inside the plugin data folder. There are 248 keys grouped into
+Settings live in `config.json` inside the plugin data folder. There are 254 keys grouped into
 Factions, Power, Land, Raiding, Relations, Combat, Homes, Chat, Economy, Market, Sieges, Shields, Events, Progression, Storage, Map, Integrations, Commands, Interface, Colours and Permissions. Every key is listed with its default, its limits and a description in
 [docs/SETTINGS.md](docs/SETTINGS.md), which is generated from
 `src/main/java/dev/ryvrook/dominion/config/Defaults.java`.
@@ -241,16 +241,17 @@ A few keys worth knowing
 
 Dominion works on its own and works better next to the other Ryvrook mods. Each link is optional. When a mod is
 missing Dominion behaves exactly as before, logs one line that it runs without it and never fails. The manifest lists
-TrackerAPI, Feats and Atlas as optional dependencies, so the server loads them first when they are installed.
+TrackerAPI, Feats, Atlas and Coinage as optional dependencies, so the server loads them first when they are installed.
 
 | Mod | What it adds | Setting |
 | --- | --- | --- |
 | [TrackerAPI](https://www.curseforge.com/hytale/mods/trackerapi) 1.0.0 or newer | Dominion publishes ten per player counters under `dominion:`, with leaderboards for claims, enemy kills, sieges won, missions and bank deposits | `integrations.tracker` |
 | Feats 1.5.0 or newer | The same counters are mirrored into Feats, and every feat a player unlocks is posted to their faction chat | `integrations.feats`, `integrations.featsAnnounce` |
 | Atlas 1.6.0 or newer | A live Sieges layer with the phase and end time of every siege, and `/f map hide` hides the player in Atlas as well | `integrations.atlas` |
+| Coinage 1.0.0 or newer | Wallets and faction banks live in Coinage, every move shows in Coinage's history under Dominion, a member's share of the faction bank counts in `/networth`, and the panel Market tab opens Coinage's market | `integrations.coinage`, `eco.provider`, `eco.coinageBanks`, `market.useCoinage` |
 | Chronicle Stats | Reads factions, members, kills and deaths from the map snapshot. Nothing to set up | none |
 
-The three link settings take `auto` (link when the mod is installed and new enough, the default), `always` (link to
+The four link settings take `auto` (link when the mod is installed and new enough, the default), `always` (link to
 any installed version and warn at start when the mod is missing) or `never` (ignore the mod). They are read when the
 server starts. `integrations.featsAnnounce` is `true` by default and can be changed at any time.
 `/fa integrations` lists each mod as bound, missing or off, and the start log has one line per mod, for example
@@ -268,9 +269,38 @@ them. Atlas draws claims, homes, warps, hills, outposts and envoys from the map 
 so the link only adds what the snapshot cannot carry. After a `/plugin reload` of Feats or Atlas, run
 `/plugin reload Ryvrook:Dominion` too, Dominion logs a reminder. TrackerAPI 1.0.3 reloads Dominion by itself.
 
+### Coinage
+
+With Coinage installed and `eco.provider` on `auto`, the default for new servers, or `coinage`, player money lives in
+Coinage. `/f balance`, `/f pay`, `/f baltop`, the Bank page and every cost and reward read and move Coinage wallets, and each move
+shows in `/coinage history` with Dominion as the plugin. Amounts are converted through the decimals of the currency
+in `eco.coinageCurrency` (blank for Coinage's primary currency), and an amount the currency cannot hold, such as
+cents in a whole coin currency, is refused. `auto` picks Coinage when it is linked, else VaultUnlocked when one is
+found, else the built in ledger. A server that upgrades keeps the provider it had in config.json. Balances left in
+the built in ledger move into Coinage once Coinage is linked, each one zeroed and saved before it is deposited, so
+none moves twice, and the run repeats at most once a day for anything earned while Coinage was away. Coinage gives
+new players its own starting balance, so set `eco.startingBalance` to 0 unless both should be paid.
+
+While `eco.coinageBanks` is on, the default, each faction bank becomes a Coinage shared account named
+`dominion:<faction id>` the first time it is used, and what the bank held moves in once. The leader owns it, and
+members get the balance, deposit and withdraw rights their rank gives, so the Coinage pages show the account too.
+Dominion's rules stay in front of every move, including moves made from the Coinage pages, which are refused for
+non members, ranks without withdraw rights, members on their new member hold and officers past their daily limit.
+Upkeep, dues, interest, claim costs and every other bank charge go through the account, moves made in Coinage are
+written to the faction log, and the bank number in the panel, the snapshot, Atlas and Chronicle mirrors the account.
+A disbanded faction's account is paid to the leader, or to the server treasury with `eco.coinageDisbandTo` set to
+`server`, and deleted. Turning `eco.coinageBanks` off, or leaving the Coinage provider, moves each bank back into
+Dominion within a minute while Coinage is linked. While Coinage is away, banks that live there refuse moves rather
+than spend the mirror.
+
+Dominion adds the net worth part `faction` to Coinage. A player's part is their faction bank divided by the member
+count, so `/networth`, the net worth board and Chronicle's Money tab count it. With `market.useCoinage` on, the
+default, the panel Market tab opens Coinage's market page and hides Dominion's own listing tabs. Dominion's market
+keeps settling what was listed before, and its mailbox stays on the tab while it holds something. `shop.useCoinage`
+is reserved and off, since a Coinage shop cannot be owned by a faction account yet, so faction shops stay Dominion's.
+
 Dominion also uses [CombatLog](https://www.curseforge.com/hytale/mods/combatlog) when it is installed, see CombatLog
-integration above. Money from Coinage reaches Dominion through VaultUnlocked with `eco.provider` set to
-`vaultunlocked`.
+integration above.
 
 ## Web map export
 
