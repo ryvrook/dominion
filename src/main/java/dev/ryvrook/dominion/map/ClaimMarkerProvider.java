@@ -37,7 +37,9 @@ import java.util.UUID;
 import java.util.logging.Level;
 
 /**
- * Draws claimed chunks, the viewer's faction home, ally homes the viewer may use and active
+ * Draws one label per faction and world at the middle of its largest connected region, or one
+ * icon per claimed chunk when map.claimMarkers is on or the claims overlay is not drawing the
+ * world. Also draws the viewer's faction home, ally homes the viewer may use and active
  * sieges on the world map. The chunk list is cached per world and rebuilt lazily when the map
  * state version changes. The siege list is rebuilt on siege phase events and at least every
  * half minute in case an event was missed. Event hills, outposts and envoys come from the events
@@ -57,7 +59,7 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
 
     private record Cell(long index, UUID faction) {}
 
-    private record Layer(long version, int borderAbove, List<Cell> cells) {}
+    private record Layer(long version, int borderAbove, List<Cell> cells, List<Cell> anchors) {}
 
     /** A siege ready to draw. The label and colour are fixed until the next rebuild. */
     private record SiegeMark(UUID id, String world, double x, double y, double z, String label, String color,
@@ -70,13 +72,15 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
 
     private final DominionContext ctx;
     private final MapState state;
+    private final MapOverlay overlay;
     private final Map<String, Layer> layers = new HashMap<>();
     private volatile SiegeLayer siegeLayer = new SiegeLayer(-1, 0, List.of());
     private final Map<String, EventLayer> eventLayers = new java.util.concurrent.ConcurrentHashMap<>();
 
-    public ClaimMarkerProvider(DominionContext ctx, MapState state) {
+    public ClaimMarkerProvider(DominionContext ctx, MapState state, MapOverlay overlay) {
         this.ctx = ctx;
         this.state = state;
+        this.overlay = overlay;
     }
 
     @Override
@@ -106,7 +110,9 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
 
         int size = Keys.chunkSize();
         double half = size / 2.0;
-        for (Cell cell : layer(worldName).cells()) {
+        boolean perChunk = ctx.settings().bool("map.claimMarkers") || overlay == null || !overlay.active(world);
+        Layer layer = layer(worldName);
+        for (Cell cell : perChunk ? layer.cells() : layer.anchors()) {
             double x = Keys.minBlock(Keys.chunkX(cell.index())) + half;
             double z = Keys.minBlock(Keys.chunkZ(cell.index())) + half;
             if (!collector.isInViewDistance(x, z)) {
@@ -116,7 +122,8 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
             if (f == null) {
                 continue;
             }
-            MapMarkerBuilder b = new MapMarkerBuilder(MarkerIds.of("claim", worldName, cell.index()), CLAIM_IMAGE,
+            String id = perChunk ? MarkerIds.of("claim", worldName, cell.index()) : MarkerIds.of("faction", worldName, f.id());
+            MapMarkerBuilder b = new MapMarkerBuilder(id, CLAIM_IMAGE,
                     new Transform(x, y, z))
                     .withName(Message.raw(f.label()).color(colorOf(f)))
                     .withComponent(new TintComponent(tint(colorOf(f))))
@@ -309,9 +316,87 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
             }
             cells.add(new Cell(index, owner));
         }
-        Layer layer = new Layer(version, borderAbove, List.copyOf(cells));
+        Layer layer = new Layer(version, borderAbove, List.copyOf(cells), anchors(world, claims));
         layers.put(world, layer);
         return layer;
+    }
+
+    /** One cell per faction, in the middle of its largest connected region. */
+    private List<Cell> anchors(String world, Long2ObjectMap<ClaimEntry> claims) {
+        Map<UUID, Long> homes = new HashMap<>();
+        for (ClaimEntry e : claims.values()) {
+            UUID id = e.factionId();
+            if (id != null && !homes.containsKey(id)) {
+                Faction f = ctx.repo().faction(id);
+                Location home = f == null ? null : f.home();
+                homes.put(id, home != null && world.equals(home.world()) ? home.chunkIndex() : null);
+            }
+        }
+        List<Cell> out = new ArrayList<>();
+        for (Map.Entry<UUID, Long> e : homes.entrySet()) {
+            long anchor = anchor(claims, e.getKey(), e.getValue());
+            out.add(new Cell(anchor, e.getKey()));
+        }
+        return List.copyOf(out);
+    }
+
+    /**
+     * The claim of a faction closest to the middle of its largest connected region. When two
+     * regions are the same size, the one holding the home wins.
+     */
+    static long anchor(Long2ObjectMap<ClaimEntry> claims, UUID owner, Long homeChunk) {
+        it.unimi.dsi.fastutil.longs.LongSet seen = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
+        List<Long> best = null;
+        boolean bestHasHome = false;
+        for (Long2ObjectMap.Entry<ClaimEntry> e : claims.long2ObjectEntrySet()) {
+            long start = e.getLongKey();
+            if (!owner.equals(e.getValue().factionId()) || seen.contains(start)) {
+                continue;
+            }
+            List<Long> region = new ArrayList<>();
+            java.util.ArrayDeque<Long> queue = new java.util.ArrayDeque<>();
+            queue.add(start);
+            seen.add(start);
+            boolean hasHome = false;
+            while (!queue.isEmpty()) {
+                long at = queue.poll();
+                region.add(at);
+                hasHome |= homeChunk != null && homeChunk == at;
+                for (long n : Keys.neighbours(at)) {
+                    ClaimEntry c = claims.get(n);
+                    if (c != null && owner.equals(c.factionId()) && seen.add(n)) {
+                        queue.add(n);
+                    }
+                }
+            }
+            if (best == null || region.size() > best.size() || (region.size() == best.size() && hasHome && !bestHasHome)) {
+                best = region;
+                bestHasHome = hasHome;
+            }
+        }
+        if (best == null) {
+            return homeChunk == null ? 0L : homeChunk;
+        }
+        double cx = 0;
+        double cz = 0;
+        for (long i : best) {
+            cx += Keys.chunkX(i);
+            cz += Keys.chunkZ(i);
+        }
+        cx /= best.size();
+        cz /= best.size();
+        long pick = best.get(0);
+        double pickDistance = Double.MAX_VALUE;
+        for (long i : best) {
+            double dx = Keys.chunkX(i) - cx;
+            double dz = Keys.chunkZ(i) - cz;
+            double d = dx * dx + dz * dz;
+            if (d < pickDistance || (d == pickDistance && i < pick)) {
+                pick = i;
+                pickDistance = d;
+            }
+        }
+        return pick;
     }
 
     private static boolean interior(Long2ObjectMap<ClaimEntry> claims, long index, UUID owner) {

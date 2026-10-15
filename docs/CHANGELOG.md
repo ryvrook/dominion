@@ -2,9 +2,14 @@
 
 ## Unreleased
 
+### Changed
 - A faction or nation whose tag matches its name is shown by its name once everywhere, in the panel header, the sidebar, the land owner row, world map markers, nation rows, top lists and info pages.
 - The sidebar is redesigned with a title bar in the faction colour, one row per value, a location row with a relation colour bar and status rows that only show when they have something to say. New settings `hud.side` (right or left) and `hud.top` (default 400) place it clear of the Coinage and Chronicle boxes.
 - The `/f map` chat map follows the classic Factions layout with a `____[ (x, z) Owner ]____` header and a legend that names every faction on the map, while drawing each chunk with the same glyph so columns stay straight in the chat font. Claims take the faction's own colour, wilderness is dim grey, zones show in a lighter shade and safe and war zones keep gold and red. The panel's Nearby chunks grid now draws each chunk as a filled square in its owner colour with the first letter of the tag on top.
+- Claimed land is drawn on the in game world map the way Simple Claims draws it. Each claimed chunk gets a translucent fill in the owner's colour and a darker outline on the edges that face other land, so joined claims read as one region. SafeZones are gold and WarZones red. Dominion wraps the world's own map generator instead of replacing it, leaves a map another plugin draws alone and puts the generator back when it shuts down.
+- Changed chunks and their neighbours are drawn again within about a second of a claim, unclaim, colour change or disband, for the players who can see them.
+- Claims now show one label per faction and world in the middle of its largest region instead of an icon on every chunk. The per chunk icons come back with `map.claimMarkers`, and are used anyway in a world the overlay does not draw.
+- New settings `map.overlay` (default `true`), `map.overlayOpacity` (percent, default 55, 10 to 90), `map.overlayBorder` (pixels, default 2, 0 to 4) and `map.claimMarkers` (default `false`).
 
 ## 0.2.1 - 2026-10-14
 

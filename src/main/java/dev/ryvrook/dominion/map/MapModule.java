@@ -10,12 +10,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 /**
- * Registers the claim marker provider on every world, including worlds added later, and keeps
- * the map state in step with claim and faction changes.
+ * Registers the claim marker provider and the claims overlay on every world, including worlds
+ * added later, and keeps the map state in step with claim and faction changes.
  */
 public final class MapModule implements DominionModule {
     private final MapState state = new MapState();
     private ClaimMarkerProvider provider;
+    private MapOverlay overlay;
     private DominionContext ctx;
 
     public MapModule() {}
@@ -28,7 +29,8 @@ public final class MapModule implements DominionModule {
     @Override
     public void init(DominionContext ctx) {
         this.ctx = ctx;
-        this.provider = new ClaimMarkerProvider(ctx, state);
+        this.overlay = new MapOverlay(ctx, state);
+        this.provider = new ClaimMarkerProvider(ctx, state, overlay);
     }
 
     @Override
@@ -42,6 +44,22 @@ public final class MapModule implements DominionModule {
         });
         scanWorlds();
         ctx.everyMinute(this::scanWorlds);
+        ctx.everySecond(this::refreshOverlay);
+    }
+
+    @Override
+    public void shutdown(DominionContext ctx) {
+        if (overlay != null) {
+            overlay.uninstallAll();
+        }
+    }
+
+    private void refreshOverlay() {
+        try {
+            overlay.tick();
+        } catch (Exception ex) {
+            ctx.logger().at(Level.FINE).withCause(ex).log("Dominion claims overlay refresh failed");
+        }
     }
 
     private void scanWorlds() {
@@ -55,6 +73,7 @@ public final class MapModule implements DominionModule {
     }
 
     private void register(World world) {
+        overlay.install(world);
         if (world == null || !ctx.settings().bool("map.markers")) {
             return;
         }

@@ -104,7 +104,11 @@ Punishing players who log out in combat stays with CombatLog. Dominion only read
 ### Interface and admin
 
 - A faction panel with tabs for every enabled feature, a permission grid page, zone permissions, faction info pages, a top factions page, a tutorial and confirmation pages before anything destructive.
-- A sidebar HUD and world map markers for claims, homes, sieges, hills, outposts and envoys.
+- A sidebar HUD and world map markers for factions, homes, sieges, hills, outposts and envoys.
+- Claimed land on the in game world map is tinted in the owner's colour with a darker outline around each
+  region, so neighbouring claims of one faction read as one area and the terrain stays visible underneath.
+  Each faction gets one label in the middle of its largest region. `map.claimMarkers` brings back one icon
+  per claimed chunk.
 - An admin settings page with every setting grouped by topic. Changes save at once and apply live.
 - Classic, hardcore, peaceful and singleplayer presets. Singleplayer worlds get the singleplayer preset automatically on first run, which turns off raiding, sieges, shields, events and power loss.
 - An importer for Simple Claims, HyFactions, HyperFactions and Ultimate Factions data, with a required preview.
@@ -184,7 +188,7 @@ Punishing players who log out in combat stays with CombatLog. Dominion only read
 
 ## Configuration
 
-Settings live in `config.json` inside the plugin data folder. There are 162 keys grouped into
+Settings live in `config.json` inside the plugin data folder. There are 166 keys grouped into
 Factions, Power, Land, Raiding, Relations, Combat, Homes, Chat, Economy, Market, Sieges, Shields,
 Events, Progression, Map and Storage. Defaults are defined in
 `src/main/java/dev/ryvrook/dominion/config/Defaults.java`.
@@ -216,6 +220,10 @@ A few keys worth knowing
 | `siege.captureMinutes` | `15` | Siege capture time |
 | `events.enabled` | `true` | Events layer enabled |
 | `export.enabled` | `true` | Write the web map snapshot file |
+| `map.overlay` | `true` | Tint claimed land on the in game world map |
+| `map.overlayOpacity` | `55` | Overlay opacity in percent, 10 to 90 |
+| `map.overlayBorder` | `2` | Overlay outline width in pixels, 0 to 4 |
+| `map.claimMarkers` | `false` | One icon per claimed chunk instead of one label per faction |
 | `misc.singleplayerAutoPreset` | `true` | Apply the singleplayer preset automatically |
 
 ## Web map export

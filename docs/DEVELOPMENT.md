@@ -97,6 +97,39 @@ Please read it before opening a pull request.
 - World map: `world.getWorldMapManager().addMarkerProvider(id, (world, player, collector) -> collector.add(marker))`.
   Marker via `new MapMarkerBuilder(id, "MapMarkers/Image.png" style path as vanilla uses, transform).withName(Message).withComponent(new TintComponent(new Color(...))).withContextMenuItem(new ContextMenuItem("Label", "/f claim")).build()`.
   Vanilla marker images are at `Common/UI/WorldMap/MapMarkers/*.png` (Home, Warp, Player, UserA to UserF). Check `MapMarkerBuilder` and `MarkersCollector` with javap for exact signatures before use.
+- World map images (checked on 0.7.1 with javap -c). `WorldMapManager.getGenerator()` returns the world's
+  `IWorldMap`, normally `ChunkWorldMap.INSTANCE`. `IWorldMap` has `getWorldMapSettings()`,
+  `generate(World, int width, int height, LongSet chunks)` returning `CompletableFuture<WorldMap>`,
+  `generatePointsOfInterest(World)` and a default no-op `shutdown()`. The manager's own ticking thread calls
+  `generate` with a batch of chunk indexes and a size of `floor(32 * imageScale)` for both sides, then reads
+  each image from `WorldMap.getChunks()` (a `Long2ObjectMap<MapImage>` keyed by chunk index) and caches it.
+  A generated default world uses `com.hypixel.hytale.server.worldgen.map.GeneratorChunkWorldMap`, which extends
+  `ChunkWorldMap` and keeps its `generate` and the no-op `shutdown`. A headless 0.7.1 boot on 2026-10-15 logged the swap
+  to `DominionWorldMap(...GeneratorChunkWorldMap@...)`, `/worldmap reload` replaced it and the minute scan wrapped the
+  new generator again, and `/plugin reload` handed the same generator back before the new instance wrapped it once.
+- `MapImage` (package `com.hypixel.hytale.protocol.packets.worldmap`) has public fields `width`, `height`,
+  `int[] palette`, `byte bitsPerIndex` and `byte[] packedIndices`, and a constructor taking all five. Palette
+  entries are RGBA packed as `r << 24 | g << 16 | b << 8 | a`. Pixels are row major from the north west
+  corner, pixel `y * width + x`, with x towards +X and y towards +Z. Indexes are packed by the engine
+  `BitFieldArr` little end first, index i starting at bit `i * bits`, and may straddle bytes. The engine
+  picks 4 bits for up to 16 colours, 8 up to 256, 12 up to 4096 and 16 above.
+- `WorldMapManager.setGenerator(IWorldMap)` calls `shutdown()` on the old generator, stores the new one, logs
+  "Initializing world map generator: " plus its `toString()`, completes and replaces `generatorLoaded`, applies
+  the view radius overrides, clears every cached and generating image, cancels the queue, calls
+  `getWorldMapTracker().clear()` on every player of the world (a full map resend), updates the ticking state,
+  sends the settings and generates the points of interest again. A null generator disables the map.
+  The world calls it during init, and `/worldmap reload` and `/worldgen reload` call it again with a fresh
+  generator. It has no thread assertion, Dominion calls it on the world thread.
+- `isWorldMapEnabled()` reads the settings packet's `enabled` flag. `WorldMapSettings.DISABLED` is the
+  settings of a disabled map.
+- `WorldMapManager.clearImagesInChunks(LongSet)` drops the cached image, the running generation and any
+  queued request of each chunk. `WorldMapTracker` (package `com.hypixel.hytale.server.core.universe.world`,
+  from `Player.getWorldMapTracker()`) has `clearChunks(LongSet)`, which under its own lock forgets the
+  chunks and queues them for a reload that generates and sends them whether or not they are in view, so
+  Dominion only passes chunks for which `shouldBeVisible(getEffectiveViewRadius(world), index)` is true.
+  `World.getPlayers()` is deprecated for removal, so the Player component is read from each
+  `getPlayerRefs()` entry on the world thread.
+
 - Permissions: `PermissionsModule.get().hasPermission(UUID, String)`, commands `requirePermission("dominion.admin")`.
 - Item stacks: `new ItemStack(itemId, quantity)`, `ItemStack.CODEC` for persistence.
 
