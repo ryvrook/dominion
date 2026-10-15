@@ -48,21 +48,46 @@ class LandMapTest {
     }
 
     @Test
-    void legendIsTwoShortLinesWithDistinctColours() {
-        List<List<String[]>> lines = LandMap.legendEntries();
-        assertEquals(2, lines.size());
-        Set<String> colours = new HashSet<>();
-        int entries = 0;
-        for (List<String[]> line : lines) {
-            int chars = 0;
-            for (String[] e : line) {
-                chars += e[0].length() + 5;
-                colours.add(e[1]);
-                entries++;
-            }
-            assertTrue(chars <= 50, "legend line stays short");
+    void legendPacksSeveralFactionsPerLineAndKeepsTheFixedLine() {
+        List<String[]> entries = new java.util.ArrayList<>();
+        for (int i = 0; i < 9; i++) {
+            entries.add(new String[] {"Faction" + i, "#112233", Relation.NEUTRAL.color()});
         }
-        assertEquals(entries, colours.size(), "each legend entry has its own colour");
+        List<List<String[]>> lines = LandMap.pack(entries, LandMap.LEGEND_CHARS);
+        assertTrue(lines.size() >= 2 && lines.size() <= 3, "nine entries fit on a few lines");
+        int total = 0;
+        for (List<String[]> line : lines) {
+            assertTrue(line.size() > 1, "several entries share a line");
+            int chars = line.stream().mapToInt(e -> e[0].length() + 5).sum();
+            assertTrue(chars <= LandMap.LEGEND_CHARS);
+            total += line.size();
+        }
+        assertEquals(9, total);
+        List<List<String[]>> one = LandMap.pack(List.<String[]>of(new String[] {"x".repeat(80), "#112233", "#ffffff"}), 10);
+        assertEquals(1, one.size(), "a long name still gets its own line");
+        assertTrue(LandMap.pack(List.of(), 10).isEmpty());
+
+        Set<String> colours = new HashSet<>();
+        for (String[] e : LandMap.fixedLegend()) {
+            if (e[1] != null) {
+                assertTrue(colours.add(e[1]), "fixed entries have distinct colours");
+            }
+        }
+        assertEquals(4, colours.size());
+    }
+
+    @Test
+    void claimedCellsUseTheFactionColourWithFallbacks() {
+        java.util.UUID id = java.util.UUID.randomUUID();
+        dev.ryvrook.dominion.model.Faction f = new dev.ryvrook.dominion.model.Faction(id, "abc", "Alpha", id, 0L);
+        f.setColor("#123abc");
+        assertEquals("#123abc", LandMap.cellColor(f, Relation.ENEMY.color()));
+        f.setColor("purple");
+        assertEquals(Relation.ENEMY.color(), LandMap.cellColor(f, Relation.ENEMY.color()));
+        f.setType(dev.ryvrook.dominion.model.FactionType.SAFEZONE);
+        assertEquals(Land.SAFEZONE, LandMap.cellColor(f, Relation.ENEMY.color()));
+        f.setType(dev.ryvrook.dominion.model.FactionType.WARZONE);
+        assertEquals(Land.WARZONE, LandMap.cellColor(f, Relation.ENEMY.color()));
     }
 
     @Test

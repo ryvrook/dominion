@@ -4,7 +4,7 @@
 
 - A faction or nation whose tag matches its name is shown by its name once everywhere, in the panel header, the sidebar, the land owner row, world map markers, nation rows, top lists and info pages.
 - The sidebar is redesigned with a title bar in the faction colour, one row per value, a location row with a relation colour bar and status rows that only show when they have something to say. New settings `hud.side` (right or left) and `hud.top` (default 400) place it clear of the Coinage and Chronicle boxes.
-- The `/f map` chat map draws every chunk with the same glyph so columns stay straight in the chat font, colours carry the meaning, zones show in a lighter shade of the owner colour and the legend fits on two short lines. The panel's Nearby chunks grid now draws each chunk as a filled square in its owner colour with the first letter of the tag on top.
+- The `/f map` chat map follows the classic Factions layout with a `____[ (x, z) Owner ]____` header and a legend that names every faction on the map, while drawing each chunk with the same glyph so columns stay straight in the chat font. Claims take the faction's own colour, wilderness is dim grey, zones show in a lighter shade and safe and war zones keep gold and red. The panel's Nearby chunks grid now draws each chunk as a filled square in its owner colour with the first letter of the tag on top.
 
 ## 0.2.1 - 2026-10-14
 

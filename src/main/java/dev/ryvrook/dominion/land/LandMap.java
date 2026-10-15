@@ -5,13 +5,13 @@ import com.hypixel.hytale.server.core.universe.PlayerRef;
 import dev.ryvrook.dominion.model.ClaimEntry;
 import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.FactionType;
-import dev.ryvrook.dominion.model.Relation;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Keys;
 import dev.ryvrook.dominion.util.Players;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -46,13 +46,17 @@ final class LandMap {
         int h = odd(height <= 0 ? 11 : height, 3, 21);
         int cx = Keys.chunkX(center);
         int cz = Keys.chunkZ(center);
+        // Factions in the order they first appear on the map, with the colour their cells use.
+        Map<UUID, Faction> seen = new LinkedHashMap<>();
         Map<UUID, String> colors = new HashMap<>();
         List<Message> rows = new ArrayList<>();
 
         Faction here = claims.ownerAt(world, center);
-        rows.add(Message.join(Msg.prefix(),
-                Msg.colored("Map at " + Keys.describe(center) + "  ", Msg.MUTED),
-                Msg.colored(here == null ? "Wilderness" : here.label(), here == null ? Msg.TEXT : land.colorFor(player, here))));
+        rows.add(Message.join(
+                Msg.colored("____[ ", Msg.GOLD),
+                Msg.colored("(" + Keys.describe(center) + ") ", Msg.GOLD),
+                Msg.colored(here == null ? "Wilderness" : here.label(), here == null ? Msg.TEXT : land.colorFor(player, here)),
+                Msg.colored(" ]____", Msg.GOLD)));
 
         String[] cells = new String[w];
         for (int row = 0; row < h; row++) {
@@ -66,14 +70,84 @@ final class LandMap {
                 } else if (owner == null) {
                     cells[col] = WILD;
                 } else {
-                    String base = colors.computeIfAbsent(owner.id(), k -> land.colorFor(player, owner));
+                    seen.putIfAbsent(owner.id(), owner);
+                    String base = colors.computeIfAbsent(owner.id(), k -> cellColor(owner, land.colorFor(player, owner)));
                     cells[col] = zoned(world, idx, owner) ? lighter(base, ZONE_LIGHTEN) : base;
                 }
             }
             rows.add(row(cells, row == h / 2 ? w / 2 : -1));
         }
-        rows.addAll(legend());
+
+        // The classic legend, one entry per faction on the map in its own colour, named in the relation colour.
+        List<String[]> entries = new ArrayList<>();
+        for (Faction f : seen.values()) {
+            if (!f.isSystem()) {
+                entries.add(new String[] {f.label(), colors.get(f.id()), land.colorFor(player, f)});
+            }
+        }
+        for (List<String[]> line : pack(entries, LEGEND_CHARS)) {
+            rows.add(legendLine(line));
+        }
+        rows.add(legendLine(fixedLegend()));
         return rows;
+    }
+
+    /** About how many characters of legend fit on one chat line. */
+    static final int LEGEND_CHARS = 48;
+
+    /**
+     * The colour of a claimed cell. Safe and war zones keep their fixed colours, other factions
+     * use their own colour when it is a valid hex and the relation colour otherwise.
+     */
+    static String cellColor(Faction owner, String relationColor) {
+        if (owner.type() == FactionType.SAFEZONE) {
+            return Land.SAFEZONE;
+        }
+        if (owner.type() == FactionType.WARZONE) {
+            return Land.WARZONE;
+        }
+        String c = owner.color();
+        return c != null && c.matches("#[0-9a-fA-F]{6}") ? c : relationColor;
+    }
+
+    /** The fixed meanings as {label, glyph colour, label colour}, closed by the compass note. */
+    static List<String[]> fixedLegend() {
+        return List.of(new String[] {"You", Land.YOU, Msg.MUTED}, new String[] {"Wilderness", WILD, Msg.MUTED},
+                new String[] {"Safe zone", Land.SAFEZONE, Msg.MUTED}, new String[] {"War zone", Land.WARZONE, Msg.MUTED},
+                new String[] {"North is up", null, Msg.MUTED});
+    }
+
+    /** Packs legend entries into lines of at most about max characters, at least one entry per line. */
+    static List<List<String[]>> pack(List<String[]> entries, int max) {
+        List<List<String[]>> lines = new ArrayList<>();
+        List<String[]> line = new ArrayList<>();
+        int used = 0;
+        for (String[] e : entries) {
+            int len = e[0].length() + 5;
+            if (!line.isEmpty() && used + len > max) {
+                lines.add(line);
+                line = new ArrayList<>();
+                used = 0;
+            }
+            line.add(e);
+            used += len;
+        }
+        if (!line.isEmpty()) {
+            lines.add(line);
+        }
+        return lines;
+    }
+
+    /** One legend line. An entry without a glyph colour is plain text, as the compass note is. */
+    private static Message legendLine(List<String[]> line) {
+        List<Message> parts = new ArrayList<>();
+        for (String[] e : line) {
+            if (e[1] != null) {
+                parts.add(Msg.colored(CELL + " ", e[1]));
+            }
+            parts.add(Msg.colored(e[0] + "   ", e[2]));
+        }
+        return Message.join(parts.toArray(new Message[0]));
     }
 
     /** One map row. Runs of the same colour share a segment and the marked cell is bold. */
@@ -109,30 +183,6 @@ final class LandMap {
             out.add(new String[] {run.toString(), runColor, runBold ? "bold" : null});
         }
         return out;
-    }
-
-    /** The legend as two short lines of {label, colour} pairs. */
-    static List<List<String[]>> legendEntries() {
-        return List.of(
-                List.of(new String[] {"You", Land.YOU}, new String[] {"Own", Relation.OWN.color()},
-                        new String[] {"Ally", Relation.ALLY.color()}, new String[] {"Truce", Relation.TRUCE.color()},
-                        new String[] {"Neutral", Relation.NEUTRAL.color()}),
-                List.of(new String[] {"Enemy", Relation.ENEMY.color()}, new String[] {"Safe", Land.SAFEZONE},
-                        new String[] {"War", Land.WARZONE}, new String[] {"Zone", lighter(Relation.OWN.color(), ZONE_LIGHTEN)},
-                        new String[] {"Wild", WILD}));
-    }
-
-    private static List<Message> legend() {
-        List<Message> lines = new ArrayList<>();
-        for (List<String[]> line : legendEntries()) {
-            List<Message> parts = new ArrayList<>();
-            for (String[] e : line) {
-                parts.add(Msg.colored(CELL + " ", e[1]));
-                parts.add(Msg.colored(e[0] + "   ", Msg.MUTED));
-            }
-            lines.add(Message.join(parts.toArray(new Message[0])));
-        }
-        return lines;
     }
 
     /** Moves a #rrggbb colour toward white by the amount from 0 to 1. Other input comes back as is. */
