@@ -32,6 +32,8 @@ final class Body {
     static final String UPGRADE = "Pages/Dominion_Upgrade.ui";
     static final String CARD = "Pages/Dominion_Card.ui";
     static final int MAX_DOTS = 10;
+    /** Cells in one row of Dominion_GridRow.ui. */
+    static final int GRID_CELLS = 15;
     /** Level dots drawn per upgrade, ui.maxDots, never more than the markup holds. */
     private int maxDots = MAX_DOTS;
 
@@ -226,7 +228,7 @@ final class Body {
      */
     String gridRow(String[] glyphs, String[] textColors, String[] backgrounds) {
         String s = add(GRID_ROW);
-        for (int i = 0; i < Math.min(15, glyphs.length); i++) {
+        for (int i = 0; i < Math.min(GRID_CELLS, glyphs.length); i++) {
             commands.set(s + " #G" + i + ".Text", glyphs[i] == null ? "" : glyphs[i]);
             if (textColors[i] != null) {
                 commands.set(s + " #G" + i + ".Style.TextColor", textColors[i]);
@@ -235,6 +237,10 @@ final class Body {
                 // The same colour fill the vanilla world event rows set on their status bar.
                 commands.setObject(s + " #C" + i + ".Background", new PatchStyle().setColor(Value.of(backgrounds[i])));
             }
+        }
+        // A smaller ui.gridRadius fills fewer cells. Hide the rest so they do not read as wilderness off centre.
+        for (int i = glyphs.length; i < GRID_CELLS; i++) {
+            commands.set(s + " #C" + i + ".Visible", false);
         }
         return s;
     }

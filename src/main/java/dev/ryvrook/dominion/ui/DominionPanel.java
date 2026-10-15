@@ -11,6 +11,7 @@ import dev.ryvrook.dominion.api.Result;
 import dev.ryvrook.dominion.chat.ChatServiceImpl;
 import dev.ryvrook.dominion.command.PlayerToggles;
 import dev.ryvrook.dominion.config.CommandNames;
+import dev.ryvrook.dominion.faction.FactionText;
 import dev.ryvrook.dominion.model.AuditEntry;
 import dev.ryvrook.dominion.model.ClaimEntry;
 import dev.ryvrook.dominion.model.Faction;
@@ -1005,11 +1006,15 @@ public final class DominionPanel extends DominionPage {
     }
 
     /** The newest audit entry that changed the message of the day, which announcements also set. */
-    private static AuditEntry latestAnnouncement(Faction f) {
+    static AuditEntry latestAnnouncement(Faction f) {
+        // The audit line is worded by messages.json, so match the wording in use as well as the shipped one older entries carry.
+        String changed = Messages.get(FactionText.AUDIT_MOTD_CHANGED).toLowerCase(Locale.ROOT);
+        String cleared = Messages.get(FactionText.AUDIT_MOTD_CLEARED).toLowerCase(Locale.ROOT);
         AuditEntry best = null;
         for (AuditEntry e : f.audit()) {
             String text = e.text() == null ? "" : e.text().toLowerCase(Locale.ROOT);
-            boolean match = "announce".equalsIgnoreCase(e.category()) || text.contains("message of the day");
+            boolean match = "announce".equalsIgnoreCase(e.category()) || text.contains("message of the day")
+                    || text.equals(changed) || text.equals(cleared);
             if (match && (best == null || e.at() > best.at())) {
                 best = e;
             }
