@@ -23,9 +23,9 @@ public final class UiText {
 
     // Admin settings page
     public static final String PRESETS_TAB = Messages.define("ui.presetsTab", "Presets");
-    public static final String PRESET_CLASSIC = Messages.define("ui.presetClassic", "Raiding by power, dominance and sieges. The standard factions experience.");
+    public static final String PRESET_CLASSIC = Messages.define("ui.presetClassic", "Raiding by power, dominance and sieges. The default preset.");
     public static final String PRESET_HARDCORE = Messages.define("ui.presetHardcore", "Raids at any time, heavy death penalties and fast sieges.");
-    public static final String PRESET_PEACEFUL = Messages.define("ui.presetPeaceful", "No raiding and no neutral PvP. Factions build and trade in peace.");
+    public static final String PRESET_PEACEFUL = Messages.define("ui.presetPeaceful", "No raiding and no PvP between neutral factions.");
     public static final String PRESET_SINGLEPLAYER = Messages.define("ui.presetSingleplayer", "No raids, sieges or power loss. For solo worlds and small groups.");
     public static final String SETTINGS_TITLE = Messages.define("ui.settingsTitle", "Settings");
     public static final String SETTINGS_NEED_ADMIN = Messages.define("ui.settingsNeedAdmin", "You need the dominion.admin permission to change settings.");
@@ -289,7 +289,7 @@ public final class UiText {
     public static final String DAILY_MISSIONS = Messages.define("ui.dailyMissions", "Daily missions");
     public static final String WEEKLY_MISSIONS = Messages.define("ui.weeklyMissions", "Weekly missions");
     public static final String NEW_MISSIONS_IN = Messages.define("ui.newMissionsIn", "New missions in {time}");
-    public static final String MISSIONS_HINT = Messages.define("ui.missionsHint", "Every member helps. Progress counts while you play and rewards go to the faction when a mission is done.");
+    public static final String MISSIONS_HINT = Messages.define("ui.missionsHint", "Progress from every member counts while you play, and rewards go to the faction when a mission is done.");
     public static final String NO_MISSIONS = Messages.define("ui.noMissions", "No missions are active right now.");
     public static final String COINS_AMOUNT = Messages.define("ui.coinsAmount", "{amount} coins");
     public static final String REWARD = Messages.define("ui.reward", "Reward {reward}");
@@ -459,7 +459,7 @@ public final class UiText {
     public static final String FACTIONS_YOU_CAN_JOIN = Messages.define("ui.factionsYouCanJoin", "Factions you can join");
     public static final String STATE_OPEN = Messages.define("ui.stateOpen", "Open");
     public static final String REQUEST = Messages.define("ui.request", "Request");
-    public static final String NO_FACTIONS_EXIST = Messages.define("ui.noFactionsExist", "No factions exist yet. Be the first to found one.");
+    public static final String NO_FACTIONS_EXIST = Messages.define("ui.noFactionsExist", "No factions exist yet. Type a tag above to found one.");
     public static final String CREATED_ON = Messages.define("ui.createdOn", "Created {date}");
     public static final String NOBODY = Messages.define("ui.nobody", "Nobody");
     public static final String LAND_OF_MAX = Messages.define("ui.landOfMax", "{claims} of {max} chunks");
