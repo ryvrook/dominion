@@ -178,6 +178,7 @@ Punishing players who log out in combat stays with CombatLog. Dominion only read
 | `/fa` | Admin tools. Requires `dominion.admin` |
 | `/fa settings`, `/fa set <key> <value>`, `/fa get <key>` | Settings |
 | `/fa preset <name>`, `/fa reload` | Presets and reloading the file |
+| `/fa config [section\|key\|dump] [value]`, `/fa messages [id\|search\|reset]` | Browse and dump settings, look up and reset messages |
 | `/fa claim <tag> [radius]`, `/fa unclaim [radius]`, `/fa bypass` | Land overrides |
 | `/fa force join\|kick\|leader\|disband\|rename` | Membership overrides |
 | `/fa grace on <duration>`, `/fa eotw on\|off` | Grace and end of the world |
@@ -188,9 +189,9 @@ Punishing players who log out in combat stays with CombatLog. Dominion only read
 
 ## Configuration
 
-Settings live in `config.json` inside the plugin data folder. There are 176 keys grouped into
-Factions, Power, Land, Raiding, Relations, Combat, Homes, Chat, Economy, Market, Sieges, Shields,
-Events, Progression, Map and Storage. Defaults are defined in
+Settings live in `config.json` inside the plugin data folder. There are 248 keys grouped into
+Factions, Power, Land, Raiding, Relations, Combat, Homes, Chat, Economy, Market, Sieges, Shields, Events, Progression, Storage, Map, Integrations, Commands, Interface, Colours and Permissions. Every key is listed with its default, its limits and a description in
+[docs/SETTINGS.md](docs/SETTINGS.md), which is generated from
 `src/main/java/dev/ryvrook/dominion/config/Defaults.java`.
 
 Admins rarely need to touch the file.
@@ -199,6 +200,12 @@ Admins rarely need to touch the file.
 - `/fa set <key> <value>` and `/fa get <key>` work from chat or the server console.
 - `/fa reload` reads the file again after a manual edit.
 - `/fa preset <name>` applies a preset. A preset only changes the keys it names.
+- `/fa config` lists the sections, `/fa config <section>` pages through one, `/fa config <key> <value>` changes a key
+  and `/fa config dump` writes every key with its description, value, default and limits to `config-dump.txt`.
+- `/fa messages` counts the message ids in `messages.json`, `/fa messages <id>` shows one, `/fa messages search <text>`
+  finds ids and `/fa messages reset <id>` puts the default wording back.
+- Colours, command names and aliases, the disabled sub commands, permission nodes and a switch for every feature
+  are settings too. Command names and permission nodes on commands apply at the next start or `/plugin reload`.
 
 A few keys worth knowing
 

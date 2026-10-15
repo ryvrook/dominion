@@ -106,6 +106,7 @@ final class AdminCommands {
         registerSieges(root);
         registerImport(root);
         registerIntegrations(root);
+        new ConfigCommands(ctx).register(root);
         // Attach every sub command and variant before the caller registers the root.
         root.seal();
         return root;
