@@ -47,7 +47,7 @@ final class NationSection {
                     continue;
                 }
                 invited = true;
-                body.row(other.tag() + "  " + other.name(), color(other),
+                body.row(other.label(), color(other),
                         new String[] {other.members().size() + " factions", "Invited you", "", ""},
                         factionLeader ? Btn.of("Join", "nat_join", other.tag()) : null);
             }
@@ -62,7 +62,7 @@ final class NationSection {
             return;
         }
         boolean leads = factionLeader && f.id().equals(n.leaderFaction());
-        body.stat("Nation", n.tag() + "  " + n.name(), color(n));
+        body.stat("Nation", n.label(), color(n));
         for (UUID id : n.members()) {
             Faction m = factions().byId(id);
             if (m == null) {
@@ -72,18 +72,18 @@ final class NationSection {
             boolean leader = m.id().equals(n.leaderFaction());
             String[] cols = {leader ? "Leader" : "Member", m.memberCount() + " members", "", ""};
             if (leads && !self) {
-                body.row(m.tag() + "  " + m.name(), safe(m.color()), cols,
+                body.row(m.label(), safe(m.color()), cols,
                         Btn.of("Kick", "nat_kick", m.tag()), Btn.of("Make leader", "nat_leader", m.tag()),
                         Btn.of("Info", "info", m.tag()));
             } else {
-                body.row(m.tag() + "  " + m.name() + (self ? "  (you)" : ""), safe(m.color()), cols,
+                body.row(m.label() + (self ? "  (you)" : ""), safe(m.color()), cols,
                         Btn.of("Info", "info", m.tag()));
             }
         }
         for (UUID id : n.invites()) {
             Faction m = factions().byId(id);
             if (m != null) {
-                body.row(m.tag() + "  " + m.name(), Msg.MUTED, new String[] {"Invited", "", "", ""},
+                body.row(m.label(), Msg.MUTED, new String[] {"Invited", "", "", ""},
                         leads ? Btn.of("Withdraw", "nat_kick", m.tag()) : null);
             }
         }

@@ -119,7 +119,7 @@ public final class TopPage extends DominionPage {
     private void row(Body body, int place, Scored s) {
         Faction f = s.faction();
         String nation = nationTag(f);
-        body.row((place > 0 ? place + ".  " : "") + f.tag() + "  " + f.name() + (nation == null ? "" : "  of " + nation),
+        body.row((place > 0 ? place + ".  " : "") + f.label() + (nation == null ? "" : "  of " + nation),
                 safeColor(f.color(), null),
                 new String[] {Msg.number(Math.round(s.score())), String.valueOf(f.memberCount()), String.valueOf(s.claims()),
                         Msg.number(s.power())},

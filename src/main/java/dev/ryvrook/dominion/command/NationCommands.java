@@ -138,7 +138,9 @@ final class NationCommands extends Section {
 
     private void show(Call c, Nation n) {
         String color = n.color() != null && n.color().matches("#[0-9a-fA-F]{6}") ? n.color() : Msg.GOLD;
-        c.send(Message.join(Msg.prefix(), Msg.colored(n.tag(), color).bold(true), Msg.colored("  " + n.name(), Msg.TEXT)));
+        c.send(n.tagDiffers()
+                ? Message.join(Msg.prefix(), Msg.colored(n.tag(), color).bold(true), Msg.colored("  " + n.name(), Msg.TEXT))
+                : Message.join(Msg.prefix(), Msg.colored(n.label(), color).bold(true)));
         Faction leader = n.leaderFaction() == null ? null : factions().byId(n.leaderFaction());
         c.send(Msg.muted(" Led by " + (leader == null ? "nobody" : leader.tag()) + ", founded " + Time.date(n.createdAt())));
         List<String> members = new ArrayList<>();

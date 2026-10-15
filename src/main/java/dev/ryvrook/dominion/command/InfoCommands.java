@@ -141,7 +141,9 @@ final class InfoCommands extends Section {
     }
 
     void showFaction(Call c, Faction f) {
-        c.send(Message.join(Msg.prefix(), Msg.colored(f.tag(), f.color()).bold(true), Msg.colored("  " + f.name(), Msg.TEXT)));
+        c.send(f.tagDiffers()
+                ? Message.join(Msg.prefix(), Msg.colored(f.tag(), f.color()).bold(true), Msg.colored("  " + f.name(), Msg.TEXT))
+                : Message.join(Msg.prefix(), Msg.colored(f.label(), f.color()).bold(true)));
         if (f.type() != FactionType.NORMAL) {
             c.send(Msg.muted(f.type() == FactionType.SAFEZONE ? " A safe zone run by the server." : " A war zone run by the server."));
             return;
@@ -154,7 +156,7 @@ final class InfoCommands extends Section {
         NationService nations = ctx.serviceOrNull(NationService.class);
         Nation nation = nations == null ? null : nations.nationOf(f);
         if (nation != null) {
-            c.send(Message.join(Msg.muted(" Member of the nation "), Msg.colored(nation.tag() + "  " + nation.name(), Msg.GOLD)));
+            c.send(Message.join(Msg.muted(" Member of the nation "), Msg.colored(nation.label(), Msg.GOLD)));
         }
         List<Member> members = Faction.sortedByRank(f.members());
         int online = 0;

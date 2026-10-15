@@ -80,6 +80,25 @@ public final class Faction {
     public synchronized void setTag(String tag) { this.tag = tag; touch(); }
     public synchronized String name() { return name; }
     public synchronized void setName(String name) { this.name = name; touch(); }
+    /** Tag and name for display, or the name alone when the tag would only repeat it. */
+    public synchronized String label() { return label(tag, name); }
+    /** True when the tag adds something next to the name, so a separate tag element is worth drawing. */
+    public synchronized boolean tagDiffers() { return tagDiffers(tag, name); }
+
+    /** The shared label rule for factions and nations. */
+    public static String label(String tag, String name) {
+        String t = tag == null ? "" : tag.trim();
+        String n = name == null ? "" : name.trim();
+        if (n.isEmpty()) return t;
+        return tagDiffers(t, n) ? t + "  " + n : n;
+    }
+
+    /** False when the tag is blank, the name is blank or both read the same ignoring case. */
+    public static boolean tagDiffers(String tag, String name) {
+        String t = tag == null ? "" : tag.trim();
+        String n = name == null ? "" : name.trim();
+        return !t.isEmpty() && !n.isEmpty() && !t.equalsIgnoreCase(n);
+    }
     public synchronized String color() { return color; }
     public synchronized void setColor(String color) { this.color = color; touch(); }
     public synchronized String description() { return description; }

@@ -64,7 +64,7 @@ public final class FactionInfoPage extends DominionPage {
         }
         PowerService power = ctx.service(PowerService.class);
         ClaimService claims = ctx.service(ClaimService.class);
-        c.set("#Heading.Text", f.tag() + "  " + f.name());
+        c.set("#Heading.Text", f.label());
         c.set("#Heading.Style.TextColor", safeColor(f.color(), Msg.TEXT));
         ShopService shops = ctx.serviceOrNull(ShopService.class);
         if (shops != null && !f.isSystem()) {
@@ -83,7 +83,7 @@ public final class FactionInfoPage extends DominionPage {
         NationService nations = ctx.serviceOrNull(NationService.class);
         Nation nation = nations == null ? null : nations.nationOf(f);
         if (nation != null) {
-            body.stat("Nation", nation.tag() + "  " + nation.name(), safeColor(nation.color(), Msg.GOLD));
+            body.stat("Nation", nation.label(), safeColor(nation.color(), Msg.GOLD));
         }
         body.stat("Power", Msg.number(power.factionPower(f)) + " / " + Msg.number(power.factionMaxPower(f)));
         body.stat("Land", claims.claimCount(f) + " chunks");
@@ -107,7 +107,7 @@ public final class FactionInfoPage extends DominionPage {
                 continue;
             }
             any = true;
-            body.row(o.tag() + "  " + o.name(), e.getValue().color(),
+            body.row(o.label(), e.getValue().color(),
                     new String[] {e.getValue().displayName(), "", "", ""}, Btn.of("Info", "info", o.tag()));
         }
         if (!any) {

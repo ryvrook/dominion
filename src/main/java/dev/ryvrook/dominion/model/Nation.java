@@ -34,6 +34,10 @@ public final class Nation {
     public synchronized void setTag(String t) { tag = t; dirty = true; }
     public synchronized String name() { return name; }
     public synchronized void setName(String n) { name = n; dirty = true; }
+    /** Tag and name for display, or the name alone when the tag would only repeat it. */
+    public synchronized String label() { return Faction.label(tag, name); }
+    /** True when the tag adds something next to the name. */
+    public synchronized boolean tagDiffers() { return Faction.tagDiffers(tag, name); }
     public synchronized String color() { return color; }
     public synchronized void setColor(String c) { color = c; dirty = true; }
     public synchronized UUID leaderFaction() { return leaderFaction; }

@@ -41,7 +41,7 @@ final class FactionShopPage extends ShopPage {
             return;
         }
         c.set("#PageTitle.Text", f.tag() + " shop");
-        c.set("#Heading.Text", f.tag() + "  " + f.name());
+        c.set("#Heading.Text", f.label());
         c.set("#Subheading.Text", balanceLine());
         c.set("#Footer.Text", "Payments go to the bank of " + f.tag() + ".");
         if (!shops.factionEnabled()) {

@@ -118,7 +118,7 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
             }
             MapMarkerBuilder b = new MapMarkerBuilder(MarkerIds.of("claim", worldName, cell.index()), CLAIM_IMAGE,
                     new Transform(x, y, z))
-                    .withName(Message.raw(f.tag() + "  " + f.name()).color(colorOf(f)))
+                    .withName(Message.raw(f.label()).color(colorOf(f)))
                     .withComponent(new TintComponent(tint(colorOf(f))))
                     .withContextMenuItem(new ContextMenuItem("Faction info", "/f who " + f.tag()));
             // No unclaim entry here. /f unclaim acts on the chunk the player stands in, not the
