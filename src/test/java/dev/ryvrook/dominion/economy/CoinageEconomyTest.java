@@ -105,6 +105,14 @@ class CoinageEconomyTest {
         assertEquals("internal", eco.providerName());
     }
 
+    @Test
+    void aNewPlayerGetsNoDominionStartingBalanceWhenCoinageHoldsTheWallets() {
+        fx.set("eco.startingBalance", 100.0);
+        assertEquals(0.0, fx.ctx.player(UUID.randomUUID()).balance(), "Coinage hands out its own");
+        fx.set("eco.provider", "internal");
+        assertEquals(100.0, fx.ctx.player(UUID.randomUUID()).balance(), "the internal ledger still grants it");
+    }
+
     // ---- wallets --------------------------------------------------------------------------------------
 
     @Test

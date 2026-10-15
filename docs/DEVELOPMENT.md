@@ -255,6 +255,9 @@ How Dominion uses it.
   `auto` takes Coinage when linked, else VaultUnlocked when found, else internal. `CoinageAmounts` converts both ways,
   refusing amounts with more decimals than the currency has and rounding minor units down to cents. `LedgerMigration`
   runs into Coinage the same way it runs into VaultUnlocked, with its own summary file `economy/coinage-migrated.json`.
+  Both skip an untouched balance, one whose `PlayerData.balanceTouched` flag (persisted as `BalanceTouched`, absent
+  in older files) is unset and that still equals `eco.startingBalance`. `DominionContext.newPlayer` grants the
+  starting balance only while the provider is not coinage or vaultunlocked.
 - Banks. `economy.CoinageBanks` keeps each faction bank in the shared account `dominion:<faction id>` while the
   provider is coinage and `eco.coinageBanks` is on. `Faction.coinageAccount` holds the handle once the old balance
   moved in, persisted as `CoinageAccount` with a null default. An account that already holds money while the faction

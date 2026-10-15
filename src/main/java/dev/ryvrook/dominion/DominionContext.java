@@ -98,11 +98,29 @@ public final class DominionContext {
         return repo.player(uuid, this::newPlayer);
     }
 
-    /** A fresh record for a player Dominion has never seen, using the current defaults. */
+    /**
+     * A fresh record for a player Dominion has never seen, using the current defaults. The starting balance is only
+     * granted while the wallets are not with Coinage or VaultUnlocked, which hand out their own.
+     */
     PlayerData newPlayer(UUID id) {
-        PlayerData p = new PlayerData(id, "", settings.decimal("power.start"), settings.decimal("eco.startingBalance"));
+        double start = externalWallets() ? 0 : settings.decimal("eco.startingBalance");
+        PlayerData p = new PlayerData(id, "", settings.decimal("power.start"), start);
         p.setHud(settings.bool("hud.enabledDefault"));
         return p;
+    }
+
+    /** True when the active economy provider is Coinage or VaultUnlocked. */
+    private boolean externalWallets() {
+        dev.ryvrook.dominion.service.EconomyService eco = serviceOrNull(dev.ryvrook.dominion.service.EconomyService.class);
+        if (eco == null) {
+            return false;
+        }
+        try {
+            String name = eco.providerName();
+            return "coinage".equals(name) || "vaultunlocked".equals(name);
+        } catch (RuntimeException e) {
+            return false;
+        }
     }
 
     public void onPlayerReady(Consumer<PlayerRef> listener) { readyListeners.add(listener); }

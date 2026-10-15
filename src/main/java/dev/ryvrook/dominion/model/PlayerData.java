@@ -21,6 +21,8 @@ public final class PlayerData {
     private boolean tutorialSeen;
     private boolean mapHidden;
     private double balance;
+    /** True once the internal balance changed through a deposit, withdrawal or set. Null for a record that never moved money. */
+    private Boolean balanceTouched;
     private int kills;
     private int deaths;
     private long combatTagUntil;
@@ -59,7 +61,9 @@ public final class PlayerData {
     public synchronized boolean mapHidden() { return mapHidden; }
     public synchronized void setMapHidden(boolean b) { mapHidden = b; dirty = true; }
     public synchronized double balance() { return balance; }
-    public synchronized void setBalance(double b) { balance = Math.max(0, b); dirty = true; }
+    public synchronized void setBalance(double b) { balance = Math.max(0, b); balanceTouched = Boolean.TRUE; dirty = true; }
+    /** True once the internal balance moved. A record without the flag, new or from an older file, answers false. */
+    public synchronized boolean balanceTouched() { return Boolean.TRUE.equals(balanceTouched); }
     public synchronized int kills() { return kills; }
     public synchronized void addKill() { kills++; dirty = true; }
     public synchronized int deaths() { return deaths; }
@@ -78,7 +82,8 @@ public final class PlayerData {
                 .append("Power", power).append("LastSeen", lastSeen).append("LastDeath", lastDeath)
                 .append("Channel", channel.name()).append("AutoClaim", autoClaim).append("Hud", hud)
                 .append("Alerts", alerts).append("TutorialSeen", tutorialSeen).append("MapHidden", mapHidden)
-                .append("Balance", balance).append("Kills", kills).append("Deaths", deaths);
+                .append("Balance", balance).append("Kills", kills).append("Deaths", deaths)
+                .append("BalanceTouched", balanceTouched);
     }
 
     public static PlayerData fromDocument(UUID uuid, Document d) {
@@ -88,6 +93,7 @@ public final class PlayerData {
         PlayerData p = new PlayerData(uuid, rawName instanceof String s ? s : "", num(d, "Power"), num(d, "Balance"));
         String f = d.getString("Faction");
         p.factionId = f == null ? null : UUID.fromString(f);
+        p.balanceTouched = Boolean.TRUE.equals(d.get("BalanceTouched")) ? Boolean.TRUE : null;
         p.lastSeen = (long) num(d, "LastSeen");
         p.lastDeath = (long) num(d, "LastDeath");
         try {

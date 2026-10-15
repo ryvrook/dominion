@@ -48,6 +48,30 @@ class LedgerMigrationTest {
     }
 
     @Test
+    void onlyATouchedBalanceMoves() {
+        PlayerData untouched = player(100);
+        PlayerData touched = player(0);
+        touched.setBalance(100);
+        BooksTest.FakeWallets w = new BooksTest.FakeWallets();
+        assertEquals(LedgerMigration.Outcome.SKIPPED,
+                LedgerMigration.moveOne(untouched, lock, pd -> true, pd -> true, w, 100).outcome());
+        assertEquals(LedgerMigration.Outcome.MOVED,
+                LedgerMigration.moveOne(touched, lock, pd -> true, pd -> true, w, 100).outcome());
+        assertEquals(100, untouched.balance());
+        assertEquals(0, w.balance(untouched.uuid()));
+        assertEquals(100, w.balance(touched.uuid()));
+
+        // An old file has no flag, so it counts as untouched only while it still holds the starting balance.
+        PlayerData oldStart = PlayerData.fromDocument(UUID.randomUUID(), new org.bson.Document("Balance", 100.0));
+        PlayerData oldEarned = PlayerData.fromDocument(UUID.randomUUID(), new org.bson.Document("Balance", 150.0));
+        assertEquals(LedgerMigration.Outcome.SKIPPED, LedgerMigration.moveOne(oldStart, lock, pd -> true, pd -> true, w, 100).outcome());
+        assertEquals(LedgerMigration.Outcome.MOVED, LedgerMigration.moveOne(oldEarned, lock, pd -> true, pd -> true, w, 100).outcome());
+        // The flag survives a save and a load.
+        assertTrue(PlayerData.fromDocument(touched.uuid(), touched.toDocument()).balanceTouched());
+        assertFalse(PlayerData.fromDocument(untouched.uuid(), untouched.toDocument()).balanceTouched());
+    }
+
+    @Test
     void aFailedSaveDepositsNothingAndKeepsTheBalance() {
         PlayerData p = player(7);
         BooksTest.FakeWallets w = new BooksTest.FakeWallets();

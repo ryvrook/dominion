@@ -107,6 +107,15 @@ final class LedgerMigration {
      * @param save writes the player file and returns false when it could not be written
      */
     static Step moveOne(PlayerData p, Object lock, Predicate<PlayerData> live, Predicate<PlayerData> save, BalanceProvider external) {
+        return moveOne(p, lock, live, save, external, Double.NaN);
+    }
+
+    /**
+     * As above, skipping an untouched balance, one that never moved and still equals the starting balance, since
+     * the external economy hands out its own. Old files have no touched flag and count as untouched at that amount.
+     */
+    static Step moveOne(PlayerData p, Object lock, Predicate<PlayerData> live, Predicate<PlayerData> save, BalanceProvider external,
+                        double startingBalance) {
         double amount;
         synchronized (lock) {
             synchronized (p) {
@@ -114,7 +123,7 @@ final class LedgerMigration {
                     return new Step(Outcome.SKIPPED, 0, null);
                 }
                 amount = Money.round(p.balance());
-                if (amount < CENT) {
+                if (amount < CENT || untouched(p, startingBalance)) {
                     return new Step(Outcome.SKIPPED, 0, null);
                 }
                 p.setBalance(0);
@@ -143,6 +152,12 @@ final class LedgerMigration {
         return new Step(Outcome.FAILED, amount, r.message());
     }
 
+
+    /** True when the balance never moved and still equals the starting balance. Caller holds the record's monitor. */
+    static boolean untouched(PlayerData p, double startingBalance) {
+        return !Double.isNaN(startingBalance) && !p.balanceTouched()
+                && Math.abs(Money.round(p.balance()) - Money.round(startingBalance)) < CENT;
+    }
 
     private boolean readable(UUID id) {
         Document d = ctx.files().read(ctx.repo().root().resolve("players").resolve(id + ".json"));
@@ -182,7 +197,8 @@ final class LedgerMigration {
             PlayerData p = null;
             try {
                 p = ctx.player(id);
-                Step step = moveOne(p, lock, pd -> ctx.repo().playerIfLoaded(pd.uuid()) == pd, ctx.repo()::savePlayer, external);
+                Step step = moveOne(p, lock, pd -> ctx.repo().playerIfLoaded(pd.uuid()) == pd, ctx.repo()::savePlayer, external,
+                        ctx.settings().decimal("eco.startingBalance"));
                 if (step.outcome() == Outcome.MOVED) {
                     moved++;
                     total += step.amount();

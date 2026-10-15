@@ -278,8 +278,9 @@ in `eco.coinageCurrency` (blank for Coinage's primary currency), and an amount t
 cents in a whole coin currency, is refused. `auto` picks Coinage when it is linked, else VaultUnlocked when one is
 found, else the built in ledger. A server that upgrades keeps the provider it had in config.json. Balances left in
 the built in ledger move into Coinage once Coinage is linked, each one zeroed and saved before it is deposited, so
-none moves twice, and the run repeats at most once a day for anything earned while Coinage was away. Coinage gives
-new players its own starting balance, so set `eco.startingBalance` to 0 unless both should be paid.
+none moves twice, and the run repeats at most once a day for anything earned while Coinage was away. Dominion grants
+`eco.startingBalance` only while the internal ledger holds the wallets, since Coinage and VaultUnlocked give new
+players their own, and the move leaves out a balance that never changed and still equals the starting balance.
 
 While `eco.coinageBanks` is on, the default, each faction bank becomes a Coinage shared account named
 `dominion:<faction id>` the first time it is used, and what the bank held moves in once. The leader owns it, and
