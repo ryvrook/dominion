@@ -28,6 +28,10 @@ class MessagesTest {
         assertEquals("No player called Ann is known.", Messages.get(CommonText.NO_SUCH_PLAYER, "name", "Ann"));
         assertEquals("No player called  is known.", Messages.get(CommonText.NO_SUCH_PLAYER, "name", null));
         assertEquals("You are not in a faction.", Messages.get(CommonText.NOT_IN_FACTION));
+        assertEquals("No player called {name} is known.", Messages.get(CommonText.NO_SUCH_PLAYER, "name", "{name}"),
+                "a value that holds a placeholder is filled once");
+        assertEquals("No player called Ann is known.", Messages.get(CommonText.NO_SUCH_PLAYER, "name", "Ann", "name", "Bo"),
+                "the first value for a name wins");
         assertEquals("{name}", Messages.raw(CommonText.NO_SUCH_PLAYER).substring(17, 23));
     }
 

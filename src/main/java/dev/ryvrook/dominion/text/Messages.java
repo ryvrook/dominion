@@ -64,12 +64,29 @@ public final class Messages {
         if (pairs == null || pairs.length == 0 || text.indexOf('{') < 0) {
             return text;
         }
+        Map<String, String> values = new java.util.HashMap<>();
         for (int i = 0; i + 1 < pairs.length; i += 2) {
-            String name = String.valueOf(pairs[i]);
-            String value = pairs[i + 1] == null ? "" : String.valueOf(pairs[i + 1]);
-            text = text.replace("{" + name + "}", value);
+            values.putIfAbsent(String.valueOf(pairs[i]), pairs[i + 1] == null ? "" : String.valueOf(pairs[i + 1]));
         }
-        return text;
+        // One pass, so a value that holds a placeholder itself, such as a faction named {name}, is never filled again.
+        StringBuilder out = new StringBuilder(text.length() + 16);
+        int at = 0;
+        while (at < text.length()) {
+            int open = text.indexOf('{', at);
+            int close = open < 0 ? -1 : text.indexOf('}', open + 1);
+            if (close < 0) {
+                break;
+            }
+            String value = values.get(text.substring(open + 1, close));
+            if (value == null) {
+                out.append(text, at, open + 1);
+                at = open + 1;
+            } else {
+                out.append(text, at, open).append(value);
+                at = close + 1;
+            }
+        }
+        return out.append(text, at, text.length()).toString();
     }
 
     /** The sentence for an id with its placeholders left in place. */
