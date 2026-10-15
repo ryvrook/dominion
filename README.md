@@ -226,7 +226,7 @@ A few keys worth knowing
 | `chat.nameplateTag` | `false` | Experimental. Show the faction tag before the name above each player's head |
 | `chat.announceRenames` | `true` | Tell every online player when a faction changes its tag or name |
 | `top.pageSize` | `10` | Factions per page of `/f top`, 5 to 25 |
-| `eco.provider` | `internal` | `internal`, `vaultunlocked` or `item` |
+| `eco.provider` | `auto` | `auto`, `internal`, `vaultunlocked`, `item` or `coinage` |
 | `market.taxPercent` | `5.0` | Faction tax on market sales |
 | `siege.captureMinutes` | `15` | Siege capture time |
 | `events.enabled` | `true` | Events layer enabled |
@@ -280,7 +280,8 @@ found, else the built in ledger. A server that upgrades keeps the provider it ha
 the built in ledger move into Coinage once Coinage is linked, each one zeroed and saved before it is deposited, so
 none moves twice, and the run repeats at most once a day for anything earned while Coinage was away. Dominion grants
 `eco.startingBalance` only while the internal ledger holds the wallets, since Coinage and VaultUnlocked give new
-players their own, and the move leaves out a balance that never changed and still equals the starting balance.
+players their own, and the move leaves out a balance that never changed since the record was made, or for a record
+from an older version, one that still equals the starting balance.
 
 While `eco.coinageBanks` is on, the default, each faction bank becomes a Coinage shared account named
 `dominion:<faction id>` the first time it is used, and what the bank held moves in once. The leader owns it, and

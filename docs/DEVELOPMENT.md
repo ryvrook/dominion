@@ -255,22 +255,26 @@ How Dominion uses it.
   `auto` takes Coinage when linked, else VaultUnlocked when found, else internal. `CoinageAmounts` converts both ways,
   refusing amounts with more decimals than the currency has and rounding minor units down to cents. `LedgerMigration`
   runs into Coinage the same way it runs into VaultUnlocked, with its own summary file `economy/coinage-migrated.json`.
-  Both skip an untouched balance, one whose `PlayerData.balanceTouched` flag (persisted as `BalanceTouched`, absent
-  in older files) is unset and that still equals `eco.startingBalance`. `DominionContext.newPlayer` grants the
+  Both skip an untouched balance. `PlayerData` persists the flag as `BalanceTouched`, false for a record made by
+  this version that never moved money, which is skipped whatever `eco.startingBalance` says now, and absent in older
+  files, which are skipped only while they still equal `eco.startingBalance`. `DominionContext.newPlayer` grants the
   starting balance only while the provider is not coinage or vaultunlocked.
 - Banks. `economy.CoinageBanks` keeps each faction bank in the shared account `dominion:<faction id>` while the
   provider is coinage and `eco.coinageBanks` is on. `Faction.coinageAccount` holds the handle once the old balance
-  moved in, persisted as `CoinageAccount` with a null default. An account that already holds money while the faction
-  has no handle was seeded before a crash and is not seeded again. `Faction.bank` mirrors the account after every
+  moved in, persisted as `CoinageAccount` with a null default. An account that saw any transaction (`Account.seq` above
+  zero) while the faction has no handle was seeded before a crash and is not seeded again, even when it was spent
+  back to zero. Moving a bank back takes deposits that land before the delete, and returns the money to the account
+  when the delete still fails, so no balance is left behind for a later seed to miss. `Faction.bank` mirrors the account after every
   move, from the listener and on the minute tick, so every reader of `bank()` stays right. `EconomyServiceImpl.route`
   sends each bank move to `Books`, to `CoinageBanks`, or refuses it while a bank that lives in Coinage cannot be
   reached. The minute tick also sets the owner to the leader, gives members the rights their rank and hold allow,
   and moves banks back when Coinage banks are turned off. The listener vetoes player withdrawals from a faction
   account that `/f withdraw` would refuse, records them against the daily allowance, and writes moves made outside
   Dominion to the faction log.
-- Disband. `bankDrain` transfers the account to its owner, the leader, or to `Accounts.SERVER` with
-  `eco.coinageDisbandTo` on `server`, deletes it and returns zero, so `FactionSupport` pays nothing twice. Only when
-  Coinage refuses the transfer is the money withdrawn and returned for the usual payout.
+- Disband. `bankDrain` transfers the account to the faction's leader, not the account owner, which follows a new
+  leader only on the minute tick, or to `Accounts.SERVER` with `eco.coinageDisbandTo` on `server`, deletes it and
+  returns zero, so `FactionSupport` pays nothing twice. Only when Coinage refuses the transfer to the leader is the
+  money withdrawn and returned for the usual payout.
 - Net worth. The part `faction` answers a member's bank divided by the member count, from a member index rebuilt on
   the minute tick, in the Coinage currency only.
 - Market. `market.MarketHandoff` is a service the link attaches a target to. `ui.MarketTab` opens Coinage's market on
