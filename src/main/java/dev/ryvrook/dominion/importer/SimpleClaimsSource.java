@@ -1,5 +1,7 @@
 package dev.ryvrook.dominion.importer;
 
+import dev.ryvrook.dominion.text.Messages;
+
 import dev.ryvrook.dominion.model.Rank;
 import org.bson.Document;
 
@@ -62,8 +64,7 @@ final class SimpleClaimsSource implements Source {
         for (String suffix : List.of("-wal", "-journal")) {
             Path side = db.resolveSibling(db.getFileName() + suffix);
             if (Data.isFile(side) && Files.size(side) > 0) {
-                plan.notes.add("SimpleClaims.db" + suffix + " is not empty, so the newest Simple Claims changes may be missing. "
-                        + "Stop the server with Simple Claims installed once, or remove Simple Claims first, then import");
+                plan.notes.add(Messages.get(ImporterText.SC_JOURNAL, "suffix", suffix));
             }
         }
     }
@@ -83,7 +84,7 @@ final class SimpleClaimsSource implements Source {
             String id = r.get("id") == null ? null : r.get("id").toString();
             UUID owner = Data.uuid(r.get("owner"));
             if (id == null || owner == null) {
-                plan.skipped.add("A party has no id or owner");
+                plan.skipped.add(Messages.get(ImporterText.SC_PARTY_INCOMPLETE));
                 continue;
             }
             String ownerName = names.getOrDefault(owner, str(r.get("created_user_name")));
@@ -103,7 +104,7 @@ final class SimpleClaimsSource implements Source {
         }
         int reserved = sql.hasTable("reserved_chunks") ? sql.rows("reserved_chunks").size() : 0;
         if (reserved > 0) {
-            plan.skipped.add(reserved + " reserved chunks are not imported because Dominion has no reservations");
+            plan.skipped.add(Messages.get(ImporterText.SC_RESERVED, "count", reserved));
         }
     }
 
@@ -118,7 +119,7 @@ final class SimpleClaimsSource implements Source {
                 String id = Data.str(p, "Id");
                 UUID owner = Data.uuid(p.get("Owner"));
                 if (id == null || owner == null) {
-                    plan.skipped.add("A party in Parties.json has no id or owner");
+                    plan.skipped.add(Messages.get(ImporterText.SC_PARTY_FILE_INCOMPLETE));
                     continue;
                 }
                 Plan.Faction f = party(id, owner, names.get(owner), Data.str(p, "Name"), Data.num(p, "Color"));
@@ -151,7 +152,7 @@ final class SimpleClaimsSource implements Source {
                 }
             }
         } catch (Exception e) {
-            plan.notes.add(file.getFileName() + " could not be read so some member names are unknown");
+            plan.notes.add(Messages.get(ImporterText.SC_NO_NAMES, "file", file.getFileName()));
         }
         return names;
     }
@@ -171,11 +172,11 @@ final class SimpleClaimsSource implements Source {
         Integer nx = Data.coord(x);
         Integer nz = Data.coord(z);
         if (nx == null || nz == null || world == null || world.isBlank()) {
-            plan.skipped.add("A claim is missing its world or has damaged chunk coordinates");
+            plan.skipped.add(Messages.get(ImporterText.CLAIM_DAMAGED));
             return;
         }
         if (f == null) {
-            plan.skipped.add("The claim at " + nx + ", " + nz + " in " + world + " belongs to an unknown party " + owner);
+            plan.skipped.add(Messages.get(ImporterText.SC_CLAIM_UNKNOWN_PARTY, "x", nx, "z", nz, "world", world, "party", owner));
             return;
         }
         f.sourceCells++;

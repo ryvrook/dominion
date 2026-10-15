@@ -1,5 +1,7 @@
 package dev.ryvrook.dominion.importer;
 
+import dev.ryvrook.dominion.text.Messages;
+
 import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.api.DominionEvent;
 import dev.ryvrook.dominion.api.Result;
@@ -114,7 +116,7 @@ final class ImportServiceImpl implements ImportService {
         try {
             source.read(new Locator(ctx), plan);
         } catch (Exception e) {
-            plan.unsupported = "The " + source.label() + " data could not be read because " + e.getMessage();
+            plan.unsupported = Messages.get(ImporterText.UNREADABLE, "source", source.label(), "reason", e.getMessage());
             ctx.logger().at(Level.WARNING).withCause(e).log("Dominion import could not read %s data", source.label());
         }
         Map<String, String> ledger = ledger(source.id());
@@ -148,54 +150,55 @@ final class ImportServiceImpl implements ImportService {
     private List<String> describe(String source) {
         Source s = find(source);
         if (s == null) {
-            return List.of("There is no import source called " + source + ". Choose one of " + String.join(", ", sources.keySet()) + ".");
+            return List.of(Messages.get(ImporterText.NO_SUCH_SOURCE, "source", source, "sources", String.join(", ", sources.keySet())));
         }
         Planner.Resolved r = resolve(s);
         Plan plan = r.plan();
         List<String> out = new ArrayList<>();
-        out.add(plan.label + " import preview. Nothing is changed until the import is run.");
+        out.add(Messages.get(ImporterText.PREVIEW_HEADER, "source", plan.label));
         if (plan.experimental) {
-            out.add("This source is experimental because " + plan.label + " is closed source and its format is not officially documented.");
+            out.add(Messages.get(ImporterText.EXPERIMENTAL, "source", plan.label));
         }
         if (plan.unsupported != null) {
-            out.add(plan.unsupported + ". The import cannot run until the data can be read in full.");
+            out.add(Messages.get(ImporterText.CANNOT_RUN_UNREADABLE, "problem", plan.unsupported));
         }
         if (ledger(s.id()) == null) {
-            out.add("The import record " + ledgerFile(s.id()) + " cannot be read, so the import cannot run until it is fixed or removed.");
+            out.add(Messages.get(ImporterText.LEDGER_UNREADABLE, "file", ledgerFile(s.id())));
         }
         if (plan.found == null) {
-            out.add("No " + plan.label + " data was found.");
-            plan.searched.forEach(p -> out.add("Looked for " + p));
+            out.add(Messages.get(ImporterText.NOTHING_FOUND, "source", plan.label));
+            plan.searched.forEach(p -> out.add(Messages.get(ImporterText.LOOKED_FOR, "path", p)));
             return out;
         }
-        out.add("Reading " + plan.label + " data from " + plan.found);
+        out.add(Messages.get(ImporterText.READING_FROM, "source", plan.label, "path", plan.found));
         int members = 0;
         int chunks = 0;
         for (Planner.Decision d : r.decisions()) {
             members += 1 + d.joins.size();
             chunks += d.claimCount();
         }
-        out.add(plural(r.decisions().size(), "faction") + " with " + plural(members, "member") + " and " + plural(chunks, "chunk") + " would be created.");
+        out.add(Messages.get(ImporterText.WOULD_CREATE, "factions", factions(r.decisions().size()), "members", members(members),
+                "chunks", chunks(chunks)));
         for (Planner.Decision d : r.decisions()) {
-            out.add(d.f.name + " would become " + d.tag + " led by " + d.leaderName + " with " + plural(1 + d.joins.size(), "member")
-                    + " and " + plural(d.claimCount(), "chunk") + worlds(d) + ".");
+            out.add(Messages.get(ImporterText.WOULD_BECOME, "faction", d.f.name, "tag", d.tag, "leader", d.leaderName,
+                    "members", members(1 + d.joins.size()), "chunks", chunks(d.claimCount()), "worlds", worlds(d)));
             for (String issue : d.issues) {
-                out.add("  " + issue + ".");
+                out.add("  " + Messages.get(ImporterText.LINE, "text", issue));
             }
         }
         if (!r.skipped().isEmpty()) {
-            out.add(plural(r.skipped().size(), "record") + " skipped.");
+            out.add(Messages.get(ImporterText.SKIPPED_COUNT, "records", records(r.skipped().size())));
             for (int i = 0; i < r.skipped().size() && i < MAX_LISTED; i++) {
-                out.add("  " + r.skipped().get(i) + ".");
+                out.add("  " + Messages.get(ImporterText.LINE, "text", r.skipped().get(i)));
             }
             if (r.skipped().size() > MAX_LISTED) {
-                out.add("  And " + (r.skipped().size() - MAX_LISTED) + " more skipped records.");
+                out.add("  " + Messages.get(ImporterText.MORE_SKIPPED, "count", r.skipped().size() - MAX_LISTED));
             }
         }
         for (String note : plan.notes) {
-            out.add(note + ".");
+            out.add(Messages.get(ImporterText.LINE, "text", note));
         }
-        out.add("Homes, relations, power, banks and permissions are not imported.");
+        out.add(Messages.get(ImporterText.NOT_IMPORTED));
         return out;
     }
 
@@ -204,8 +207,12 @@ final class ImportServiceImpl implements ImportService {
             return "";
         }
         List<String> parts = new ArrayList<>();
-        d.claims.forEach((w, l) -> parts.add(l.size() + " in " + w));
-        return ", " + String.join(" and ", parts);
+        d.claims.forEach((w, l) -> parts.add(Messages.get(ImporterText.WORLD_PART, "count", l.size(), "world", w)));
+        String joined = parts.get(0);
+        for (int i = 1; i < parts.size(); i++) {
+            joined = Messages.get(ImporterText.WORLDS_AND, "list", joined, "last", parts.get(i));
+        }
+        return Messages.get(ImporterText.WORLDS, "parts", joined);
     }
 
     // ---- run -------------------------------------------------------------
@@ -214,12 +221,12 @@ final class ImportServiceImpl implements ImportService {
     public Result run(UUID admin, String adminName, String source) {
         Source s = find(source);
         if (s == null) {
-            return Result.fail("There is no import source called " + source + ". Choose one of " + String.join(", ", sources.keySet()));
+            return Result.fail(Messages.get(ImporterText.RUN_NO_SUCH_SOURCE, "source", source, "sources", String.join(", ", sources.keySet())));
         }
         if (!previewed(admin, s.id())) {
-            return Result.fail("Preview the import from " + s.id() + " first and run it within 10 minutes of the preview");
+            return Result.fail(Messages.get(ImporterText.PREVIEW_FIRST, "source", s.id()));
         }
-        String who = adminName == null || adminName.isBlank() ? "An admin" : adminName;
+        String who = adminName == null || adminName.isBlank() ? Messages.get(ImporterText.AN_ADMIN) : adminName;
         FactionService factions = ctx.service(FactionService.class);
         ClaimService claims = ctx.serviceOrNull(ClaimService.class);
         synchronized (lock) {
@@ -227,17 +234,17 @@ final class ImportServiceImpl implements ImportService {
             Plan plan = r.plan();
             if (plan.unsupported != null) {
                 // A read that failed part way would import some factions without their land and mark them done for good.
-                return Result.fail(plan.unsupported + ". Nothing was imported");
+                return Result.fail(Messages.get(ImporterText.NOTHING_IMPORTED, "problem", plan.unsupported));
             }
             if (plan.found == null) {
-                return Result.fail("No " + plan.label + " data was found. Use the preview to see where Dominion looked");
+                return Result.fail(Messages.get(ImporterText.RUN_NOTHING_FOUND, "source", plan.label));
             }
             if (r.decisions().isEmpty()) {
-                return Result.fail("There is nothing new to import from " + plan.label + ". " + plural(r.skipped().size(), "record") + " skipped");
+                return Result.fail(Messages.get(ImporterText.NOTHING_NEW, "source", plan.label, "records", records(r.skipped().size())));
             }
             Map<String, String> ledger = ledger(s.id());
             if (ledger == null) {
-                return Result.fail("The import record " + ledgerFile(s.id()) + " cannot be read, so Dominion cannot tell what was already imported. Fix or remove it and preview again");
+                return Result.fail(Messages.get(ImporterText.RUN_LEDGER_UNREADABLE, "file", ledgerFile(s.id())));
             }
             int created = 0;
             int joined = 0;
@@ -323,8 +330,8 @@ final class ImportServiceImpl implements ImportService {
                         }
                     }
                     // One audit line and one FactionChanged per faction, published after all of its claims.
-                    factions.audit(f, admin, who, "admin", who + " imported this faction from " + plan.label + " where it was "
-                            + d.f.name + ", with " + plural(f.memberCount(), "member") + " and " + plural(ctx.repo().claimCount(f.id()), "chunk"));
+                    factions.audit(f, admin, who, "admin", Messages.get(ImporterText.AUDIT_IMPORTED, "admin", who, "source", plan.label,
+                            "name", d.f.name, "members", members(f.memberCount()), "chunks", chunks(ctx.repo().claimCount(f.id()))));
                     ctx.repo().saveFaction(f);
                     ctx.bus().publish(new DominionEvent.FactionChanged(f.id()));
                     log("%s imported %s from %s as %s", who, d.f.name, plan.label, f.tag());
@@ -332,18 +339,18 @@ final class ImportServiceImpl implements ImportService {
             } finally {
                 saveLedger(s.id(), ledger);
             }
-            StringBuilder msg = new StringBuilder("Imported " + plural(created, "faction") + " from " + plan.label + " with "
-                    + plural(created + joined, "member") + " and " + plural(landed, "chunk") + ".");
+            StringBuilder msg = new StringBuilder(Messages.get(ImporterText.IMPORTED, "factions", factions(created), "source", plan.label,
+                    "members", members(created + joined), "chunks", chunks(landed)));
             if (lost > 0) {
-                msg.append(' ').append(plural(lost, "chunk")).append(" could not be claimed.");
+                msg.append(' ').append(Messages.get(ImporterText.CHUNKS_LOST, "chunks", chunks(lost)));
             }
             if (claims == null) {
-                msg.append(" The land module is not loaded so no land was imported.");
+                msg.append(' ').append(Messages.get(ImporterText.NO_LAND_MODULE));
             }
             if (!r.skipped().isEmpty()) {
-                msg.append(' ').append(plural(r.skipped().size(), "record")).append(" skipped. The preview lists them.");
+                msg.append(' ').append(Messages.get(ImporterText.RUN_SKIPPED, "records", records(r.skipped().size())));
             }
-            msg.append(" The ").append(plan.label).append(" data was left untouched.");
+            msg.append(' ').append(Messages.get(ImporterText.UNTOUCHED, "source", plan.label));
             log("%s", msg);
             return created == 0 ? Result.fail(msg.toString()) : Result.pass(msg.toString());
         }
@@ -402,8 +409,20 @@ final class ImportServiceImpl implements ImportService {
         ctx.files().write(ledgerFile(source), d);
     }
 
-    private static String plural(int n, String noun) {
-        return Planner.plural(n, noun);
+    private static String factions(int n) {
+        return Planner.plural(n, ImporterText.FACTIONS_ONE, ImporterText.FACTIONS_MANY);
+    }
+
+    private static String members(int n) {
+        return Planner.plural(n, ImporterText.MEMBERS_ONE, ImporterText.MEMBERS_MANY);
+    }
+
+    private static String chunks(int n) {
+        return Planner.plural(n, ImporterText.CHUNKS_ONE, ImporterText.CHUNKS_MANY);
+    }
+
+    private static String records(int n) {
+        return Planner.plural(n, ImporterText.RECORDS_ONE, ImporterText.RECORDS_MANY);
     }
 
     private void log(String format, Object... args) {

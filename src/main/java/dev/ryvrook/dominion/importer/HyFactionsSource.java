@@ -1,5 +1,7 @@
 package dev.ryvrook.dominion.importer;
 
+import dev.ryvrook.dominion.text.Messages;
+
 import dev.ryvrook.dominion.model.Rank;
 import org.bson.Document;
 
@@ -56,14 +58,14 @@ final class HyFactionsSource implements Source {
             try {
                 d = Data.json(file);
             } catch (Exception e) {
-                plan.skipped.add("The file " + file.getFileName() + " could not be read because " + e.getMessage());
+                plan.skipped.add(Messages.get(ImporterText.FILE_UNREADABLE, "file", file.getFileName(), "reason", e.getMessage()));
                 continue;
             }
             String id = Data.str(d, "Id");
             UUID owner = Data.uuid(d.get("Owner"));
             String name = Data.str(d, "Name");
             if (id == null || owner == null || name == null) {
-                plan.skipped.add("The file " + file.getFileName() + " has no Id, Owner or Name");
+                plan.skipped.add(Messages.get(ImporterText.HYF_FILE_INCOMPLETE, "file", file.getFileName()));
                 continue;
             }
             Plan.Faction f = new Plan.Faction(id);
@@ -87,11 +89,11 @@ final class HyFactionsSource implements Source {
         if (Data.isFile(claims)) {
             SimpleClaimsSource.legacyClaims(Data.json(claims), byId, plan);
         } else {
-            plan.notes.add("Claims.json was not found so no land is imported");
+            plan.notes.add(Messages.get(ImporterText.HYF_NO_CLAIMS));
         }
         for (String zoneFile : List.of("SafeZones.json", "WarZones.json")) {
             if (Data.isFile(config.resolve(zoneFile))) {
-                plan.skipped.add("Zones in " + zoneFile + " are not imported. Recreate them with Dominion zone commands");
+                plan.skipped.add(Messages.get(ImporterText.HYF_ZONES, "file", zoneFile));
             }
         }
     }
