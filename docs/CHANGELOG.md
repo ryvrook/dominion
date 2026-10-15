@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Settings
+- Every remaining rule that was a constant is a setting now, read live. `land.reclaimWindowDays`, `land.territoryMessageMillis`, `land.nearDefault`, `land.nearMax`, `power.dtrBase`, `power.dtrPerMember`, `power.dtrCap`, `power.dtrFloor`, `power.dtrLossPerDeath`, `power.dtrRegenPerOnline`, `power.dtrRegenCap`, `power.regenStep`, `power.upgradeStep`, `combat.homeRespawnDelayMillis`, `combat.homeRespawnAttempts`, `combat.safeZoneMaxStep`, `home.stuckSearchRadius`, `home.warmupMoveTolerance`, `missions.farmGuardMaxPlaced` (read at start), `missions.farmGuardMaxDrops`, `missions.farmGuardDropMemoryMinutes`, `integrations.foundedWindowSeconds`, `market.auctionHours`, `raid.upkeepUnpaidDays`, `vault.memberPages`, `siege.holdOffSeconds`, `siege.resumeGraceSeconds` and `commands.confirmSeconds`. Every default is the old constant.
+- A new Interface section with `ui.marketPageSize`, `ui.logPageSize`, `ui.gridRadius` (2 to 7), `ui.topLimit`, `ui.eventRows`, `ui.siegeHistory`, `ui.vaultMaxPages`, `ui.confirmLockMillis`, `ui.maxDots` and `ui.bannerIcon`.
+- A new Colours section with fifteen `colors.*` keys for the relations, the zones, wilderness, the gold prefix and the message tones, each a `#rrggbb` colour. Chat, relation colours, land banners, the chat map, the sidebar and the world map overlay follow a change at once.
+- A new Commands section. `commands.root`, `commands.rootAliases`, `commands.adminRoot`, `commands.adminAliases`, `commands.eventsRoot`, `commands.eventsAliases` and `commands.shopEditRoot` rename the commands, and `commands.disabled` leaves sub commands such as `map,top` or the top level `balance`, `pay` and `baltop` out, hiding their panel tabs too. They apply at the next start or `/plugin reload`, and help text and hints print the names in use.
+- A new Permissions section. `permissions.admin` and `permissions.adminPayouts` rename the two nodes Dominion checks.
+- New feature switches, all on by default. `vault.enabled`, `missions.enabled`, `upgrades.enabled`, `home.enabled`, `chat.enabled`, `hud.enabled`, `map.enabled`, `top.enabled` and `integrations.enabled`. A switch that is off hides the panel tab, refuses the commands with the feature off message and pauses the timers. The sieges, shield and nation parts of the panel now also follow `raid.modeSiege`, `shield.enabled` and `nation.enabled`.
+- `/fa config` lists the sections with their key counts, pages through a section, shows or changes one key and writes every key to `config-dump.txt` with `/fa config dump`.
+- `/fa messages` counts the message ids and the customised ones, shows one id, searches the wording and resets one id to its default.
+- `docs/SETTINGS.md` lists every key with its default, limits and description. It is generated from the defaults and a test keeps it and the README count current.
+
 ## 0.3.0 - 2026-10-15
 
 Dominion Factions 0.3.0 is the first release shaped by a client session. Faction names show once, the sidebar,

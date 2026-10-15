@@ -31,7 +31,17 @@ Please read it before opening a pull request.
 - Settings are read live with `ctx.settings().bool/integer/decimal/text(key)`. Keys are in
   `config/Defaults.java`, and a setting is never cached across calls. A key defined with
   `defineFileOnly` can only be changed in config.json, never through /fa set or the settings page.
-- Messages use the `dev.ryvrook.dominion.text.Msg` helpers and the colours defined there.
+- Messages use the `dev.ryvrook.dominion.text.Msg` helpers and the colours defined there. The colours come from the
+  `colors.*` settings through `text/Palette`, which `Settings` refreshes after every load, reload, set and preset, so the
+  `Msg` colour fields are not final and must never be copied into a `static final` field. A class that keeps a colour in
+  a field registers with `Palette.onChange`.
+- Command names come from `config/CommandNames` and permission nodes from `config/Perms`. Write `/f`, `/fa`, `/fe` and
+  `/fashop` in sentences as usual, the `Msg` helpers and the panel text rewrite them to the names registered at start.
+  A command that runs another command, such as a map context menu entry, builds it with `CommandNames.root()`.
+- A new key goes in `config/Defaults.java` with a range, choices or pattern. `docs/SETTINGS.md` and the key count in
+  README.md are generated, run the tests with `DOMINION_WRITE_DOCS=1` to write them again.
+- A sub command of `/f` that belongs to a feature with an `enabled` switch is gated in `CommandModule.gates`, and its
+  panel tab is hidden in `DominionPanel.hiddenTabs`.
 
 ## Verified Hytale API facts (javap against 0.7.0, first checked on 0.7.0-pre.5.1)
 
