@@ -20,8 +20,6 @@ import java.util.UUID;
 
 /** Claiming, the chat map, power, nearby players and sharing coordinates. */
 final class LandCommands extends Section {
-    private static final int NEAR_DEFAULT = 64;
-    private static final int NEAR_MAX = 256;
 
     LandCommands(DominionContext ctx, Confirmations confirmations, Targets targets) {
         super(ctx, confirmations, targets);
@@ -200,10 +198,10 @@ final class LandCommands extends Section {
 
     private void registerNear(PlayerCmd root) {
         PlayerCmd near = root.sub(new PlayerCmd("near", "List players near you."));
-        near.handler(c -> showNear(c, NEAR_DEFAULT));
+        near.handler(c -> showNear(c, ctx.settings().integer("land.nearDefault")));
         PlayerCmd ranged = new PlayerCmd("List players within a radius.");
         RequiredArg<Integer> radius = ranged.withRequiredArg("radius", "Radius in blocks", ArgTypes.INTEGER);
-        ranged.handler(c -> showNear(c, Math.min(NEAR_MAX, Math.max(1, c.arg(radius)))));
+        ranged.handler(c -> showNear(c, Math.min(ctx.settings().integer("land.nearMax"), Math.max(1, c.arg(radius)))));
         near.variant(ranged);
     }
 

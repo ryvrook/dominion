@@ -13,7 +13,10 @@ import java.util.UUID;
 public final class StatMapper {
     private StatMapper() {}
 
-    /** A faction created this long ago or less counts as founded now. Imported factions are older. */
+    /**
+     * A faction created this long ago or less counts as founded now. Imported factions are older.
+     * The default of integrations.foundedWindowSeconds, which ContextFacts reads.
+     */
     static final long FOUNDED_WINDOW_MILLIS = 60_000L;
 
     /** One counter credit. */

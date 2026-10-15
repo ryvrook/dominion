@@ -28,6 +28,8 @@ final class Body {
     static final String UPGRADE = "Pages/Dominion_Upgrade.ui";
     static final String CARD = "Pages/Dominion_Card.ui";
     static final int MAX_DOTS = 10;
+    /** Level dots drawn per upgrade, ui.maxDots, never more than the markup holds. */
+    private int maxDots = MAX_DOTS;
 
     /** A button label with the action and value it sends. */
     record Btn(String label, String action, String value) {
@@ -335,12 +337,16 @@ final class Body {
         return s;
     }
 
+    void maxDots(int dots) {
+        maxDots = Math.max(0, Math.min(MAX_DOTS, dots));
+    }
+
     /** An upgrade with a description, level dots, a cost and an optional buy button. */
     String upgrade(String name, String description, int level, int max, String cost, Btn buy) {
         String s = add(UPGRADE);
         commands.set(s + " #Name.Text", name);
         commands.set(s + " #Desc.Text", description == null ? "" : description);
-        int dots = Math.min(MAX_DOTS, Math.max(0, max));
+        int dots = Math.min(maxDots, Math.max(0, max));
         for (int i = 0; i < dots; i++) {
             commands.set(s + (i < level ? " #On" : " #Off") + i + ".Visible", true);
         }

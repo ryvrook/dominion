@@ -7,9 +7,12 @@ import dev.ryvrook.dominion.model.Siege;
  * The service counts the players at the banner and acts on the step this returns.
  */
 final class SiegeClock {
-    /** How long defenders must hold the banner alone to break the siege. */
+    /** How long defenders must hold the banner alone to break the siege, the default of siege.holdOffSeconds. */
     static final long HOLD_OFF_MILLIS = 30_000L;
-    /** After a restart nobody can win or lose a capture by absence until players had time to rejoin. */
+    /**
+     * After a restart nobody can win or lose a capture by absence until players had time to rejoin.
+     * The default of siege.resumeGraceSeconds.
+     */
     static final long RESUME_GRACE_MILLIS = 120_000L;
 
     enum Step { CONTINUE, DEFENDED, FAILED, BREACH }
@@ -24,6 +27,12 @@ final class SiegeClock {
      * passes a grace, every other siege passes zero.
      */
     static Step capture(Siege siege, int attackers, int defenders, long now, long absentLimitMillis, long resumeGraceUntil) {
+        return capture(siege, attackers, defenders, now, absentLimitMillis, resumeGraceUntil, HOLD_OFF_MILLIS);
+    }
+
+    /** The same with the defenders' hold off time in milliseconds. */
+    static Step capture(Siege siege, int attackers, int defenders, long now, long absentLimitMillis, long resumeGraceUntil,
+                        long holdOffMillis) {
         if (now < resumeGraceUntil) {
             siege.setDefenderPresentSince(0);
             siege.setAttackerAbsentSince(0);
@@ -32,7 +41,7 @@ final class SiegeClock {
         if (defenders > 0 && attackers == 0) {
             if (siege.defenderPresentSince() == 0) {
                 siege.setDefenderPresentSince(now);
-            } else if (now - siege.defenderPresentSince() >= HOLD_OFF_MILLIS) {
+            } else if (now - siege.defenderPresentSince() >= Math.max(1_000L, holdOffMillis)) {
                 return Step.DEFENDED;
             }
         } else {
@@ -65,7 +74,11 @@ final class SiegeClock {
 
     /** The grace a capture resumed from disk gets. None when players are already online, as after a plugin reload. */
     static long resumeGrace(boolean playersOnline) {
-        return playersOnline ? 0L : RESUME_GRACE_MILLIS;
+        return resumeGrace(playersOnline, RESUME_GRACE_MILLIS);
+    }
+
+    static long resumeGrace(boolean playersOnline, long graceMillis) {
+        return playersOnline ? 0L : Math.max(0L, graceMillis);
     }
 
     /** Phases whose timers are saved every minute while they run. */

@@ -32,8 +32,13 @@ import java.util.logging.Level;
 
 /** Opens Dominion pages, drives the sidebar HUD and shows territory banners. */
 public final class UiServiceImpl implements UiService {
-    /** Item whose icon decorates territory banners. Exists in the vanilla item list. */
+    /** Item whose icon decorates territory banners. Exists in the vanilla item list. The default of ui.bannerIcon. */
     static final String BANNER_ICON = "Furniture_Flag_Small_Red";
+
+    private String bannerIcon() {
+        String id = ctx.settings().text("ui.bannerIcon").trim();
+        return id.isEmpty() ? BANNER_ICON : id;
+    }
 
     private final DominionContext ctx;
     private final Map<UUID, DominionHud> huds = new ConcurrentHashMap<>();
@@ -281,7 +286,7 @@ public final class UiServiceImpl implements UiService {
             NotificationUtil.sendNotification(player.getPacketHandler(),
                     Message.raw(title == null ? "" : title).color(c).bold(true),
                     bannerSubtitle(player, title, subtitle),
-                    new ItemStack(BANNER_ICON, 1).toPacket(),
+                    new ItemStack(bannerIcon(), 1).toPacket(),
                     NotificationStyle.Default);
         } catch (Exception e) {
             ctx.logger().at(Level.FINE).withCause(e).log("Dominion territory banner failed");

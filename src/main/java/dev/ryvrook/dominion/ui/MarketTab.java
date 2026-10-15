@@ -25,8 +25,6 @@ import java.util.UUID;
  */
 final class MarketTab {
     static final String ID = "market";
-    private static final int PAGE_SIZE = 10;
-    private static final int AUCTION_HOURS = 24;
 
     static final String BROWSE = "browse";
     static final String SELL = "sell";
@@ -50,6 +48,16 @@ final class MarketTab {
     MarketTab(DominionContext ctx, DominionPanel panel) {
         this.ctx = ctx;
         this.panel = panel;
+    }
+
+    /** Listings per page, ui.marketPageSize. */
+    private int pageSize() {
+        return Math.max(1, ctx.settings().integer("ui.marketPageSize"));
+    }
+
+    /** Auction length in hours when none is named, market.auctionHours. */
+    private int auctionHours() {
+        return Math.max(1, ctx.settings().integer("market.auctionHours"));
     }
 
     private MarketService market() {
@@ -98,7 +106,7 @@ final class MarketTab {
 
     private void buildBrowse(UICommandBuilder c, Body body, MarketService m) {
         int total = m.count(Listing.Kind.SALE, search);
-        int pages = Math.max(1, (total + PAGE_SIZE - 1) / PAGE_SIZE);
+        int pages = Math.max(1, (total + pageSize() - 1) / pageSize());
         page = Math.max(0, Math.min(page, pages - 1));
         panel.title(c, "Market", total + " listings, page " + (page + 1) + " of " + pages);
         body.field("Search items", search, Btn.of("Search", "mkt_search"), Btn.of("Clear", "mkt_clear"));
@@ -108,7 +116,7 @@ final class MarketTab {
         }
         body.buttons(sorts.toArray(new Btn[0]));
         body.itemRow(null, "Item", Msg.MUTED, new String[] {"Amount", "Price each", "Seller"}, null, null, null);
-        List<Listing> rows = m.browse(Listing.Kind.SALE, search, sort, page + 1, PAGE_SIZE);
+        List<Listing> rows = m.browse(Listing.Kind.SALE, search, sort, page + 1, pageSize());
         for (Listing l : rows) {
             String row = body.itemRow(l.itemId(), ItemNames.of(l.itemId()), null,
                     new String[] {String.valueOf(l.quantity()), money(l.price()), seller(l)},
@@ -128,7 +136,7 @@ final class MarketTab {
         panel.title(c, "Sell", "List the item in your hand");
         body.text("Hold the item you want to sell in your hand, then type a price for each item and press Sell. "
                 + "Leave the amount empty to sell the whole stack. Press Auction instead to put the whole stack up "
-                + "for bids for " + AUCTION_HOURS + " hours. The price is then the starting bid for the whole stack.");
+                + "for bids for " + auctionHours() + " hours. The price is then the starting bid for the whole stack.");
         body.form(new String[] {"Price", "Amount"}, Btn.of("Sell", "mkt_sell"), Btn.of("Auction", "mkt_auction"));
         double tax = ctx.settings().decimal("market.taxPercent") + ctx.settings().decimal("market.serverTaxPercent");
         if (tax > 0) {
@@ -140,7 +148,7 @@ final class MarketTab {
 
     private void buildOrders(UICommandBuilder c, Body body, MarketService m) {
         int total = m.count(Listing.Kind.ORDER, "");
-        int pages = Math.max(1, (total + PAGE_SIZE - 1) / PAGE_SIZE);
+        int pages = Math.max(1, (total + pageSize() - 1) / pageSize());
         page = Math.max(0, Math.min(page, pages - 1));
         panel.title(c, "Buy orders", total + " open orders, page " + (page + 1) + " of " + pages);
         body.section("Place an order");
@@ -149,7 +157,7 @@ final class MarketTab {
         body.form(new String[] {"Item id", "Price", "Amount"}, Btn.of("Place", "mkt_order"));
         body.section("Open orders");
         body.itemRow(null, "Item", Msg.MUTED, new String[] {"Wanted", "Pays each", "Buyer"}, null, null, null);
-        List<Listing> rows = m.browse(Listing.Kind.ORDER, "", "newest", page + 1, PAGE_SIZE);
+        List<Listing> rows = m.browse(Listing.Kind.ORDER, "", "newest", page + 1, pageSize());
         for (Listing l : rows) {
             String row = body.itemRow(l.itemId(), ItemNames.of(l.itemId()), null,
                     new String[] {String.valueOf(l.quantity()), money(l.price()), seller(l)},
@@ -192,12 +200,12 @@ final class MarketTab {
 
     private void buildAuctions(UICommandBuilder c, Body body, MarketService m) {
         int total = m.count(Listing.Kind.AUCTION, "");
-        int pages = Math.max(1, (total + PAGE_SIZE - 1) / PAGE_SIZE);
+        int pages = Math.max(1, (total + pageSize() - 1) / pageSize());
         page = Math.max(0, Math.min(page, pages - 1));
         panel.title(c, "Auctions", total + " running, page " + (page + 1) + " of " + pages);
         body.itemRow(null, "Item", Msg.MUTED, new String[] {"Amount", "Top bid", "Ends in"}, null, null, null);
         long now = Time.now();
-        List<Listing> rows = m.browse(Listing.Kind.AUCTION, "", "ending", page + 1, PAGE_SIZE);
+        List<Listing> rows = m.browse(Listing.Kind.AUCTION, "", "ending", page + 1, pageSize());
         for (Listing l : rows) {
             String leader = l.topBidderName() == null || l.topBidderName().isBlank() ? "" : "  led by " + l.topBidderName();
             body.itemRow(l.itemId(), ItemNames.of(l.itemId()) + leader, panel.uuid().equals(l.topBidder()) ? Msg.GOOD : null,
@@ -293,7 +301,7 @@ final class MarketTab {
                     panel.reply(amount < 0 ? Result.fail("Type a whole number of items, or leave the amount empty.")
                             : m.sellHeld(me, price, amount));
                 } else {
-                    panel.reply(m.auctionHeld(me, price, 0, AUCTION_HOURS));
+                    panel.reply(m.auctionHeld(me, price, 0, auctionHours()));
                 }
             }
             case "mkt_order" -> {

@@ -43,7 +43,7 @@ import java.util.UUID;
 /** The /f panel. Tabs on the left, the selected tab on the right, or a join and create view. */
 public final class DominionPanel extends DominionPage {
     private static final String PAGE = "Pages/Dominion_Panel.ui";
-    private static final int LOG_PAGE_SIZE = 25;
+    /** Most chunks on each side of the grid, Dominion_GridRow.ui has 15 cells. */
     private static final int GRID_RADIUS = 7;
 
     static final String OVERVIEW = "overview";
@@ -385,10 +385,11 @@ public final class DominionPanel extends DominionPage {
         }
 
         body.section("Nearby chunks");
-        int size = GRID_RADIUS * 2 + 1;
+        int gridRadius = Math.max(2, Math.min(GRID_RADIUS, ctx.settings().integer("ui.gridRadius")));
+        int size = gridRadius * 2 + 1;
         List<String[]> cells;
         try {
-            cells = claims.gridMap(uuid(), GRID_RADIUS);
+            cells = claims.gridMap(uuid(), gridRadius);
         } catch (Exception e) {
             cells = List.of();
         }
@@ -404,7 +405,7 @@ public final class DominionPanel extends DominionPage {
                     String color = cell != null && cell.length > 0 ? safeColor(cell[0], null) : null;
                     String tag = cell != null && cell.length > 1 && cell[1] != null ? cell[1].trim() : "";
                     String flags = cell != null && cell.length > 2 && cell[2] != null ? cell[2] : "";
-                    boolean centre = r == GRID_RADIUS && col == GRID_RADIUS;
+                    boolean centre = r == gridRadius && col == gridRadius;
                     boolean claimed = !tag.isEmpty() && color != null;
                     glyphs[col] = centre ? "@" : claimed ? tag.substring(0, 1).toUpperCase(Locale.ROOT) : "";
                     text[col] = centre ? "#ffffff" : "#f2f4f7";
@@ -580,7 +581,8 @@ public final class DominionPanel extends DominionPage {
                 filtered.add(e);
             }
         }
-        int pages = Math.max(1, (filtered.size() + LOG_PAGE_SIZE - 1) / LOG_PAGE_SIZE);
+        int logPageSize = Math.max(1, ctx.settings().integer("ui.logPageSize"));
+        int pages = Math.max(1, (filtered.size() + logPageSize - 1) / logPageSize);
         logPage = Math.max(0, Math.min(logPage, pages - 1));
         title(c, "Log", filtered.size() + " entries, page " + (logPage + 1) + " of " + pages);
 
@@ -594,8 +596,8 @@ public final class DominionPanel extends DominionPage {
         }
         body.buttons(pills.toArray(new Btn[0]));
 
-        int from = logPage * LOG_PAGE_SIZE;
-        int to = Math.min(filtered.size(), from + LOG_PAGE_SIZE);
+        int from = logPage * logPageSize;
+        int to = Math.min(filtered.size(), from + logPageSize);
         for (int i = from; i < to; i++) {
             AuditEntry e = filtered.get(i);
             body.row(e.text(), null, new String[] {e.category() == null ? "" : e.category(),

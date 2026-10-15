@@ -19,6 +19,13 @@ final class SafeZoneGuard {
      */
     static final double MAX_STEP = 64.0;
 
+    /** The step limit in use, combat.safeZoneMaxStep, set by the caller before each observe. */
+    private volatile double maxStep = MAX_STEP;
+
+    void maxStep(double blocks) {
+        maxStep = blocks > 0 ? blocks : MAX_STEP;
+    }
+
     /** Where a player stands, with facing so a push back keeps the view they had. */
     record Spot(String world, double x, double y, double z, float yaw, float pitch) {
         double flatDistance(Spot o) {
@@ -39,13 +46,18 @@ final class SafeZoneGuard {
      * tagged, a spot outside is known in the same world, and that spot is within one step.
      */
     static Verdict decide(boolean enabled, boolean tagged, boolean inSafeZone, Spot anchor, Spot now) {
+        return decide(enabled, tagged, inSafeZone, anchor, now, MAX_STEP);
+    }
+
+    /** The pure rule with the step limit in blocks. */
+    static Verdict decide(boolean enabled, boolean tagged, boolean inSafeZone, Spot anchor, Spot now, double maxStep) {
         if (!inSafeZone || !enabled || !tagged || anchor == null || now == null) {
             return Verdict.ALLOW;
         }
         if (anchor.world() == null || !anchor.world().equals(now.world())) {
             return Verdict.ALLOW;
         }
-        return anchor.flatDistance(now) <= MAX_STEP ? Verdict.PUSH_BACK : Verdict.ALLOW;
+        return anchor.flatDistance(now) <= maxStep ? Verdict.PUSH_BACK : Verdict.ALLOW;
     }
 
     /**
@@ -68,7 +80,7 @@ final class SafeZoneGuard {
         }
         Spot anchor = lastOutside.get(player);
         boolean isTagged = enabled && anchor != null && tagged.getAsBoolean();
-        Verdict v = decide(enabled, isTagged, true, anchor, now);
+        Verdict v = decide(enabled, isTagged, true, anchor, now, maxStep);
         if (v == Verdict.ALLOW) {
             settled.add(player);
         }

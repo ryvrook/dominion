@@ -23,7 +23,6 @@ import java.util.UUID;
 final class MarketCommands extends Section {
     /** Large enough to cover every open listing of one kind in a single browse call. */
     private static final int MAX_SCAN = 5000;
-    private static final int DEFAULT_AUCTION_HOURS = 24;
 
     MarketCommands(DominionContext ctx, Confirmations confirmations, Targets targets) {
         super(ctx, confirmations, targets);
@@ -174,11 +173,11 @@ final class MarketCommands extends Section {
 
         PlayerCmd sell = auction.sub(new PlayerCmd("sell", "Auction the stack in your hand."));
         RequiredArg<Double> start1 = sell.withRequiredArg("start", "Starting bid", ArgTypes.DOUBLE);
-        sell.handler(c -> auction(c, c.arg(start1), 0.0, DEFAULT_AUCTION_HOURS));
+        sell.handler(c -> auction(c, c.arg(start1), 0.0, ctx.settings().integer("market.auctionHours")));
         PlayerCmd sellBuyout = new PlayerCmd("Auction with a buyout price.");
         RequiredArg<Double> start2 = sellBuyout.withRequiredArg("start", "Starting bid", ArgTypes.DOUBLE);
         RequiredArg<Double> buyout2 = sellBuyout.withRequiredArg("buyout", "Buyout price, 0 for none", ArgTypes.DOUBLE);
-        sellBuyout.handler(c -> auction(c, c.arg(start2), c.arg(buyout2), DEFAULT_AUCTION_HOURS));
+        sellBuyout.handler(c -> auction(c, c.arg(start2), c.arg(buyout2), ctx.settings().integer("market.auctionHours")));
         sell.variant(sellBuyout);
         PlayerCmd sellHours = new PlayerCmd("Auction with a buyout price and a length.");
         RequiredArg<Double> start3 = sellHours.withRequiredArg("start", "Starting bid", ArgTypes.DOUBLE);

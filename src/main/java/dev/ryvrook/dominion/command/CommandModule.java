@@ -24,6 +24,7 @@ public final class CommandModule implements DominionModule {
 
     @Override
     public void start(DominionContext ctx) {
+        confirmations.timeout(() -> ctx.settings().integer("commands.confirmSeconds") * 1000L);
         Targets targets = new Targets(ctx);
         PlayerCmd root = new PlayerCmd("f", "Factions. Opens the faction panel.");
         root.addAliases("faction", "factions");

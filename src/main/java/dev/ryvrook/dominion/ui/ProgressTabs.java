@@ -26,7 +26,6 @@ final class ProgressTabs {
     static final String VAULT = "vault";
     static final String UPGRADES = "upgrades";
     static final String MISSIONS = "missions";
-    private static final int MAX_VAULT_PAGES = 30;
 
     private final DominionContext ctx;
     private final DominionPanel panel;
@@ -62,7 +61,7 @@ final class ProgressTabs {
 
     void buildVault(UICommandBuilder c, Body body, Faction f) {
         VaultService v = vault();
-        int pages = v == null ? 0 : Math.max(0, Math.min(MAX_VAULT_PAGES, v.pages(f)));
+        int pages = v == null ? 0 : Math.max(0, Math.min(ctx.settings().integer("ui.vaultMaxPages"), v.pages(f)));
         panel.title(c, "Vault", pages == 1 ? "1 page" : pages + " pages");
         body.text("The vault is a shared chest for your faction. Pick a page to open it. "
                 + "Opening the vault needs the vault permission.");
@@ -94,6 +93,7 @@ final class ProgressTabs {
                 : Msg.number(p.points(f)) + " points to spend");
         body.text(coins ? "Upgrades are paid from the faction bank and need the settings permission."
                 : "Upgrades are paid with faction points and need the settings permission.", Msg.MUTED);
+        body.maxDots(ctx.settings().integer("ui.maxDots"));
         for (String key : p.upgradeKeys()) {
             int level = p.upgradeLevel(f, key);
             int max = p.upgradeMaxLevel(key);

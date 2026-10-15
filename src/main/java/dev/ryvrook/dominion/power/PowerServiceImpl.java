@@ -19,7 +19,7 @@ import java.util.function.Predicate;
  * instead, so claims per power and the raid checks keep working on the pool.
  */
 public final class PowerServiceImpl implements PowerService {
-    /** Extra maximum power per player for each level of the maxpower upgrade. */
+    /** Default of power.upgradeStep, the extra maximum power per player for each level of the maxpower upgrade. */
     static final double UPGRADE_STEP = 2.0;
     /** Smallest change that is worth an event. */
     static final double EVENT_THRESHOLD = 0.01;
@@ -62,7 +62,7 @@ public final class PowerServiceImpl implements PowerService {
     /** Per player maximum inside the given faction, or the base maximum when factionless. */
     double maxFor(Faction faction) {
         double max = ctx.settings().decimal("power.max");
-        return faction == null ? max : max + UPGRADE_STEP * faction.upgrade("maxpower");
+        return faction == null ? max : max + ctx.settings().decimal("power.upgradeStep") * faction.upgrade("maxpower");
     }
 
     double minPower() {
@@ -90,7 +90,7 @@ public final class PowerServiceImpl implements PowerService {
             return 0;
         }
         if (dtr.on() && !faction.isSystem()) {
-            return Dtr.max(faction);
+            return dtr.maxOf(faction);
         }
         return faction.memberCount() * maxFor(faction) + faction.powerBoost();
     }

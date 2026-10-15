@@ -39,7 +39,6 @@ final class Territory {
     private final SafeZoneGuard guard = new SafeZoneGuard();
     /** When each player was last told about the SafeZone push back, so a pending teleport does not spam them. */
     private final Map<UUID, Long> toldAt = new ConcurrentHashMap<>();
-    private static final long TELL_EVERY_MILLIS = 2000L;
 
     Territory(Land land, ClaimServiceImpl claims) {
         this.land = land;
@@ -110,6 +109,7 @@ final class Territory {
         SafeZoneGuard.Spot now = new SafeZoneGuard.Spot(world, pos.x, pos.y, pos.z,
                 rot == null ? 0f : rot.yaw(), rot == null ? 0f : rot.pitch());
         boolean enabled = safe && land.settings().bool("combat.blockSafeZoneEntry");
+        guard.maxStep(land.settings().decimal("combat.safeZoneMaxStep"));
         if (guard.observe(id, now, safe, enabled, () -> land.tagged(id)) != SafeZoneGuard.Verdict.PUSH_BACK) {
             return false;
         }
@@ -119,7 +119,7 @@ final class Territory {
         }
         long nowMs = Time.now();
         Long told = toldAt.get(id);
-        if (told == null || nowMs - told >= TELL_EVERY_MILLIS) {
+        if (told == null || nowMs - told >= land.settings().integer("land.territoryMessageMillis")) {
             toldAt.put(id, nowMs);
             Msg.send(p, Msg.bad("You cannot enter a safe zone while in combat."));
         }

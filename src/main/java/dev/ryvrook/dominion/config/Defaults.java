@@ -381,6 +381,94 @@ public final class Defaults {
         s.choices("integrations.tracker", "auto", "always", "never");
         s.choices("integrations.feats", "auto", "always", "never");
         s.choices("integrations.atlas", "auto", "always", "never");
+
+        configKeys(s);
+    }
+
+    /**
+     * Config keys brief. Every tunable that used to be a constant in the code, the colours, the command
+     * names, the permission nodes and the feature switches. Read live unless the label says otherwise.
+     */
+    private static void configKeys(Settings s) {
+        // Rules that were constants
+        s.define("land.reclaimWindowDays", "Land", "Days a released chunk is remembered, so claiming it again earns no mission or counter credit", 7);
+        s.range("land.reclaimWindowDays", 0, 365);
+        s.define("land.territoryMessageMillis", "Land", "Milliseconds between two safe zone push back messages to one player", 2000);
+        s.range("land.territoryMessageMillis", 0, 600_000);
+        s.define("land.nearDefault", "Land", "Radius in blocks of /f near without a number", 64);
+        s.range("land.nearDefault", 1, 4096);
+        s.define("land.nearMax", "Land", "Largest radius in blocks /f near accepts", 256);
+        s.range("land.nearMax", 1, 4096);
+        s.ordered("land.nearDefault", "land.nearMax");
+        s.define("power.dtrBase", "Power", "Deaths pool mode. Pool of a faction before members are counted", 2.0);
+        s.range("power.dtrBase", 0, 100_000);
+        s.define("power.dtrPerMember", "Power", "Deaths pool mode. Pool added per member", 1.0);
+        s.range("power.dtrPerMember", 0, 100_000);
+        s.define("power.dtrCap", "Power", "Deaths pool mode. Largest pool a faction can have", 10.0);
+        s.range("power.dtrCap", 0, 100_000);
+        s.define("power.dtrFloor", "Power", "Deaths pool mode. Lowest the pool can fall", -3.0);
+        s.range("power.dtrFloor", -100_000, 0);
+        s.define("power.dtrLossPerDeath", "Power", "Deaths pool mode. Pool lost per member death", 1.0);
+        s.range("power.dtrLossPerDeath", 0, 100_000);
+        s.define("power.dtrRegenPerOnline", "Power", "Deaths pool mode. Pool regained per minute for each online member", 0.05);
+        s.range("power.dtrRegenPerOnline", 0, 100_000);
+        s.define("power.dtrRegenCap", "Power", "Deaths pool mode. Most pool regained per minute", 0.1);
+        s.range("power.dtrRegenCap", 0, 100_000);
+        s.define("power.regenStep", "Power", "Extra share of the regen rate per level of the regen upgrade, 0.25 is a quarter", 0.25);
+        s.range("power.regenStep", 0, 100);
+        s.define("power.upgradeStep", "Power", "Maximum power added per player for each level of the maxpower upgrade", 2.0);
+        s.range("power.upgradeStep", 0, 1_000_000);
+        s.define("combat.homeRespawnDelayMillis", "Combat", "Milliseconds after a respawn before the move to the faction home", 1000);
+        s.range("combat.homeRespawnDelayMillis", 50, 60_000);
+        s.define("combat.homeRespawnAttempts", "Combat", "Tries to move a respawned player to the faction home", 5);
+        s.range("combat.homeRespawnAttempts", 1, 100);
+        s.define("combat.safeZoneMaxStep", "Combat", "Blocks moved in one tick above which a SafeZone entry counts as a teleport and is let through", 64.0);
+        s.range("combat.safeZoneMaxStep", 1, 10_000);
+        s.define("home.stuckSearchRadius", "Homes", "Chunks searched around a player for wilderness by /f stuck", 32);
+        s.range("home.stuckSearchRadius", 1, 256);
+        s.define("home.warmupMoveTolerance", "Homes", "Blocks a player may move during a teleport warmup", 1.0);
+        s.range("home.warmupMoveTolerance", 0, 1000);
+        s.define("missions.farmGuardMaxPlaced", "Progression", "Placed blocks remembered across all worlds for mission credit, read at start", 100_000);
+        s.range("missions.farmGuardMaxPlaced", 0, 10_000_000);
+        s.define("missions.farmGuardMaxDrops", "Progression", "Dropped item stacks remembered per player for mission credit", 256);
+        s.range("missions.farmGuardMaxDrops", 0, 100_000);
+        s.define("missions.farmGuardDropMemoryMinutes", "Progression", "Minutes a dropped item earns no mission credit for its dropper's faction", 5);
+        s.range("missions.farmGuardDropMemoryMinutes", 0, 10_080);
+        s.define("integrations.foundedWindowSeconds", "Integrations", "Seconds after a faction is created in which its leader is credited as founder", 60);
+        s.range("integrations.foundedWindowSeconds", 1, 86_400);
+        s.define("market.auctionHours", "Market", "Auction length in hours when the seller names none", 24);
+        s.range("market.auctionHours", 1, 8760);
+        s.define("raid.upkeepUnpaidDays", "Raiding", "Days of unpaid upkeep that make a faction raidable in upkeep mode", 3);
+        s.range("raid.upkeepUnpaidDays", 1, 3650);
+        s.define("vault.memberPages", "Market", "Vault pages every member may open, later pages need an officer", 1);
+        s.range("vault.memberPages", 0, 64);
+        s.define("siege.holdOffSeconds", "Sieges", "Seconds defenders must hold the banner alone to break a siege", 30);
+        s.range("siege.holdOffSeconds", 1, 86_400);
+        s.define("siege.resumeGraceSeconds", "Sieges", "Seconds after a restart before absence can win or lose a capture", 120);
+        s.range("siege.resumeGraceSeconds", 0, 86_400);
+        s.define("commands.confirmSeconds", "Commands", "Seconds a dangerous command waits for /f confirm", 30);
+        s.range("commands.confirmSeconds", 5, 3600);
+
+        // Interface
+        s.define("ui.marketPageSize", "Interface", "Listings per page in the panel market", 10);
+        s.range("ui.marketPageSize", 1, 50);
+        s.define("ui.logPageSize", "Interface", "Audit entries per page in the panel log", 25);
+        s.range("ui.logPageSize", 1, 100);
+        s.define("ui.gridRadius", "Interface", "Chunks shown on each side of the player in the panel land grid", 7);
+        s.range("ui.gridRadius", 2, 7);
+        s.define("ui.topLimit", "Interface", "Factions listed on the top page", 30);
+        s.range("ui.topLimit", 1, 500);
+        s.define("ui.eventRows", "Interface", "Rows per list on the panel events tab", 20);
+        s.range("ui.eventRows", 1, 100);
+        s.define("ui.siegeHistory", "Interface", "Past sieges listed on the panel siege tab", 10);
+        s.range("ui.siegeHistory", 0, 100);
+        s.define("ui.vaultMaxPages", "Interface", "Vault pages the panel offers buttons for", 30);
+        s.range("ui.vaultMaxPages", 1, 64);
+        s.define("ui.confirmLockMillis", "Interface", "Milliseconds the confirm button stays locked on a confirm page", 3000);
+        s.range("ui.confirmLockMillis", 0, 60_000);
+        s.define("ui.maxDots", "Interface", "Most level dots drawn for an upgrade, the markup has ten", 10);
+        s.range("ui.maxDots", 1, 10);
+        s.define("ui.bannerIcon", "Interface", "Item whose icon decorates the territory banner", "Furniture_Flag_Small_Red");
     }
 
     /** Names of the presets in the order the admin page lists them. */

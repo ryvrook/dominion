@@ -21,7 +21,6 @@ import java.util.UUID;
  */
 final class SiegeTab {
     static final String ID = "sieges";
-    private static final int HISTORY = 10;
 
     private final DominionContext ctx;
     private final DominionPanel panel;
@@ -80,7 +79,7 @@ final class SiegeTab {
                     + "the siege your faction started.", Msg.MUTED);
 
             body.section("Raid history");
-            List<Siege> history = sieges.history(f, HISTORY);
+            List<Siege> history = sieges.history(f, ctx.settings().integer("ui.siegeHistory"));
             if (history.isEmpty()) {
                 body.text("No sieges have been fought yet.", Msg.MUTED);
             }

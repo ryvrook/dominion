@@ -77,7 +77,7 @@ public final class SiegeServiceImpl implements SiegeService {
         long now = Time.now();
         long savedAt = (long) number(doc, "SavedAt");
         // A plugin reload keeps players online, so only a real boot gives captures time for players to rejoin.
-        long grace = SiegeClock.resumeGrace(anyoneOnline());
+        long grace = SiegeClock.resumeGrace(anyoneOnline(), ctx.settings().integer("siege.resumeGraceSeconds") * 1000L);
         synchronized (lock) {
             active.clear();
             history.clear();
@@ -472,7 +472,8 @@ public final class SiegeServiceImpl implements SiegeService {
 
             // The walls only fall while an attacker holds the banner. Otherwise the absence timer decides.
             SiegeClock.Step step = SiegeClock.capture(siege, attackers, defenders, now,
-                    s.integer("siege.absentSecondsToFail") * 1000L, graceUntil(siege));
+                    s.integer("siege.absentSecondsToFail") * 1000L, graceUntil(siege),
+                    s.integer("siege.holdOffSeconds") * 1000L);
             if (step == SiegeClock.Step.DEFENDED) {
                 defended(siege, attacker, defender);
                 continue;

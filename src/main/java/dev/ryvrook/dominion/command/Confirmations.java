@@ -5,18 +5,26 @@ import dev.ryvrook.dominion.api.Result;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
-/** Dangerous actions wait here until the player types /f confirm or thirty seconds pass. */
+/** Dangerous actions wait here until the player types /f confirm or commands.confirmSeconds pass, thirty by default. */
 public final class Confirmations {
     public static final long TIMEOUT_MILLIS = 30_000L;
+
+    private volatile LongSupplier timeout = () -> TIMEOUT_MILLIS;
+
+    /** Where the timeout in milliseconds comes from, read for every new confirmation. */
+    public void timeout(LongSupplier millis) {
+        timeout = millis == null ? () -> TIMEOUT_MILLIS : millis;
+    }
 
     private record Pending(String label, Supplier<Result> action, long expiresAt) {}
 
     private final Map<UUID, Pending> pending = new ConcurrentHashMap<>();
 
     public void put(UUID player, String label, Supplier<Result> action) {
-        pending.put(player, new Pending(label, action, System.currentTimeMillis() + TIMEOUT_MILLIS));
+        pending.put(player, new Pending(label, action, System.currentTimeMillis() + Math.max(1_000L, timeout.getAsLong())));
     }
 
     /** Runs the pending action if it is still valid. */

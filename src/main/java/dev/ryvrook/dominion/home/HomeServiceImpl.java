@@ -39,7 +39,6 @@ import java.util.regex.Pattern;
  */
 public final class HomeServiceImpl implements HomeService {
     private static final Pattern WARP_NAME = Pattern.compile("[A-Za-z0-9_-]{1,16}");
-    private static final int STUCK_SEARCH_RADIUS = 32;
 
     /** What a warmup teleports to once it ends. The target is resolved then, not when it starts. */
     private record Target(String label, Supplier<Location> target, boolean homeCooldown) {}
@@ -270,7 +269,8 @@ public final class HomeServiceImpl implements HomeService {
         ClaimService cs = claims();
         int cx = Keys.chunkX(center);
         int cz = Keys.chunkZ(center);
-        for (int r = 1; r <= STUCK_SEARCH_RADIUS; r++) {
+        int radius = ctx.settings().integer("home.stuckSearchRadius");
+        for (int r = 1; r <= radius; r++) {
             long best = Long.MIN_VALUE;
             int bestDist = Integer.MAX_VALUE;
             for (int dx = -r; dx <= r; dx++) {
@@ -381,6 +381,7 @@ public final class HomeServiceImpl implements HomeService {
             return;
         }
         List<Warmups.Step<Target>> steps;
+        warmups.tolerance(ctx.settings().decimal("home.warmupMoveTolerance"));
         try {
             steps = warmups.tick(id -> where(Players.online(id)), this::inCombat);
         } catch (RuntimeException ex) {

@@ -87,7 +87,7 @@ public final class VaultServiceImpl implements dev.ryvrook.dominion.service.Vaul
         if (page < 1 || page > total) {
             return Result.fail(total == 1 ? "Your vault has one page." : "Your vault has pages 1 to " + total + ".");
         }
-        if (page >= 2 && (m == null || !m.rank().atLeast(Rank.OFFICER))) {
+        if (page > ctx.settings().integer("vault.memberPages") && (m == null || !m.rank().atLeast(Rank.OFFICER))) {
             return Result.fail("Only officers and the leader can open vault page " + page + ".");
         }
         if (breached(f.id())) {
