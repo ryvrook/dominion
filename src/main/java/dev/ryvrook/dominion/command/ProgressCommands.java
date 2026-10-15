@@ -5,11 +5,13 @@ import com.hypixel.hytale.server.core.command.system.arguments.system.RequiredAr
 import com.hypixel.hytale.server.core.command.system.arguments.types.ArgTypes;
 import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.model.Faction;
+import dev.ryvrook.dominion.model.Member;
 import dev.ryvrook.dominion.model.Mission;
 import dev.ryvrook.dominion.service.EconomyService;
 import dev.ryvrook.dominion.service.ProgressService;
 import dev.ryvrook.dominion.service.VaultService;
 import dev.ryvrook.dominion.text.Msg;
+import dev.ryvrook.dominion.util.Players;
 
 import java.util.List;
 import java.util.Locale;
@@ -17,15 +19,18 @@ import java.util.Map;
 
 /** Vault pages, upgrades, missions, faction value and the leaderboard. */
 final class ProgressCommands extends Section {
-    private static final int TOP = 10;
-
     ProgressCommands(DominionContext ctx, Confirmations confirmations, Targets targets) {
         super(ctx, confirmations, targets);
     }
 
     @Override
     void register(PlayerCmd root) {
-        root.sub(new PlayerCmd("top", "Show the faction leaderboard.")).handler(this::top);
+        PlayerCmd top = root.sub(new PlayerCmd("top", "Show the faction leaderboard."));
+        top.handler(c -> top(c, 1));
+        PlayerCmd topPage = new PlayerCmd("Show a page of the faction leaderboard.");
+        RequiredArg<Integer> topArg = topPage.withRequiredArg("page", "Page number", ArgTypes.INTEGER);
+        topPage.handler(c -> top(c, clampPage(c.arg(topArg))));
+        top.variant(topPage);
 
         PlayerCmd vault = root.sub(new PlayerCmd("vault", "Open the faction vault."));
         vault.handler(c -> openVault(c, 1));
@@ -74,31 +79,65 @@ final class ProgressCommands extends Section {
         });
     }
 
-    /** The /f top handler. Prints the value leaderboard when progression is installed. */
-    void top(Call c) {
+    /** The /f top handler. One page of the value leaderboard in the classic layout, or the panel without progression. */
+    void top(Call c, int page) {
         ProgressService p = ctx.serviceOrNull(ProgressService.class);
         if (p == null) {
             ui().openTop(c.player());
             return;
         }
-        List<Faction> top = p.top(TOP);
-        if (top.isEmpty()) {
+        List<Faction> all = p.top(Integer.MAX_VALUE);
+        if (all.isEmpty()) {
             c.info("No faction has any value yet.");
             return;
         }
+        int size = pageSize(ctx.settings().integer("top.pageSize"));
+        int pages = pages(all.size(), size);
+        int current = Math.min(Math.max(1, page), pages);
         Faction mine = factions().factionOf(c.uuid());
-        c.info("Most valuable factions");
-        int rank = 1;
-        for (Faction f : top) {
+        c.send(Message.join(Msg.colored("____[ ", Msg.GOLD), Msg.colored("Faction Top (Value) " + current + "/" + pages, Msg.TEXT).bold(true),
+                Msg.colored(" ]____", Msg.GOLD)));
+        int from = firstIndex(current, size);
+        int to = Math.min(all.size(), from + size);
+        boolean mineShown = false;
+        for (int i = from; i < to; i++) {
+            Faction f = all.get(i);
             boolean self = mine != null && mine.id().equals(f.id());
-            c.send(Message.join(Msg.muted(" " + rank + ". "), Msg.colored(f.tag(), self ? Msg.GOLD : f.color()).bold(true),
-                    Msg.muted("  worth " + Msg.number(p.value(f)) + ", level " + p.level(f) + ", " + p.points(f) + " points")));
-            rank++;
+            mineShown |= self;
+            c.send(Message.join(Msg.muted((i + 1) + ". "), Msg.colored(f.tag(), self ? Msg.GOLD : f.color()).bold(true),
+                    Msg.muted(" (" + online(f) + "/" + f.memberCount() + ") "), Msg.colored(Msg.number(Math.round(p.value(f))), Msg.TEXT)));
         }
-        if (mine != null && !mine.isSystem() && top.stream().noneMatch(f -> f.id().equals(mine.id()))) {
-            c.send(Msg.muted(" " + mine.tag() + " " + standing(p.rank(mine)) + " and is worth " + Msg.number(p.value(mine)) + "."));
+        if (mine != null && !mine.isSystem() && !mineShown) {
+            c.send(Msg.muted(mine.tag() + " " + standing(p.rank(mine)) + " and is worth " + Msg.number(Math.round(p.value(mine))) + "."));
         }
-        c.send(Msg.muted(" Open the full leaderboard from the faction panel."));
+        if (current < pages) {
+            c.send(Msg.muted("Type /f top " + (current + 1) + " to see the next page"));
+        }
+    }
+
+    private static int online(Faction f) {
+        int n = 0;
+        for (Member m : f.members()) {
+            if (Players.isOnline(m.uuid())) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    /** The configured page size kept between 5 and 25. */
+    static int pageSize(int configured) {
+        return Math.max(5, Math.min(25, configured));
+    }
+
+    /** Number of pages for total rows, at least one. */
+    static int pages(int total, int size) {
+        return Math.max(1, (total + size - 1) / size);
+    }
+
+    /** Index of the first row on a page, pages counted from one. */
+    static int firstIndex(int page, int size) {
+        return (Math.max(1, page) - 1) * size;
     }
 
     private void openVault(Call c, int page) {

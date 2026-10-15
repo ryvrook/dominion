@@ -221,6 +221,12 @@ public final class Defaults {
         s.define("hud.top", "Map", "Sidebar distance from the top of the screen", 400);
         s.choices("hud.side", "right", "left");
         s.range("hud.top", 0, 2000);
+        // Chat commands brief. Classic /f top paging, the chat tag switch, nameplate tags and rename announcements.
+        s.define("top.pageSize", "Progression", "Factions per page of /f top", 10);
+        s.range("top.pageSize", 5, 25);
+        s.define("chat.showTag", "Chat", "Show the faction tag before player names in public chat", true);
+        s.define("chat.nameplateTag", "Chat", "Experimental. Show the faction tag before the name above each player's head", false);
+        s.define("chat.announceRenames", "Chat", "Tell every online player when a faction changes its tag or name", true);
 
         limits(s);
     }

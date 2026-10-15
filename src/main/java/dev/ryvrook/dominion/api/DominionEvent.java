@@ -21,6 +21,7 @@ public sealed interface DominionEvent {
     record EotwChanged(boolean active) implements DominionEvent {}
     record BreachChanged(String world, long chunkIndex, UUID attacker, UUID defender, boolean breached) implements DominionEvent {}
     record NationChanged(UUID nationId, String tag) implements DominionEvent {}
+    record FactionRenamed(UUID factionId, String oldTag, String newTag, String oldName, String newName) implements DominionEvent {}
     record GameEvent(String kind, String name, String phase, String world, UUID faction, String text) implements DominionEvent {}
     /**
      * A player died. The killer and the factions are null when there were none, and landOwner is the faction that

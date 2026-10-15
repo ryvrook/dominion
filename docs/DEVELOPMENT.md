@@ -133,6 +133,15 @@ Please read it before opening a pull request.
 
 - Permissions: `PermissionsModule.get().hasPermission(UUID, String)`, commands `requirePermission("dominion.admin")`.
 - Item stacks: `new ItemStack(itemId, quantity)`, `ItemStack.CODEC` for persistence.
+- Nameplates (checked with javap on 0.7.1). The text above a player's head is the
+  `com.hypixel.hytale.server.core.entity.nameplate.Nameplate` component with `getText()` and `setText(String)`.
+  `setText` marks it network outdated and `NameplateSystems.EntityTrackerUpdate` sends a `NameplateUpdate` to viewers.
+  `PlayerSystems.NameplateRefSystem.onEntityAdded` creates it from `DisplayNameComponent.getDisplayName().getAnsiMessage()`
+  only when the entity has no Nameplate yet, and `NameplateRefChangeSystem` rewrites it whenever `DisplayNameComponent`
+  is added, set or removed. The component is registered with a codec, so it is saved with the player.
+  `Store.removeEntity` calls every `RefSystem.onEntityRemove` before it copies the components into the saved holder,
+  which is where `chat/Nameplates` puts the plain name back. Set the text on the world thread only.
+  The tab list is not reachable this way and stays out of scope.
 
 Javap any class before relying on it:
 `javap -cp <path to the Server jar from maven.hytale.com> -p <class>`.

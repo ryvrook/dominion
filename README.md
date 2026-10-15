@@ -79,7 +79,7 @@ Punishing players who log out in combat stays with CombatLog. Dominion only read
 
 ### Chat
 
-- Public, faction, ally, officer and nation channels, faction tags in chat, announcements and login alerts. Switch with `/f chat` or send one line with a prefix (`!` faction, `@` ally and `#` nation by default).
+- Public, faction, ally, officer and nation channels, faction tags in chat, announcements, login alerts and a server wide line when a faction is renamed. Switch with `/f chat` or send one line with a prefix (`!` faction, `@` ally and `#` nation by default).
 
 ### Sieges, shields and grace
 
@@ -161,14 +161,14 @@ Punishing players who log out in combat stays with CombatLog. Dominion only read
 | `/f claim`, `/f claim radius <r>`, `/f claim line <n>`, `/f claim auto` | Claim land |
 | `/f unclaim`, `/f unclaim radius <r>`, `/f unclaim all` | Release land |
 | `/f zone create <name>`, `/f zone assign <name>` | Manage zones |
-| `/f map`, `/f power [player]`, `/f who [tag]` | Show land, power and faction info |
+| `/f map`, `/f power [player]`, `/f who [tag or player]` | Show land, power and faction info. `/f who` prints the classic layout with age, land, power, relations and the roster |
 | `/f map hide`, `/f map show` | Hide yourself from the web map or show yourself again. Also a button on the Overview tab |
 | `/f ally`, `/f truce`, `/f neutral`, `/f enemy <tag>` | Set relations. Answer with `/f accept` or `/f decline` |
 | `/f home`, `/f sethome`, `/f warp <name> [password]`, `/f stuck` | Homes and warps |
 | `/f bank`, `/f deposit <amount>`, `/f withdraw <amount>` | Faction bank |
 | `/f market`, `/f market sell <price> [amount]` | Player market |
 | `/f auction sell <start> [buyout] [hours]` | Auction the stack in your hand |
-| `/f vault [page]`, `/f upgrades`, `/f missions`, `/f top` | Vault and progression |
+| `/f vault [page]`, `/f upgrades`, `/f missions`, `/f top [page]` | Vault and progression. `/f top` pages the value leaderboard |
 | `/f siege`, `/f shield set <hour>`, `/f raids` | Sieges and shields |
 | `/f nation create <tag> [name]`, `/f nation invite <tag>` | Nations |
 | `/f chat [channel]`, `/f hud`, `/f tutorial` | Chat channel, sidebar and tutorial |
@@ -188,7 +188,7 @@ Punishing players who log out in combat stays with CombatLog. Dominion only read
 
 ## Configuration
 
-Settings live in `config.json` inside the plugin data folder. There are 166 keys grouped into
+Settings live in `config.json` inside the plugin data folder. There are 176 keys grouped into
 Factions, Power, Land, Raiding, Relations, Combat, Homes, Chat, Economy, Market, Sieges, Shields,
 Events, Progression, Map and Storage. Defaults are defined in
 `src/main/java/dev/ryvrook/dominion/config/Defaults.java`.
@@ -215,6 +215,10 @@ A few keys worth knowing
 | `combat.useCombatLog` | `auto` | `auto` reads combat tags from CombatLog when it is installed, `off` ignores it |
 | `combat.blockSafeZoneEntry` | `true` | Move combat tagged players back out of SafeZones |
 | `combat.blockClaimsWhileTagged` | `true` | Refuse claiming and unclaiming while combat tagged |
+| `chat.showTag` | `true` | Show the faction tag before player names in public chat |
+| `chat.nameplateTag` | `false` | Experimental. Show the faction tag before the name above each player's head |
+| `chat.announceRenames` | `true` | Tell every online player when a faction changes its tag or name |
+| `top.pageSize` | `10` | Factions per page of `/f top`, 5 to 25 |
 | `eco.provider` | `internal` | `internal`, `vaultunlocked` or `item` |
 | `market.taxPercent` | `5.0` | Faction tax on market sales |
 | `siege.captureMinutes` | `15` | Siege capture time |
