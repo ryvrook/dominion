@@ -5,6 +5,7 @@ import com.hypixel.hytale.server.core.universe.Universe;
 import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.DominionModule;
 import dev.ryvrook.dominion.service.ShieldService;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 
 import java.io.IOException;
@@ -117,7 +118,7 @@ public final class AdminModule implements DominionModule {
         ctx.logger().at(Level.INFO).log("Dominion grace period ended");
         Universe universe = Universe.get();
         if (universe != null) {
-            universe.sendMessage(Msg.warn("The grace period is over. Raiding and power loss are now active."));
+            universe.sendMessage(Msg.warn(Messages.get(AdminText.GRACE_OVER)));
         }
     }
 }
