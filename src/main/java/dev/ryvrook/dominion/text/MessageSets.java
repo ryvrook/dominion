@@ -13,6 +13,12 @@ public final class MessageSets {
     private MessageSets() {}
 
     public static final String[] ALL = {
+            "dev.ryvrook.dominion.economy.EconomyText",
+            "dev.ryvrook.dominion.faction.FactionText",
+            "dev.ryvrook.dominion.home.HomeText",
+            "dev.ryvrook.dominion.land.LandText",
+            "dev.ryvrook.dominion.nation.NationText",
+            "dev.ryvrook.dominion.relation.RelationText",
             "dev.ryvrook.dominion.text.CommonText",
             "dev.ryvrook.dominion.util.UtilText"
     };
