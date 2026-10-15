@@ -197,9 +197,10 @@ final class InfoCommands extends Section {
     /** One comma list of the factions in the given relation with f, in that relation's colour. */
     private void relationLine(Call c, Faction f, Relation wanted, String label) {
         List<String> tags = new ArrayList<>();
-        for (Map.Entry<UUID, Relation> e : f.relations().entrySet()) {
-            Faction other = factions().byId(e.getKey());
-            if (other != null && relations().between(f, other) == wanted && !tags.contains(other.tag())) {
+        // Every faction, since an enemy declaration and a shared nation are not stored on f itself.
+        for (Faction other : factions().all()) {
+            if (other != null && !other.isSystem() && !other.id().equals(f.id())
+                    && relations().between(f, other) == wanted && !tags.contains(other.tag())) {
                 tags.add(other.tag());
             }
         }
