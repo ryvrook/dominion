@@ -1,82 +1,142 @@
-@Cell = LabelStyle(FontSize: 15, TextColor: #4a5260, RenderBold: true, HorizontalAlignment: Center, VerticalAlignment: Center);
+@Cell = LabelStyle(FontSize: 13, TextColor: #f2f4f7, RenderBold: true, HorizontalAlignment: Center, VerticalAlignment: Center);
 
+// Each cell is a filled square. The panel sets its Background colour and the letter on top.
 Group {
-  Anchor: (Height: 22);
+  Anchor: (Height: 26);
   LayoutMode: Center;
 
-  Label #C0 {
-    Style: @Cell;
-    Anchor: (Width: 26);
+  Group #C0 {
+    Anchor: (Width: 24, Height: 24, Right: 2);
+    Background: (Color: #2a2f38);
+
+    Label #G0 {
+      Style: @Cell;
+    }
   }
 
-  Label #C1 {
-    Style: @Cell;
-    Anchor: (Width: 26);
+  Group #C1 {
+    Anchor: (Width: 24, Height: 24, Right: 2);
+    Background: (Color: #2a2f38);
+
+    Label #G1 {
+      Style: @Cell;
+    }
   }
 
-  Label #C2 {
-    Style: @Cell;
-    Anchor: (Width: 26);
+  Group #C2 {
+    Anchor: (Width: 24, Height: 24, Right: 2);
+    Background: (Color: #2a2f38);
+
+    Label #G2 {
+      Style: @Cell;
+    }
   }
 
-  Label #C3 {
-    Style: @Cell;
-    Anchor: (Width: 26);
+  Group #C3 {
+    Anchor: (Width: 24, Height: 24, Right: 2);
+    Background: (Color: #2a2f38);
+
+    Label #G3 {
+      Style: @Cell;
+    }
   }
 
-  Label #C4 {
-    Style: @Cell;
-    Anchor: (Width: 26);
+  Group #C4 {
+    Anchor: (Width: 24, Height: 24, Right: 2);
+    Background: (Color: #2a2f38);
+
+    Label #G4 {
+      Style: @Cell;
+    }
   }
 
-  Label #C5 {
-    Style: @Cell;
-    Anchor: (Width: 26);
+  Group #C5 {
+    Anchor: (Width: 24, Height: 24, Right: 2);
+    Background: (Color: #2a2f38);
+
+    Label #G5 {
+      Style: @Cell;
+    }
   }
 
-  Label #C6 {
-    Style: @Cell;
-    Anchor: (Width: 26);
+  Group #C6 {
+    Anchor: (Width: 24, Height: 24, Right: 2);
+    Background: (Color: #2a2f38);
+
+    Label #G6 {
+      Style: @Cell;
+    }
   }
 
-  Label #C7 {
-    Style: @Cell;
-    Anchor: (Width: 26);
+  Group #C7 {
+    Anchor: (Width: 24, Height: 24, Right: 2);
+    Background: (Color: #2a2f38);
+
+    Label #G7 {
+      Style: @Cell;
+    }
   }
 
-  Label #C8 {
-    Style: @Cell;
-    Anchor: (Width: 26);
+  Group #C8 {
+    Anchor: (Width: 24, Height: 24, Right: 2);
+    Background: (Color: #2a2f38);
+
+    Label #G8 {
+      Style: @Cell;
+    }
   }
 
-  Label #C9 {
-    Style: @Cell;
-    Anchor: (Width: 26);
+  Group #C9 {
+    Anchor: (Width: 24, Height: 24, Right: 2);
+    Background: (Color: #2a2f38);
+
+    Label #G9 {
+      Style: @Cell;
+    }
   }
 
-  Label #C10 {
-    Style: @Cell;
-    Anchor: (Width: 26);
+  Group #C10 {
+    Anchor: (Width: 24, Height: 24, Right: 2);
+    Background: (Color: #2a2f38);
+
+    Label #G10 {
+      Style: @Cell;
+    }
   }
 
-  Label #C11 {
-    Style: @Cell;
-    Anchor: (Width: 26);
+  Group #C11 {
+    Anchor: (Width: 24, Height: 24, Right: 2);
+    Background: (Color: #2a2f38);
+
+    Label #G11 {
+      Style: @Cell;
+    }
   }
 
-  Label #C12 {
-    Style: @Cell;
-    Anchor: (Width: 26);
+  Group #C12 {
+    Anchor: (Width: 24, Height: 24, Right: 2);
+    Background: (Color: #2a2f38);
+
+    Label #G12 {
+      Style: @Cell;
+    }
   }
 
-  Label #C13 {
-    Style: @Cell;
-    Anchor: (Width: 26);
+  Group #C13 {
+    Anchor: (Width: 24, Height: 24, Right: 2);
+    Background: (Color: #2a2f38);
+
+    Label #G13 {
+      Style: @Cell;
+    }
   }
 
-  Label #C14 {
-    Style: @Cell;
-    Anchor: (Width: 26);
-  }
+  Group #C14 {
+    Anchor: (Width: 24, Height: 24, Right: 2);
+    Background: (Color: #2a2f38);
 
+    Label #G14 {
+      Style: @Cell;
+    }
+  }
 }

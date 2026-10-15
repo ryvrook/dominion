@@ -1,6 +1,8 @@
 package dev.ryvrook.dominion.ui;
 
 import com.hypixel.hytale.protocol.packets.interface_.CustomUIEventBindingType;
+import com.hypixel.hytale.server.core.ui.PatchStyle;
+import com.hypixel.hytale.server.core.ui.Value;
 import com.hypixel.hytale.server.core.ui.builder.EventData;
 import com.hypixel.hytale.server.core.ui.builder.UICommandBuilder;
 import com.hypixel.hytale.server.core.ui.builder.UIEventBuilder;
@@ -211,12 +213,20 @@ final class Body {
         return s;
     }
 
-    String gridRow(String[] glyphs, String[] colors) {
+    /**
+     * One row of the nearby chunks grid. Each cell is a square filled with its background colour
+     * and a letter on top. Colours must be plain #rrggbb, null keeps the markup default.
+     */
+    String gridRow(String[] glyphs, String[] textColors, String[] backgrounds) {
         String s = add(GRID_ROW);
         for (int i = 0; i < Math.min(15, glyphs.length); i++) {
-            commands.set(s + " #C" + i + ".Text", glyphs[i]);
-            if (colors[i] != null) {
-                commands.set(s + " #C" + i + ".Style.TextColor", colors[i]);
+            commands.set(s + " #G" + i + ".Text", glyphs[i] == null ? "" : glyphs[i]);
+            if (textColors[i] != null) {
+                commands.set(s + " #G" + i + ".Style.TextColor", textColors[i]);
+            }
+            if (backgrounds[i] != null) {
+                // The same colour fill the vanilla world event rows set on their status bar.
+                commands.setObject(s + " #C" + i + ".Background", new PatchStyle().setColor(Value.of(backgrounds[i])));
             }
         }
         return s;

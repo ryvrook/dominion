@@ -16,12 +16,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/** Chat map rows and UI grid cells centred on a player. North is up, toward negative Z. */
+/**
+ * Chat map rows and UI grid cells centred on a player. North is up, toward negative Z.
+ * The chat font is proportional, so every chat cell is the same glyph and only the colour changes.
+ */
 final class LandMap {
-    private static final String CLAIMED = "#";
-    private static final String FREE = "-";
-    private static final String HERE = "@";
-    private static final String ZONE = "+";
+    static final String CELL = "#";
+    /** Dim grey for wilderness that still reads on the chat background. */
+    static final String WILD = "#5b6270";
+    /** How far a zone cell moves the owner colour toward white. */
+    static final double ZONE_LIGHTEN = 0.45;
 
     private final Land land;
     private final ClaimServiceImpl claims;
@@ -47,59 +51,104 @@ final class LandMap {
 
         Faction here = claims.ownerAt(world, center);
         rows.add(Message.join(Msg.prefix(),
-                Msg.colored("Map around chunk " + Keys.describe(center) + ". You stand in ", Msg.TEXT),
-                Msg.colored(here == null ? "Wilderness" : here.name(), land.colorFor(player, here)),
-                Msg.colored(".", Msg.TEXT)));
+                Msg.colored("Map at " + Keys.describe(center) + "  ", Msg.MUTED),
+                Msg.colored(here == null ? "Wilderness" : here.label(), here == null ? Msg.TEXT : land.colorFor(player, here))));
 
+        String[] cells = new String[w];
         for (int row = 0; row < h; row++) {
             int z = cz - h / 2 + row;
-            List<Message> parts = new ArrayList<>();
-            StringBuilder run = new StringBuilder();
-            String runColor = null;
             for (int col = 0; col < w; col++) {
                 int x = cx - w / 2 + col;
                 long idx = Keys.chunk(x, z);
-                Faction owner = claims.ownerAt(world, idx);
-                String glyph;
-                String color;
+                Faction owner = idx == center ? null : claims.ownerAt(world, idx);
                 if (idx == center) {
-                    glyph = HERE;
-                    color = Land.YOU;
+                    cells[col] = Land.YOU;
                 } else if (owner == null) {
-                    glyph = FREE;
-                    color = Land.WILDERNESS;
+                    cells[col] = WILD;
                 } else {
-                    glyph = zoned(world, idx, owner) ? ZONE : CLAIMED;
-                    color = colors.computeIfAbsent(owner.id(), k -> land.colorFor(player, owner));
+                    String base = colors.computeIfAbsent(owner.id(), k -> land.colorFor(player, owner));
+                    cells[col] = zoned(world, idx, owner) ? lighter(base, ZONE_LIGHTEN) : base;
                 }
-                if (runColor != null && !runColor.equals(color)) {
-                    parts.add(Msg.colored(run.toString(), runColor));
-                    run.setLength(0);
-                }
-                runColor = color;
-                run.append(glyph);
             }
-            if (runColor != null) {
-                parts.add(Msg.colored(run.toString(), runColor));
-            }
-            rows.add(Message.join(parts.toArray(new Message[0])));
+            rows.add(row(cells, row == h / 2 ? w / 2 : -1));
         }
-        rows.add(legend());
+        rows.addAll(legend());
         return rows;
     }
 
-    private static Message legend() {
-        return Message.join(
-                Msg.colored(HERE + " You  ", Land.YOU),
-                Msg.colored(CLAIMED + " Own  ", Relation.OWN.color()),
-                Msg.colored(CLAIMED + " Ally  ", Relation.ALLY.color()),
-                Msg.colored(CLAIMED + " Truce  ", Relation.TRUCE.color()),
-                Msg.colored(CLAIMED + " Neutral  ", Relation.NEUTRAL.color()),
-                Msg.colored(CLAIMED + " Enemy  ", Relation.ENEMY.color()),
-                Msg.colored(CLAIMED + " SafeZone  ", Land.SAFEZONE),
-                Msg.colored(CLAIMED + " WarZone  ", Land.WARZONE),
-                Msg.colored(ZONE + " Zone  ", Msg.TEXT),
-                Msg.colored(FREE + " Wilderness", Land.WILDERNESS));
+    /** One map row. Runs of the same colour share a segment and the marked cell is bold. */
+    static Message row(String[] colors, int bold) {
+        List<Message> parts = new ArrayList<>();
+        for (String[] run : runs(colors, bold)) {
+            Message m = Msg.colored(run[0], run[1]);
+            parts.add(run[2] != null ? m.bold(true) : m);
+        }
+        return Message.join(parts.toArray(new Message[0]));
+    }
+
+    /**
+     * Splits a row into {text, colour, bold or null} runs. The text is always the cell glyph
+     * repeated, so the row is exactly as many glyphs wide as there are colours.
+     */
+    static List<String[]> runs(String[] colors, int bold) {
+        List<String[]> out = new ArrayList<>();
+        StringBuilder run = new StringBuilder();
+        String runColor = null;
+        boolean runBold = false;
+        for (int i = 0; i < colors.length; i++) {
+            boolean b = i == bold;
+            if (runColor != null && (!runColor.equals(colors[i]) || b != runBold)) {
+                out.add(new String[] {run.toString(), runColor, runBold ? "bold" : null});
+                run.setLength(0);
+            }
+            runColor = colors[i];
+            runBold = b;
+            run.append(CELL);
+        }
+        if (runColor != null) {
+            out.add(new String[] {run.toString(), runColor, runBold ? "bold" : null});
+        }
+        return out;
+    }
+
+    /** The legend as two short lines of {label, colour} pairs. */
+    static List<List<String[]>> legendEntries() {
+        return List.of(
+                List.of(new String[] {"You", Land.YOU}, new String[] {"Own", Relation.OWN.color()},
+                        new String[] {"Ally", Relation.ALLY.color()}, new String[] {"Truce", Relation.TRUCE.color()},
+                        new String[] {"Neutral", Relation.NEUTRAL.color()}),
+                List.of(new String[] {"Enemy", Relation.ENEMY.color()}, new String[] {"Safe", Land.SAFEZONE},
+                        new String[] {"War", Land.WARZONE}, new String[] {"Zone", lighter(Relation.OWN.color(), ZONE_LIGHTEN)},
+                        new String[] {"Wild", WILD}));
+    }
+
+    private static List<Message> legend() {
+        List<Message> lines = new ArrayList<>();
+        for (List<String[]> line : legendEntries()) {
+            List<Message> parts = new ArrayList<>();
+            for (String[] e : line) {
+                parts.add(Msg.colored(CELL + " ", e[1]));
+                parts.add(Msg.colored(e[0] + "   ", Msg.MUTED));
+            }
+            lines.add(Message.join(parts.toArray(new Message[0])));
+        }
+        return lines;
+    }
+
+    /** Moves a #rrggbb colour toward white by the amount from 0 to 1. Other input comes back as is. */
+    static String lighter(String hex, double amount) {
+        if (hex == null || !hex.matches("#[0-9a-fA-F]{6}")) {
+            return hex;
+        }
+        double a = Math.max(0, Math.min(1, amount));
+        int rgb = Integer.parseInt(hex.substring(1), 16);
+        int r = (rgb >> 16) & 0xff;
+        int g = (rgb >> 8) & 0xff;
+        int b = rgb & 0xff;
+        r = (int) Math.round(r + (255 - r) * a);
+        g = (int) Math.round(g + (255 - g) * a);
+        b = (int) Math.round(b + (255 - b) * a);
+        return String.format("#%02x%02x%02x", r, g, b);
     }
 
     /**

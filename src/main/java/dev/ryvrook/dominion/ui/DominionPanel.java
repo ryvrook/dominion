@@ -124,9 +124,12 @@ public final class DominionPanel extends DominionPage {
         }
         PowerService power = ctx.service(PowerService.class);
         Rank rank = f.rankOf(uuid());
-        commands.set("#HeaderTag.Text", f.tag());
+        // When the tag only repeats the name, the large coloured label carries the name and the
+        // second label stays empty but keeps its flex space so the power and rank columns stay put.
+        boolean both = f.tagDiffers();
+        commands.set("#HeaderTag.Text", both ? f.tag() : f.label());
         commands.set("#HeaderTag.Style.TextColor", safeColor(f.color(), "#7fd6ff"));
-        commands.set("#HeaderName.Text", f.name());
+        commands.set("#HeaderName.Text", both ? f.name() : "");
         commands.set("#HeaderPower.Text", Msg.number(power.factionPower(f)) + " / " + Msg.number(power.factionMaxPower(f)));
         commands.set("#HeaderRank.Text", f.rankName(rank == null ? Rank.MEMBER : rank));
 
@@ -248,7 +251,7 @@ public final class DominionPanel extends DominionPage {
             boolean invited = f.hasValidInvite(uuid(), now);
             String state = invited ? "Invited" : open ? "Open" : "Invite only";
             Btn join = open || invited ? Btn.of("Join", "join", f.tag()) : Btn.of("Request", "request", f.tag());
-            body.row(f.tag() + "  " + f.name(), safeColor(f.color(), null),
+            body.row(f.label(), safeColor(f.color(), null),
                     new String[] {f.memberCount() + " members", state, "", ""},
                     join, Btn.of("Info", "info", f.tag()));
             if (++shown >= 40) {
@@ -366,7 +369,7 @@ public final class DominionPanel extends DominionPage {
                 body.stat("Owner", "Wilderness", "#5fd37a");
             } else {
                 Relation rel = ctx.service(RelationService.class).playerToFaction(uuid(), owner);
-                body.stat("Owner", owner.tag() + "  " + owner.name(), rel == null ? Msg.TEXT : rel.color());
+                body.stat("Owner", owner.label(), rel == null ? Msg.TEXT : rel.color());
                 if (entry != null) {
                     body.stat("Claimed", Time.ago(entry.claimedAt()) + (entry.claimedBy() == null ? "" : " by " + nameOf(entry.claimedBy())));
                 }
@@ -394,20 +397,40 @@ public final class DominionPanel extends DominionPage {
         } else {
             for (int r = 0; r < size; r++) {
                 String[] glyphs = new String[size];
-                String[] colors = new String[size];
+                String[] text = new String[size];
+                String[] fill = new String[size];
                 for (int col = 0; col < size; col++) {
                     String[] cell = cells.get(r * size + col);
-                    String color = cell != null && cell.length > 0 ? cell[0] : null;
-                    String tag = cell != null && cell.length > 1 && cell[1] != null ? cell[1] : "";
+                    String color = cell != null && cell.length > 0 ? safeColor(cell[0], null) : null;
+                    String tag = cell != null && cell.length > 1 && cell[1] != null ? cell[1].trim() : "";
+                    String flags = cell != null && cell.length > 2 && cell[2] != null ? cell[2] : "";
                     boolean centre = r == GRID_RADIUS && col == GRID_RADIUS;
-                    glyphs[col] = centre ? "@" : tag.isBlank() ? "-" : tag.substring(0, 1).toUpperCase(Locale.ROOT);
-                    colors[col] = centre && tag.isBlank() ? "#ffffff" : safeColor(color, "#4a5260");
+                    boolean claimed = !tag.isEmpty() && color != null;
+                    glyphs[col] = centre ? "@" : claimed ? tag.substring(0, 1).toUpperCase(Locale.ROOT) : "";
+                    text[col] = centre ? "#ffffff" : "#f2f4f7";
+                    if (claimed) {
+                        // Zone chunks sit a little lighter than the rest of the owner's land.
+                        fill[col] = shade(color, flags.contains("zone") ? 0.6 : 0.45);
+                    } else {
+                        fill[col] = centre ? "#4a5260" : "#2a2f38";
+                    }
                 }
-                body.gridRow(glyphs, colors);
+                body.gridRow(glyphs, text, fill);
             }
-            body.text("You are the @ in the middle. North is up. Letters show the first letter of the owning faction "
-                    + "in its relation colour. Green is yours, purple allies, blue truces, red enemies.", Msg.MUTED);
+            body.text("You are the @ in the middle and north is up. Each square takes the colour of its owner, "
+                    + "green yours, purple allies, blue truces, red enemies, gold safe zones. The letter starts "
+                    + "the owner's tag and dark squares are wilderness.", Msg.MUTED);
         }
+    }
+
+    /** Darkens a #rrggbb colour to the given share of its brightness so a white letter reads on it. */
+    static String shade(String hex, double keep) {
+        int rgb = Integer.parseInt(hex.substring(1), 16);
+        double k = Math.max(0, Math.min(1, keep));
+        int r = (int) Math.round(((rgb >> 16) & 0xff) * k);
+        int g = (int) Math.round(((rgb >> 8) & 0xff) * k);
+        int b = (int) Math.round((rgb & 0xff) * k);
+        return String.format(Locale.ROOT, "#%02x%02x%02x", r, g, b);
     }
 
     private void buildRelations(UICommandBuilder c, Body body, Faction f) {
@@ -433,7 +456,7 @@ public final class DominionPanel extends DominionPage {
             }
             for (Faction o : g.getValue()) {
                 Btn enemy = g.getKey() == Relation.ENEMY || !canRelate ? null : Btn.of("Enemy", "rel_enemy", o.tag());
-                body.row(o.tag() + "  " + o.name(), g.getKey().color(),
+                body.row(o.label(), g.getKey().color(),
                         new String[] {o.memberCount() + " members", "", "", ""},
                         canRelate ? Btn.of("Neutral", "rel_neutral", o.tag()) : null, enemy, Btn.of("Info", "info", o.tag()));
             }
@@ -443,7 +466,7 @@ public final class DominionPanel extends DominionPage {
         if (!allyHomes.isEmpty()) {
             body.section("Ally homes");
             for (Faction o : allyHomes) {
-                body.row(o.tag() + "  " + o.name(), Relation.ALLY.color(),
+                body.row(o.label(), Relation.ALLY.color(),
                         new String[] {"Home open", "", "", ""}, Btn.of("Visit", "ally_home", o.tag()));
             }
         }
@@ -456,14 +479,14 @@ public final class DominionPanel extends DominionPage {
         }
         for (Map.Entry<Faction, Faction.RelationRequest> e : incoming) {
             Faction o = e.getKey();
-            body.row(o.tag() + "  " + o.name(), e.getValue().type().color(),
+            body.row(o.label(), e.getValue().type().color(),
                     new String[] {"Offers " + e.getValue().type().displayName().toLowerCase(Locale.ROOT),
                             "Expires in " + Time.remaining(e.getValue().expiresAt() - Time.now()), "", ""},
                     canRelate ? Btn.of("Accept", "rel_accept", o.tag()) : null, canRelate ? Btn.of("Decline", "rel_decline", o.tag()) : null);
         }
         for (Map.Entry<Faction, Faction.RelationRequest> e : outgoing) {
             Faction o = e.getKey();
-            body.row(o.tag() + "  " + o.name(), e.getValue().type().color(),
+            body.row(o.label(), e.getValue().type().color(),
                     new String[] {"You offered " + e.getValue().type().displayName().toLowerCase(Locale.ROOT),
                             "Expires in " + Time.remaining(e.getValue().expiresAt() - Time.now()), "", ""},
                     canRelate ? Btn.of("Withdraw", "rel_neutral", o.tag()) : null);
