@@ -269,6 +269,55 @@ class CoinageEconomyTest {
     }
 
     @Test
+    void aBankSeededAndSpentToZeroBeforeACrashIsNotSeededAgain() {
+        Faction f = fx.faction("ABC");
+        f.setBank(30);
+        UUID acc = coinage.accountsApi.createShared("dominion:" + f.id(), "x", f.leader(), "Dominion").id();
+        coinage.ledgerApi.deposit(Request.deposit(acc, null, 3000));
+        coinage.ledgerApi.withdraw(Request.withdraw(acc, null, 3000));
+        assertTrue(eco.bankCredit(f, 1, "x").success());
+        assertEquals(100, coinage.bal(acc), "the faction file lost the handle but the account already took its seed");
+        assertEquals(1.0, f.bank());
+    }
+
+    @Test
+    void disbandPaysTheFactionLeaderEvenBeforeTheOwnerFollowed() {
+        Faction f = fx.faction("ABC");
+        UUID old = f.leader();
+        UUID heir = fx.member(f, "Heir", Rank.OFFICER);
+        assertTrue(eco.bankCredit(f, 42, "start").success());
+        UUID acc = account(f);
+        f.setLeader(heir);
+        assertEquals(old, coinage.acc(acc).owner(), "the minute timer has not moved the owner yet");
+        fx.repo().removeFaction(f);
+        assertEquals(0.0, eco.bankDrain(f, "disband"));
+        assertEquals(4200, coinage.bal(heir));
+        assertEquals(0, coinage.bal(old));
+    }
+
+    @Test
+    void movingBackTakesADepositThatLandsBeforeTheDelete() {
+        Faction f = fx.faction("ABC");
+        assertTrue(eco.bankCredit(f, 12, "start").success());
+        UUID acc = account(f);
+        boolean[] once = {false};
+        coinage.subscribe("Other", new dev.ryvrook.coinage.api.EconomyListener() {
+            @Override
+            public void afterTransaction(Transaction tx) {
+                if (!once[0] && acc.equals(tx.from()) && tx.type() == Transaction.Type.WITHDRAW) {
+                    once[0] = true;
+                    coinage.ledgerApi.deposit(Request.deposit(acc, null, 500).plugin("Other"));
+                }
+            }
+        });
+        fx.set("eco.coinageBanks", false);
+        eco.coinageTick();
+        assertNull(f.coinageAccount());
+        assertNull(coinage.acc(acc));
+        assertEquals(17.0, f.bank());
+    }
+
+    @Test
     void coinageMovesOnTheAccountAreGuardedMirroredAndLogged() {
         Faction f = fx.faction("ABC");
         UUID lead = f.leader();

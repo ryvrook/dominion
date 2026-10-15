@@ -81,8 +81,9 @@ final class CoinageBanks {
 
     /**
      * The faction's account, created when missing. The first time, the balance Dominion kept moves in. An account
-     * that already holds money while the faction has no handle yet was seeded before a crash, so it is not seeded
-     * again. Null when Coinage is not linked or the account could not be made.
+     * that saw any transaction while the faction has no handle yet was seeded before a crash, even when it was
+     * spent back to zero since, so it is not seeded again. Null when Coinage is not linked or the account could not
+     * be made.
      */
     UUID account(Faction f) {
         CoinagePort p = wallets.live();
@@ -109,7 +110,11 @@ final class CoinageBanks {
                 return null;
             }
             UUID id = p.account(handle);
-            boolean seed = id == null || p.balance(id, wallets.currency()) == 0;
+            long last = id == null ? 0 : p.lastTransaction(id);
+            if (last < 0) {
+                return null;
+            }
+            boolean seed = last == 0;
             if (id == null) {
                 id = p.createShared(handle, label(f), f.leader());
             }
@@ -154,15 +159,29 @@ final class CoinageBanks {
             if (d < 0) {
                 return false;
             }
-            long bal = id == null ? 0 : p.balance(id, wallets.currency());
-            if (bal > 0) {
-                CoinagePort.Move m = p.withdraw(id, wallets.currency(), bal, Messages.get(EconomyText.REASON_BANK_FROM_COINAGE));
-                if (!m.ok()) {
-                    return false;
+            // A deposit that lands before the delete is taken too, so nothing is left behind in an account that
+            // a later move into Coinage would take as already seeded.
+            long bal = 0;
+            boolean deleted = id == null;
+            for (int round = 0; !deleted && round < 3; round++) {
+                long more = p.balance(id, wallets.currency());
+                if (more > 0) {
+                    CoinagePort.Move m = p.withdraw(id, wallets.currency(), more, Messages.get(EconomyText.REASON_BANK_FROM_COINAGE));
+                    if (!m.ok()) {
+                        break;
+                    }
+                    bal += more;
                 }
+                deleted = p.delete(id);
+            }
+            if (!deleted) {
+                if (bal > 0 && !p.deposit(id, wallets.currency(), bal, Messages.get(EconomyText.REASON_BANK_TO_COINAGE)).ok()) {
+                    warn.accept("Dominion could not move the bank of " + f.tag() + " back out of Coinage and could not return "
+                            + format.apply(CoinageAmounts.toAmount(bal, d)) + " to its account either");
+                }
+                return false;
             }
             if (id != null) {
-                p.delete(id);
                 owners.remove(id);
             }
             synchronized (f) {
@@ -418,8 +437,9 @@ final class CoinageBanks {
     record Drain(double held, double owed) {}
 
     /**
-     * Empties the account of a faction that left the repository into its owner, the leader, or into the server
-     * treasury, then deletes it. A deposit that lands in between is moved too, up to three rounds.
+     * Empties the account of a faction that left the repository into its leader, or into the server treasury, then
+     * deletes it. The leader is the faction's own, since the account owner only follows a new leader on the minute
+     * timer. A deposit that lands in between is moved too, up to three rounds.
      */
     Drain drain(Faction f, boolean toServer, String reason) {
         CoinagePort p = wallets.live();
@@ -442,20 +462,22 @@ final class CoinageBanks {
         for (int round = 0; id != null && d >= 0 && round < 3; round++) {
             long bal = p.balance(id, wallets.currency());
             if (bal > 0) {
-                UUID target = toServer ? p.serverAccount() : p.owner(id);
-                if (target == null) {
-                    target = p.serverAccount();
-                } else if (!toServer) {
-                    p.ensurePlayer(target);
+                UUID leader = toServer ? null : f.leader() != null ? f.leader() : p.owner(id);
+                UUID target = leader == null ? p.serverAccount() : leader;
+                if (leader != null) {
+                    p.ensurePlayer(leader);
                 }
                 CoinagePort.Move m = p.transfer(id, target, wallets.currency(), bal, reason);
                 if (m.ok()) {
                     heldMinor += bal;
                 } else {
+                    // Only a leader is owed what the direct transfer could not pay, money for the server leaves the economy.
                     CoinagePort.Move w = p.withdraw(id, wallets.currency(), bal, reason);
                     if (w.ok()) {
                         heldMinor += bal;
-                        owed += CoinageAmounts.toAmount(bal, d);
+                        if (leader != null) {
+                            owed += CoinageAmounts.toAmount(bal, d);
+                        }
                     } else {
                         warn.accept("Dominion could not empty the Coinage account " + handle + " of the disbanded faction "
                                 + f.tag() + ", " + w.failure());

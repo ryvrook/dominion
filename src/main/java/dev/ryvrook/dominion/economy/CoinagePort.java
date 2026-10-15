@@ -73,6 +73,9 @@ public interface CoinagePort {
     /** Creates the shared account, or returns the one that has the handle already. Null when it could not. */
     UUID createShared(String handle, String name, UUID owner);
 
+    /** The id of the last transaction applied to the account, 0 before the first, -1 when it cannot be read. */
+    long lastTransaction(UUID account);
+
     /** The owner of a shared account, or null. */
     UUID owner(UUID account);
 

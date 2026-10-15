@@ -420,6 +420,19 @@ public final class CoinageLink implements Link, CoinagePort {
     }
 
     @Override
+    public long lastTransaction(UUID account) {
+        CoinageApi a = live();
+        if (a == null || account == null) {
+            return -1;
+        }
+        try {
+            return a.accounts().get(account).map(Account::seq).orElse(-1L);
+        } catch (RuntimeException | LinkageError e) {
+            return -1;
+        }
+    }
+
+    @Override
     public UUID owner(UUID account) {
         CoinageApi a = live();
         if (a == null || account == null) {

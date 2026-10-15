@@ -73,6 +73,7 @@ final class FakeCoinage extends CoinageApi {
         final AccountType type;
         UUID owner;
         AccountStatus status = AccountStatus.ACTIVE;
+        volatile long seq;
         final Map<String, Long> balances = new ConcurrentHashMap<>();
         final Map<UUID, Set<AccountPermission>> members = new ConcurrentHashMap<>();
 
@@ -101,7 +102,7 @@ final class FakeCoinage extends CoinageApi {
             return p == null ? Set.of() : Set.copyOf(p);
         }
         @Override public long createdAt() { return 0; }
-        @Override public long seq() { return 0; }
+        @Override public long seq() { return seq; }
     }
 
     Acc acc(UUID id) {
@@ -172,6 +173,12 @@ final class FakeCoinage extends CoinageApi {
         Transaction tx = new Transaction(++seq, System.currentTimeMillis(), k, c, r.from(), r.to(), amount, 0, null,
                 fromAfter, toAfter, r.initiator(), r.plugin(), r.reason(), 0);
         log.add(tx);
+        if (from != null) {
+            from.seq = tx.id();
+        }
+        if (to != null) {
+            to.seq = tx.id();
+        }
         for (EconomyListener l : listeners) {
             l.afterTransaction(tx);
         }
