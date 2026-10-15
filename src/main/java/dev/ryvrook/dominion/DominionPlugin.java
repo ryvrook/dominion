@@ -12,6 +12,7 @@ import com.hypixel.hytale.server.core.universe.Universe;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.ryvrook.dominion.config.Defaults;
 import dev.ryvrook.dominion.config.Settings;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.storage.JsonFiles;
 import dev.ryvrook.dominion.storage.Repository;
 
@@ -69,6 +70,13 @@ public final class DominionPlugin extends JavaPlugin {
         });
         JsonFiles files = new JsonFiles(getLogger());
         Settings settings = new Settings(files, getDataDirectory().resolve("config.json"));
+        Messages.LoadReport words = Messages.install(files, getDataDirectory().resolve("messages.json"), getLogger());
+        for (String problem : words.problems()) {
+            getLogger().at(Level.WARNING).log("Dominion messages.json %s", problem);
+        }
+        if (words.customised() > 0) {
+            getLogger().at(Level.INFO).log("Dominion read %d customised messages from messages.json", words.customised());
+        }
         for (String problem : settings.startReport().problems()) {
             getLogger().at(Level.WARNING).log("Dominion config.json %s", problem);
         }

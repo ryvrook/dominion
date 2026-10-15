@@ -29,6 +29,8 @@ import dev.ryvrook.dominion.service.RulesService;
 import dev.ryvrook.dominion.service.ShieldService;
 import dev.ryvrook.dominion.service.SiegeService;
 import dev.ryvrook.dominion.service.UiService;
+import dev.ryvrook.dominion.text.CommonText;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Keys;
 import dev.ryvrook.dominion.util.Players;
@@ -605,7 +607,16 @@ final class AdminCommands {
             });
         });
 
-        root.sub(server("reload", "Reload settings from disk.")).handler(c -> {
+        root.sub(server("reload", "Reload settings and messages from disk.")).handler(c -> {
+            Messages.LoadReport words = Messages.reload();
+            if (words.fileRead()) {
+                c.good(Messages.get(CommonText.MESSAGES_RELOADED, "customised", words.customised()));
+            } else if (!words.problems().isEmpty()) {
+                c.warn(words.problems().get(0));
+            }
+            for (String p : words.problems().subList(words.fileRead() ? 0 : Math.min(1, words.problems().size()), Math.min(10, words.problems().size()))) {
+                c.send(Msg.muted(" " + p));
+            }
             Settings.LoadReport report = ctx.settings().reload();
             if (!report.fileRead()) {
                 c.bad(report.problems().get(0));
