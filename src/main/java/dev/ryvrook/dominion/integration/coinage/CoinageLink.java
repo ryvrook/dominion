@@ -19,6 +19,8 @@ import dev.ryvrook.dominion.economy.CoinageSeam;
 import dev.ryvrook.dominion.integration.Host;
 import dev.ryvrook.dominion.integration.Link;
 import dev.ryvrook.dominion.market.MarketHandoff;
+import dev.ryvrook.dominion.text.CommonText;
+import dev.ryvrook.dominion.text.Messages;
 
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -271,7 +273,7 @@ public final class CoinageLink implements Link, CoinagePort {
             return null;
         }
         if (Accounts.SERVER.equals(id)) {
-            return "Server";
+            return Messages.get(CommonText.SERVER);
         }
         try {
             return a.accounts().get(id).map(Account::name).orElse(null);
@@ -470,7 +472,7 @@ public final class CoinageLink implements Link, CoinagePort {
             UUID owner = acc.get().owner();
             for (UUID m : acc.get().members()) {
                 if (!m.equals(owner)) {
-                    out.put(m, rights(acc.get().permissions(m)));
+                    out.put(m, rightsOrNone(acc.get().permissions(m)));
                 }
             }
         } catch (RuntimeException | LinkageError ignored) {
@@ -522,6 +524,15 @@ public final class CoinageLink implements Link, CoinagePort {
             }
         }
         return out;
+    }
+
+    /**
+     * The Dominion rights of a member, or none when the member also holds a permission Dominion never gives, such as
+     * one the leader granted in Coinage's pages, so the next sync sets the member's permissions again.
+     */
+    static Set<BankRight> rightsOrNone(Set<AccountPermission> permissions) {
+        Set<BankRight> r = rights(permissions);
+        return permissions != null && !permissions(r).containsAll(permissions) ? EnumSet.noneOf(BankRight.class) : r;
     }
 
     /** The Dominion rights among a member's Coinage permissions. */

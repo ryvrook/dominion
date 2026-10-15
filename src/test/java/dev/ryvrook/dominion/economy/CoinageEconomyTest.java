@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.DoubleFunction;
 
@@ -278,6 +279,22 @@ class CoinageEconomyTest {
         assertTrue(eco.bankCredit(f, 1, "x").success());
         assertEquals(100, coinage.bal(acc), "the faction file lost the handle but the account already took its seed");
         assertEquals(1.0, f.bank());
+    }
+
+    @Test
+    void syncTakesBackPermissionsTheLeaderGrantedInCoinage() {
+        Faction f = fx.faction("ABC");
+        UUID off = fx.member(f, "Off", Rank.OFFICER);
+        assertTrue(eco.bankCredit(f, 5, "start").success());
+        eco.coinageTick();
+        UUID acc = account(f);
+        Set<AccountPermission> given = coinage.acc(acc).permissions(off);
+        assertFalse(given.isEmpty());
+        Set<AccountPermission> more = EnumSet.copyOf(given);
+        more.add(AccountPermission.TRANSFER_OWNERSHIP);
+        coinage.accountsApi.setPermissions(acc, off, more, Initiator.player(f.leader(), "Lead"));
+        eco.coinageTick();
+        assertEquals(given, coinage.acc(acc).permissions(off));
     }
 
     @Test

@@ -30,6 +30,14 @@ class CoinageLinkTest {
     }
 
     @Test
+    void aMemberWithPermissionsDominionNeverGivesReadsAsNoneSoSyncResetsThem() {
+        assertEquals(EnumSet.of(CoinagePort.BankRight.BALANCE, CoinagePort.BankRight.WITHDRAW),
+                CoinageLink.rightsOrNone(EnumSet.of(AccountPermission.BALANCE, AccountPermission.WITHDRAW)));
+        assertTrue(CoinageLink.rightsOrNone(EnumSet.of(AccountPermission.DEPOSIT, AccountPermission.TRANSFER_OWNERSHIP)).isEmpty());
+        assertTrue(CoinageLink.rightsOrNone(null).isEmpty());
+    }
+
+    @Test
     void resultsBecomeMoves() {
         CoinagePort.Move ok = CoinageLink.toMove(Result.ok("fine", 5, 7, null));
         assertTrue(ok.ok());
