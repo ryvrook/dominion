@@ -103,6 +103,10 @@ Please read it before opening a pull request.
   `generatePointsOfInterest(World)` and a default no-op `shutdown()`. The manager's own ticking thread calls
   `generate` with a batch of chunk indexes and a size of `floor(32 * imageScale)` for both sides, then reads
   each image from `WorldMap.getChunks()` (a `Long2ObjectMap<MapImage>` keyed by chunk index) and caches it.
+  A generated default world uses `com.hypixel.hytale.server.worldgen.map.GeneratorChunkWorldMap`, which extends
+  `ChunkWorldMap` and keeps its `generate` and the no-op `shutdown`. A headless 0.7.1 boot on 2026-10-15 logged the swap
+  to `DominionWorldMap(...GeneratorChunkWorldMap@...)`, `/worldmap reload` replaced it and the minute scan wrapped the
+  new generator again, and `/plugin reload` handed the same generator back before the new instance wrapped it once.
 - `MapImage` (package `com.hypixel.hytale.protocol.packets.worldmap`) has public fields `width`, `height`,
   `int[] palette`, `byte bitsPerIndex` and `byte[] packedIndices`, and a constructor taking all five. Palette
   entries are RGBA packed as `r << 24 | g << 16 | b << 8 | a`. Pixels are row major from the north west
