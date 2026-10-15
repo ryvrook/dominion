@@ -23,6 +23,7 @@ import dev.ryvrook.dominion.service.UiService;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Players;
 
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -39,6 +40,8 @@ public final class UiServiceImpl implements UiService {
     /** The last panel opened per player, kept so live labels can refresh while it stays open. */
     private final Map<UUID, DominionPanel> panels = new ConcurrentHashMap<>();
     private int hudTicks;
+    /** hud.side and hud.top as the open sidebars were built with them. */
+    private String hudPlacement;
 
     public UiServiceImpl(DominionContext ctx) {
         this.ctx = ctx;
@@ -183,6 +186,17 @@ public final class UiServiceImpl implements UiService {
 
     /** Called every second. Refreshes visible sidebars every hud.refreshSeconds. */
     void tickHud() {
+        // The position is part of the markup, so a changed hud.side or hud.top builds the open sidebars again.
+        String placement = ctx.settings().text("hud.side") + "/" + ctx.settings().integer("hud.top");
+        if (hudPlacement != null && !hudPlacement.equals(placement)) {
+            for (UUID id : new ArrayList<>(huds.keySet())) {
+                PlayerRef player = Players.online(id);
+                if (player != null) {
+                    showHud(player);
+                }
+            }
+        }
+        hudPlacement = placement;
         int every = Math.max(1, ctx.settings().integer("hud.refreshSeconds"));
         if (++hudTicks % every != 0) {
             return;

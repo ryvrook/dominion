@@ -145,8 +145,9 @@ final class Nameplates extends RefSystem<EntityStore> {
                 return;
             }
             boolean ours = tagged.remove(id) != null;
-            // A tag saved by an earlier run, for example after the setting was turned off, is taken off too.
-            boolean stale = f != null && text(f.tag(), plain).equals(plate.getText());
+            // A tag saved by an earlier run, for example after the setting was turned off, the player
+            // left the faction or the faction was renamed while they were away, is taken off too.
+            boolean stale = taggedText(plate.getText(), plain);
             if (ours || stale) {
                 plate.setText(plain);
             }
@@ -165,6 +166,15 @@ final class Nameplates extends RefSystem<EntityStore> {
             }
         }
         return player.getUsername();
+    }
+
+    /** True when text is plain with a bracketed tag of any faction in front, as {@link #text} writes it. */
+    static boolean taggedText(String text, String plain) {
+        if (text == null || plain == null || !text.startsWith("[") || !text.endsWith("] " + plain)) {
+            return false;
+        }
+        String tag = text.substring(1, text.length() - plain.length() - 2);
+        return !tag.isEmpty() && tag.chars().allMatch(c -> c < 128 && Character.isLetterOrDigit(c));
     }
 
     /** Nameplate text with the bracketed tag in front. */
