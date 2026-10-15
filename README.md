@@ -121,7 +121,7 @@ Punishing players who log out in combat stays with CombatLog. Dominion only read
 
 ## Install
 
-1. Get `DominionFactions-0.4.0.jar` from a release or build it from source and drop it into the Mods folder.
+1. Get `DominionFactions-0.5.0.jar` from a release or build it from source and drop it into the Mods folder.
 
 | Setup | Mods folder |
 | --- | --- |
@@ -347,7 +347,7 @@ cd dominion
 ./gradlew build -Phytale_channel=release -Phytale_version=0.6.8
 ```
 
-The jar lands in `build/libs/DominionFactions-0.4.0.jar`. To copy it straight into your local Mods folder
+The jar lands in `build/libs/DominionFactions-0.5.0.jar`. To copy it straight into your local Mods folder
 run the `installMod` task, optionally with `-PmodsDir=<path>`.
 
 ```bash
@@ -375,8 +375,8 @@ docs/                                      DEVELOPMENT.md conventions and STATUS
 
 ## Status
 
-Dominion Factions 0.4.0 builds against server 0.7.1 and still compiles on 0.7.0 and 0.6.8, boots headless with all
-23 modules next to Atlas and next to CombatLog, and has a JUnit suite of 600 tests over money moves, storage, settings, parsers, claims,
+Dominion Factions 0.5.0 builds against server 0.7.1 and still compiles on 0.7.0 and 0.6.8, boots headless with all
+23 modules next to Atlas and next to CombatLog, and has a JUnit suite of 627 tests over money moves, storage, settings, parsers, claims,
 power, membership, relations, nations, sieges, shields, the PvP table, events, missions, the market, shops, homes,
 the importer and the web map snapshot contract. **It has not been played in a game client yet.** The following
 are unverified until someone does.

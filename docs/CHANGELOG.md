@@ -1,6 +1,16 @@
 # Changelog
 
-## Unreleased
+## 0.5.0 - 2026-10-15
+
+Dominion Factions 0.5.0 puts the faction economy on Coinage when it is installed. Wallets, faction banks, upkeep,
+dues, interest and the market hand off to Coinage, faction banks are Coinage shared accounts the members can see
+in Coinage's own pages, and the faction bank share counts in net worth. Without Coinage nothing changes.
+
+### Upgrading
+- Replace `DominionFactions-0.4.0.jar` with `DominionFactions-0.5.0.jar`. The data folder and every existing setting carry over.
+- `eco.provider` now defaults to `auto`, which picks Coinage when it is bound, then VaultUnlocked, then the internal ledger. Set it to `internal` to keep Dominion's own ledger next to Coinage.
+- New keys `eco.coinageCurrency`, `eco.coinageBanks`, `eco.coinageDisbandTo`, `market.useCoinage`, `shop.useCoinage` (reserved) and `integrations.coinage`, see docs/SETTINGS.md.
+- On the first start with Coinage bound, internal balances that were touched move into Coinage once, and each faction bank moves into a shared account `dominion:<id>`.
 
 ### Coinage
 - Coinage is a new optional link, `integrations.coinage`. With `eco.provider` on `coinage`, or on `auto`, the new default that picks Coinage, then VaultUnlocked, then the built in ledger, wallets live in Coinage and every move shows in its history under Dominion. Amounts convert through the decimals of `eco.coinageCurrency`, blank for the primary currency, and balances left in the built in ledger move over once. Dominion's own starting balance is only granted while the built in ledger holds the wallets, and the move leaves out balances that never changed from it. Existing servers keep the provider they had.
