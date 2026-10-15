@@ -211,6 +211,13 @@ public final class Defaults {
         s.define("misc.tutorial", "Storage", "Show the tutorial on first join", true);
         s.define("misc.singleplayerAutoPreset", "Storage", "Apply the singleplayer preset automatically", true);
 
+        // Chat commands brief. Classic /f top paging, the chat tag switch, nameplate tags and rename announcements.
+        s.define("top.pageSize", "Progression", "Factions per page of /f top", 10);
+        s.range("top.pageSize", 5, 25);
+        s.define("chat.showTag", "Chat", "Show the faction tag before player names in public chat", true);
+        s.define("chat.nameplateTag", "Chat", "Experimental. Show the faction tag before the name above each player's head", false);
+        s.define("chat.announceRenames", "Chat", "Tell every online player when a faction changes its tag or name", true);
+
         limits(s);
     }
 

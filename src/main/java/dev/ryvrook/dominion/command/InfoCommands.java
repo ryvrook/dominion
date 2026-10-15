@@ -63,7 +63,14 @@ final class InfoCommands extends Section {
             Faction f = factions().byTag(text);
             if (f == null) {
                 Targets.Target t = targets.resolve(c.uuid(), text);
+                if (t == null) {
+                    t = targets.resolveAnywhere(text);
+                }
                 f = t == null ? null : factions().factionOf(t.uuid());
+                if (f == null && t != null) {
+                    c.info(t.name() + " is not in a faction.");
+                    return;
+                }
             }
             if (f == null) {
                 c.bad("No faction or player matches " + text + ".");
@@ -141,48 +148,120 @@ final class InfoCommands extends Section {
     }
 
     void showFaction(Call c, Faction f) {
-        c.send(Message.join(Msg.prefix(), Msg.colored(f.tag(), f.color()).bold(true), Msg.colored("  " + f.name(), Msg.TEXT)));
+        Relation rel = relations().playerToFaction(c.uuid(), f);
+        String relColor = rel == null ? Relation.NEUTRAL.color() : rel.color();
+        c.send(Message.join(Msg.colored("____[ ", Msg.GOLD), Msg.colored(f.tag(), relColor).bold(true),
+                Msg.colored(f.name().equals(f.tag()) ? "" : "  " + f.name(), relColor), Msg.colored(" ]____", Msg.GOLD)));
         if (f.type() != FactionType.NORMAL) {
             c.send(Msg.muted(f.type() == FactionType.SAFEZONE ? " A safe zone run by the server." : " A war zone run by the server."));
             return;
         }
         if (!f.description().isBlank()) {
-            c.send(Msg.colored(" " + f.description(), Msg.MUTED));
+            c.send(line("Description", Msg.colored(f.description(), Msg.TEXT)));
         }
-        Relation rel = relations().playerToFaction(c.uuid(), f);
-        c.send(Message.join(Msg.muted(" Your relation is "), Msg.colored(rel.displayName(), rel.color())));
-        NationService nations = ctx.serviceOrNull(NationService.class);
-        Nation nation = nations == null ? null : nations.nationOf(f);
-        if (nation != null) {
-            c.send(Message.join(Msg.muted(" Member of the nation "), Msg.colored(nation.tag() + "  " + nation.name(), Msg.GOLD)));
-        }
-        List<Member> members = Faction.sortedByRank(f.members());
-        int online = 0;
-        for (Member m : members) {
-            if (Players.isOnline(m.uuid())) {
-                online++;
-            }
-        }
-        c.send(Msg.colored(" Led by " + targets.nameOf(f.leader()) + " with " + members.size() + " members, "
-                + online + " online.", Msg.TEXT));
-        c.send(Msg.colored(" Power " + Msg.number(power().factionPower(f)) + " of " + Msg.number(power().factionMaxPower(f))
-                + " holding " + claims().claimCount(f) + " of " + claims().maxClaims(f) + " claims.", Msg.TEXT));
+        c.send(line("Age", Msg.colored(age(Time.now() - f.createdAt()), Msg.TEXT)));
+        boolean open = f.setting("open", false);
+        c.send(line("Open", Msg.colored(open ? "Yes, anyone can join" : "No, only invited players can join", Msg.TEXT)));
+        c.send(line("Land / Power / Maxpower", Msg.colored(claims().claimCount(f) + " / " + Msg.number(power().factionPower(f))
+                + " / " + Msg.number(power().factionMaxPower(f)), Msg.TEXT)));
         if (claims().raidable(f)) {
-            c.send(Msg.colored(" This faction can be raided right now.", Msg.BAD));
+            c.send(Msg.colored("Raidable now", Msg.BAD).bold(true));
         }
         EconomyService eco = ctx.serviceOrNull(EconomyService.class);
         if (eco != null && eco.enabled()) {
-            c.send(Msg.colored(" The bank holds " + eco.format(f.bank()) + ".", Msg.TEXT));
+            c.send(line("Bank", Msg.colored(eco.format(f.bank()), Msg.TEXT)));
         }
-        Message roster = Message.join(Msg.muted(" Members "));
+        NationService nations = ctx.serviceOrNull(NationService.class);
+        Nation nation = nations == null ? null : nations.nationOf(f);
+        if (nation != null) {
+            c.send(Message.join(Msg.muted("Member of the nation "), Msg.colored(nation.tag() + "  " + nation.name(), Msg.GOLD)));
+        }
+        relationLine(c, f, Relation.TRUCE, "In truce with");
+        relationLine(c, f, Relation.ALLY, "Allies");
+        relationLine(c, f, Relation.ENEMY, "Enemies");
+
+        List<Member> on = new ArrayList<>();
+        List<Member> off = new ArrayList<>();
+        for (Member m : Faction.sortedByRank(f.members())) {
+            (Players.isOnline(m.uuid()) ? on : off).add(m);
+        }
+        c.send(roster(c, f, "Members online (" + on.size() + ")", on, relColor));
+        c.send(roster(c, f, "Members offline (" + off.size() + ")", off, Msg.MUTED));
+    }
+
+    /** A muted label followed by its value, the classic who layout without a colon. */
+    private static Message line(String label, Message value) {
+        return Message.join(Msg.muted(label + "  "), value);
+    }
+
+    /** One comma list of the factions in the given relation with f, in that relation's colour. */
+    private void relationLine(Call c, Faction f, Relation wanted, String label) {
+        List<String> tags = new ArrayList<>();
+        for (Map.Entry<UUID, Relation> e : f.relations().entrySet()) {
+            Faction other = factions().byId(e.getKey());
+            if (other != null && relations().between(f, other) == wanted && !tags.contains(other.tag())) {
+                tags.add(other.tag());
+            }
+        }
+        if (tags.isEmpty()) {
+            return;
+        }
+        tags.sort(String.CASE_INSENSITIVE_ORDER);
+        c.send(line(label, Msg.colored(String.join(", ", tags), wanted.color())));
+    }
+
+    /** Classic roster line. Leader **, officers *, a custom rank name in muted text, the viewer in gold. */
+    private Message roster(Call c, Faction f, String label, List<Member> members, String color) {
+        Message out = Msg.muted(label + "  ");
         boolean first = true;
         for (Member m : members) {
-            boolean on = Players.isOnline(m.uuid());
-            String text = (first ? "" : ", ") + rankOf(f, m).prefix() + m.name();
-            roster = Message.join(roster, Msg.colored(text, on ? Relation.OWN.color() : Msg.MUTED));
+            Rank r = rankOf(f, m);
+            List<Message> parts = new ArrayList<>();
+            parts.add(out);
+            if (!first) {
+                parts.add(Msg.muted(", "));
+            }
+            String mark = marker(r);
+            if (!mark.isEmpty()) {
+                parts.add(Msg.colored(mark, color));
+            }
+            String rankName = f.rankName(r);
+            if (rankName != null && !rankName.isBlank() && !rankName.equalsIgnoreCase(r.displayName())) {
+                parts.add(Msg.muted(rankName + " "));
+            }
+            boolean self = m.uuid().equals(c.uuid());
+            parts.add(self ? Msg.colored(m.name(), Msg.GOLD).bold(true) : Msg.colored(m.name(), color));
+            out = Message.join(parts.toArray(new Message[0]));
             first = false;
         }
-        c.send(roster);
+        if (first) {
+            out = Message.join(out, Msg.muted("none"));
+        }
+        return out;
+    }
+
+    /** ** for the leader and * for officers, as classic factions marks them. Others have no mark. */
+    static String marker(Rank r) {
+        return r == Rank.LEADER || r == Rank.OFFICER ? r.prefix() : "";
+    }
+
+    /** Faction age such as 3 days, 4 hours or 2 hours, 17 minutes, the two largest units. */
+    static String age(long millis) {
+        long minutes = Math.max(0, millis) / 60_000;
+        long days = minutes / 1440;
+        long hours = (minutes % 1440) / 60;
+        long mins = minutes % 60;
+        if (days > 0) {
+            return hours > 0 ? unit(days, "day") + ", " + unit(hours, "hour") : unit(days, "day");
+        }
+        if (hours > 0) {
+            return mins > 0 ? unit(hours, "hour") + ", " + unit(mins, "minute") : unit(hours, "hour");
+        }
+        return mins > 0 ? unit(mins, "minute") : "less than a minute";
+    }
+
+    private static String unit(long n, String word) {
+        return n + " " + word + (n == 1 ? "" : "s");
     }
 
     private void showList(Call c, int page) {
