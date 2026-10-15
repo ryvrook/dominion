@@ -178,6 +178,10 @@ public final class OverlayPainter {
             for (int x = 0; x < w; x++) {
                 int i = y * w + x;
                 int old = read(packed, bits, i);
+                if (old >= n) {
+                    // The per pixel version failed here too, and the caller then leaves the chunk as the engine drew it.
+                    throw new IllegalArgumentException("palette index " + old + " past a palette of " + n);
+                }
                 boolean edge = rowEdge || west && x < border || east && x >= w - border;
                 int c = edge ? n + old : old;
                 int id = remap[c];

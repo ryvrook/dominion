@@ -71,4 +71,46 @@ class PaintBench {
             org.junit.jupiter.api.Assertions.assertArrayEquals(b.packedIndices, a.packedIndices);
         }
     }
+
+    @Test
+    void theSameHoldsForAPaletteWithRepeatsAndUnusedEntries() {
+        // The engine image builder can list a colour twice or keep entries no pixel uses, unlike encode.
+        Random r = new Random(5);
+        for (int round = 0; round < 300; round++) {
+            int size = 1 + r.nextInt(64);
+            int n = 1 + r.nextInt(r.nextBoolean() ? 16 : 5000);
+            int[] palette = new int[n];
+            for (int i = 0; i < n; i++) {
+                palette[i] = i > 0 && r.nextInt(4) == 0 ? palette[r.nextInt(i)] : r.nextInt();
+            }
+            int bits = OverlayPainter.bitsFor(n);
+            byte[] packed = new byte[(size * size * bits + 7) / 8];
+            int used = 1 + r.nextInt(n);
+            for (int i = 0; i < size * size; i++) {
+                OverlayPainter.write(packed, bits, i, r.nextInt(used));
+            }
+            MapImage img = new MapImage(size, size, palette, (byte) bits, packed);
+            int rgb = r.nextInt(0x1000000);
+            int opacity = r.nextInt(101);
+            int border = r.nextInt(4);
+            int edges = r.nextInt(16);
+            MapImage a = OverlayPainter.paint(img, rgb, opacity, border, edges);
+            MapImage b = perPixel(img, rgb, opacity, border, edges);
+            org.junit.jupiter.api.Assertions.assertArrayEquals(b.palette, a.palette);
+            org.junit.jupiter.api.Assertions.assertEquals(b.bitsPerIndex, a.bitsPerIndex);
+            org.junit.jupiter.api.Assertions.assertArrayEquals(b.packedIndices, a.packedIndices);
+        }
+    }
+
+    @Test
+    void anIndexPastThePaletteFailsAsBefore() {
+        // The overlay leaves a chunk it cannot paint as the engine drew it, so a bad image must throw, not draw wrong.
+        int[] palette = {0x112233ff, 0x445566ff};
+        byte[] packed = new byte[2];
+        OverlayPainter.write(packed, 4, 0, 1);
+        OverlayPainter.write(packed, 4, 1, 3);
+        MapImage img = new MapImage(2, 1, palette, (byte) 4, packed);
+        org.junit.jupiter.api.Assertions.assertThrows(RuntimeException.class, () -> perPixel(img, 0xff0000, 50, 0, 0));
+        org.junit.jupiter.api.Assertions.assertThrows(RuntimeException.class, () -> OverlayPainter.paint(img, 0xff0000, 50, 0, 0));
+    }
 }
