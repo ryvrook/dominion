@@ -13,7 +13,15 @@ public final class MessageSets {
     private MessageSets() {}
 
     public static final String[] ALL = {
-            "dev.ryvrook.dominion.text.CommonText"
+            "dev.ryvrook.dominion.admin.AdminText",
+            "dev.ryvrook.dominion.chat.ChatText",
+            "dev.ryvrook.dominion.combat.CombatText",
+            "dev.ryvrook.dominion.command.CommandText",
+            "dev.ryvrook.dominion.integration.IntegrationText",
+            "dev.ryvrook.dominion.progress.ProgressText",
+            "dev.ryvrook.dominion.shield.ShieldText",
+            "dev.ryvrook.dominion.text.CommonText",
+            "dev.ryvrook.dominion.ui.UiText"
     };
 
     static void load(HytaleLogger logger) {
