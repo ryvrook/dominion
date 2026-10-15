@@ -44,6 +44,7 @@ Simple Claims paints them, and Dominion links to TrackerAPI, Feats and Atlas whe
 - A faction tag saved into a nameplate is taken off at the next join even after the player left the faction or it was renamed.
 - Open sidebars move as soon as `hud.side` or `hud.top` changes.
 - Renewing an invite that is still open no longer adds to the invites counter.
+- `ClaimChanged` carries the actor and a `counts` flag, and the claims and unclaims counters only move for land the faction had not released within the mission window, so claiming and releasing the same chunk over and over counts once each way. Admin moves and decay never count.
 
 ## 0.2.1 - 2026-10-14
 

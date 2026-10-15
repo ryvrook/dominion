@@ -196,8 +196,9 @@ dependency through the plugin bridge loader, so the bridges can name the sibling
 - Counters. `StatFanout` is one bus listener. It maps each `DominionEvent` with `StatMapper` (pure, facts behind the
   `StatMapper.Facts` interface) and hands the credits to every linked `StatSink`, which is `Counters.add` for
   TrackerAPI and `FeatsApi.addStat` for Feats. TrackerAPI accepts keys under another plugin's own prefix, so every key
-  is `dominion:<name>`, listed in `StatKeys`. Claims read the claimant from the new `ClaimEntry`, unclaims come from
-  the land audit line that starts with `Released chunk `, and kills, deposits and invites from the `PlayerDied`,
+  is `dominion:<name>`, listed in `StatKeys`. Claims and unclaims read the actor and the
+  `counts` flag that `ClaimChanged` carries (false for admin moves, decay and any chunk the faction released within
+  the seven day mission window, so a chunk claimed, released and claimed again counts once each way), and kills, deposits and invites from the `PlayerDied`,
   `BankDeposited` and `MemberInvited` events. Both siblings only count for online players.
 - Atlas. The snapshot already carries claims, homes, warps, siege pins, hills, outposts and envoys, so the bridge
   pushes only a `Ryvrook:Dominion:sieges` layer of circles whose popups name the phase and the end time, redrawn on

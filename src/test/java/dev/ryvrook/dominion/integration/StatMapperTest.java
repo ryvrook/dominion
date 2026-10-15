@@ -25,11 +25,9 @@ class StatMapperTest {
 
     final Map<UUID, List<UUID>> members = new HashMap<>();
     final Set<String> wars = new HashSet<>();
-    UUID claimer;
     UUID founder;
 
     final StatMapper.Facts facts = new StatMapper.Facts() {
-        @Override public UUID claimedBy(String world, long chunkIndex) { return claimer; }
         @Override public boolean isMember(UUID f, UUID p) { return members.getOrDefault(f, List.of()).contains(p); }
         @Override public List<UUID> members(UUID f) { return members.getOrDefault(f, List.of()); }
         @Override public boolean atWar(UUID a, UUID b) { return wars.contains(a + ">" + b) || wars.contains(b + ">" + a); }
@@ -62,27 +60,25 @@ class StatMapperTest {
 
     @Test
     void claimsGoToTheMemberWhoClaimed() {
-        claimer = alice;
         assertEquals(List.of(credit(alice, StatKeys.CLAIMS, 1)),
-                map(new DominionEvent.ClaimChanged("w", 5L, null, wolf)));
+                map(new DominionEvent.ClaimChanged("w", 5L, null, wolf, alice, true)));
         assertEquals(List.of(credit(alice, StatKeys.CLAIMS, 1)),
-                map(new DominionEvent.ClaimChanged("w", 5L, bear, wolf)), "a taken chunk is a claim");
-        claimer = admin;
-        assertTrue(map(new DominionEvent.ClaimChanged("w", 5L, null, wolf)).isEmpty(), "an admin claim credits nobody");
-        claimer = null;
-        assertTrue(map(new DominionEvent.ClaimChanged("w", 5L, null, wolf)).isEmpty());
-        claimer = alice;
-        assertTrue(map(new DominionEvent.ClaimChanged("w", 5L, wolf, null)).isEmpty(), "a release is not a claim");
+                map(new DominionEvent.ClaimChanged("w", 5L, bear, wolf, alice, true)), "a taken chunk is a claim");
+        assertTrue(map(new DominionEvent.ClaimChanged("w", 5L, null, wolf, admin, true)).isEmpty(), "an outsider credits nobody");
+        assertTrue(map(new DominionEvent.ClaimChanged("w", 5L, null, wolf, null, true)).isEmpty(), "the server credits nobody");
+        assertTrue(map(new DominionEvent.ClaimChanged("w", 5L, null, wolf, alice, false)).isEmpty(), "a reclaim does not count");
+        assertTrue(map(new DominionEvent.ClaimChanged("w", 5L, null, wolf)).isEmpty(), "the short form names no actor");
     }
 
     @Test
-    void unclaimsComeFromTheLandAudit() {
+    void unclaimsGoToTheMemberWhoReleased() {
         assertEquals(List.of(credit(alice, StatKeys.UNCLAIMS, 1)),
-                map(new DominionEvent.AuditLogged(wolf, alice, "land", "Released chunk 3, 4 in default")));
-        assertTrue(map(new DominionEvent.AuditLogged(wolf, null, "land", "Lost chunk 3, 4 in default after 9 days")).isEmpty());
-        assertTrue(map(new DominionEvent.AuditLogged(wolf, admin, "land", "An admin released chunk 3, 4 in default")).isEmpty());
-        assertTrue(map(new DominionEvent.AuditLogged(wolf, alice, "bank", "Released chunk")).isEmpty());
-        assertTrue(map(new DominionEvent.AuditLogged(wolf, alice, "land", "Claimed chunk 3, 4 in default")).isEmpty());
+                map(new DominionEvent.ClaimChanged("w", 5L, wolf, null, alice, true)));
+        assertTrue(map(new DominionEvent.ClaimChanged("w", 5L, wolf, null, alice, false)).isEmpty(), "a repeat release does not count");
+        assertTrue(map(new DominionEvent.ClaimChanged("w", 5L, wolf, null, admin, true)).isEmpty(), "an admin release credits nobody");
+        assertTrue(map(new DominionEvent.ClaimChanged("w", 5L, wolf, null, null, false)).isEmpty(), "decay credits nobody");
+        assertTrue(map(new DominionEvent.AuditLogged(wolf, alice, "land", "Released chunk 3, 4 in default")).isEmpty(),
+                "the audit text is no longer read");
     }
 
     @Test

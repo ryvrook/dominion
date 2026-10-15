@@ -249,7 +249,7 @@ server starts. `integrations.featsAnnounce` is `true` by default and can be chan
 `/fa integrations` lists each mod as bound, missing or off, and the start log has one line per mod, for example
 `Dominion is bound to TrackerAPI 1.0.3`.
 
-The counters are `dominion:claims`, `dominion:unclaims`, `dominion:enemy_kills` (a kill of a member of a faction at
+The counters are `dominion:claims` and `dominion:unclaims` (a chunk the faction released within the last seven days counts for neither when it is claimed or released again), `dominion:enemy_kills` (a kill of a member of a faction at
 war with yours), `dominion:enemy_land_deaths` (deaths on the land of a faction at war with yours),
 `dominion:sieges_won`, `dominion:sieges_lost` (every member of both factions when a siege ends), `dominion:missions`
 (every member when the faction completes a mission), `dominion:bank_deposited` (whole coins),

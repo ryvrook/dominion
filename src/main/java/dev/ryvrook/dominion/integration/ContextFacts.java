@@ -1,7 +1,6 @@
 package dev.ryvrook.dominion.integration;
 
 import dev.ryvrook.dominion.DominionContext;
-import dev.ryvrook.dominion.model.ClaimEntry;
 import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.Member;
 import dev.ryvrook.dominion.model.Relation;
@@ -17,12 +16,6 @@ final class ContextFacts implements StatMapper.Facts {
 
     ContextFacts(DominionContext ctx) {
         this.ctx = ctx;
-    }
-
-    @Override
-    public UUID claimedBy(String world, long chunkIndex) {
-        ClaimEntry e = world == null ? null : ctx.repo().claimAt(world, chunkIndex);
-        return e == null ? null : e.claimedBy();
     }
 
     @Override

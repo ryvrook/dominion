@@ -13,8 +13,6 @@ import java.util.UUID;
 public final class StatMapper {
     private StatMapper() {}
 
-    /** The text the land module audits for a chunk a player released by hand. */
-    static final String RELEASED = "Released chunk ";
     /** A faction created this long ago or less counts as founded now. Imported factions are older. */
     static final long FOUNDED_WINDOW_MILLIS = 60_000L;
 
@@ -23,9 +21,6 @@ public final class StatMapper {
 
     /** What the mapper needs to know beyond the event. Answers from memory. */
     public interface Facts {
-        /** The player who claimed the chunk, or null. */
-        UUID claimedBy(String world, long chunkIndex);
-
         /** True when the player is a member of the faction. */
         boolean isMember(UUID factionId, UUID player);
 
@@ -46,16 +41,14 @@ public final class StatMapper {
         }
         switch (event) {
             case DominionEvent.ClaimChanged c -> {
-                if (c.newFaction() != null) {
-                    UUID by = facts.claimedBy(c.world(), c.chunkIndex());
-                    if (by != null && facts.isMember(c.newFaction(), by)) {
-                        out.add(new Credit(by, StatKeys.CLAIMS, 1));
+                // Only a change the land module marks as counting, made by a member of the faction concerned.
+                // Admin moves, decay and a chunk the faction released within the mission window credit nobody.
+                if (c.counts() && c.actor() != null) {
+                    if (c.newFaction() != null && facts.isMember(c.newFaction(), c.actor())) {
+                        out.add(new Credit(c.actor(), StatKeys.CLAIMS, 1));
+                    } else if (c.newFaction() == null && c.oldFaction() != null && facts.isMember(c.oldFaction(), c.actor())) {
+                        out.add(new Credit(c.actor(), StatKeys.UNCLAIMS, 1));
                     }
-                }
-            }
-            case DominionEvent.AuditLogged a -> {
-                if (a.who() != null && "land".equals(a.category()) && a.text() != null && a.text().startsWith(RELEASED)) {
-                    out.add(new Credit(a.who(), StatKeys.UNCLAIMS, 1));
                 }
             }
             case DominionEvent.PlayerDied d -> died(d, facts, out);

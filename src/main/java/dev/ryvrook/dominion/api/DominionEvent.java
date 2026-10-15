@@ -9,7 +9,17 @@ public sealed interface DominionEvent {
     record FactionChanged(UUID factionId) implements DominionEvent {}
     record MemberJoined(UUID factionId, UUID player) implements DominionEvent {}
     record MemberLeft(UUID factionId, UUID player, String reason) implements DominionEvent {}
-    record ClaimChanged(String world, long chunkIndex, UUID oldFaction, UUID newFaction) implements DominionEvent {}
+    /**
+     * A chunk changed hands. actor is the player who made the change, or null for the server. counts is false
+     * when the faction that gained or lost the chunk had already released it within the mission window, so a
+     * chunk claimed, released and claimed again is counted once, the same way mission credit works.
+     */
+    record ClaimChanged(String world, long chunkIndex, UUID oldFaction, UUID newFaction, UUID actor, boolean counts)
+            implements DominionEvent {
+        public ClaimChanged(String world, long chunkIndex, UUID oldFaction, UUID newFaction) {
+            this(world, chunkIndex, oldFaction, newFaction, null, true);
+        }
+    }
     record RelationChanged(UUID a, UUID b, String relation) implements DominionEvent {}
     record PowerChanged(UUID player, double power) implements DominionEvent {}
     record PlayerEnteredTerritory(UUID player, String world, UUID fromFaction, UUID toFaction) implements DominionEvent {}

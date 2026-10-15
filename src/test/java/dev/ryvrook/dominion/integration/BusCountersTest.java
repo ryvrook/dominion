@@ -88,6 +88,16 @@ class BusCountersTest {
 
         ok(claims.unclaim(ann, W, Keys.chunk(1, 0)));
         assertEquals(List.of("Ann dominion:unclaims 1"), counted);
+        counted.clear();
+
+        // Claiming the same chunk back and releasing it again within the mission window counts nothing.
+        ok(claims.claim(ann, W, Keys.chunk(1, 0)));
+        ok(claims.unclaim(ann, W, Keys.chunk(1, 0)));
+        ok(claims.claim(ann, W, Keys.chunk(1, 0)));
+        assertEquals(List.of(), counted, "reclaiming released land is not a new claim or a new release");
+
+        ok(claims.claim(ann, W, Keys.chunk(2, 0)));
+        assertEquals(List.of("Ann dominion:claims 1"), counted, "fresh land still counts");
     }
 
     @Test
