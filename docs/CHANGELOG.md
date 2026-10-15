@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- Claimed land is drawn on the in game world map the way Simple Claims draws it. Each claimed chunk gets a translucent fill in the owner's colour and a darker outline on the edges that face other land, so joined claims read as one region. SafeZones are gold and WarZones red. Dominion wraps the world's own map generator instead of replacing it, leaves a map another plugin draws alone and puts the generator back when it shuts down.
+- Changed chunks and their neighbours are drawn again within about a second of a claim, unclaim, colour change or disband, for the players who can see them.
+- Claims now show one label per faction and world in the middle of its largest region instead of an icon on every chunk. The per chunk icons come back with `map.claimMarkers`, and are used anyway in a world the overlay does not draw.
+- New settings `map.overlay` (default `true`), `map.overlayOpacity` (percent, default 55, 10 to 90), `map.overlayBorder` (pixels, default 2, 0 to 4) and `map.claimMarkers` (default `false`).
+
 ## 0.2.1 - 2026-10-14
 
 Dominion Factions 0.2.1 works with the CombatLog mod by Devify. When CombatLog is installed its combat tags drive
