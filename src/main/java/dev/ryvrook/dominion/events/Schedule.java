@@ -1,5 +1,7 @@
 package dev.ryvrook.dominion.events;
 
+import dev.ryvrook.dominion.text.Messages;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -104,8 +106,8 @@ record Schedule(String text, int everyMinutes, List<Integer> times) {
     /** Plain words for the panel and status lines. */
     String describe() {
         if (everyMinutes > 0) {
-            return "every " + everyMinutes + " minutes";
+            return Messages.get(EventsText.SCHEDULE_EVERY, "minutes", everyMinutes);
         }
-        return "daily " + text;
+        return Messages.get(EventsText.SCHEDULE_DAILY, "times", text.startsWith("at ") ? text.substring(3) : text);
     }
 }

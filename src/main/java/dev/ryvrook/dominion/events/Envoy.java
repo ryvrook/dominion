@@ -1,5 +1,7 @@
 package dev.ryvrook.dominion.events;
 
+import dev.ryvrook.dominion.text.Messages;
+
 import org.bson.Document;
 
 /** A supply drop inside a war zone. Guarded by the service lock. */
@@ -27,7 +29,7 @@ final class Envoy {
     }
 
     String where() {
-        return x + ", " + y + ", " + z + " in " + world;
+        return Messages.get(EventsText.WHERE, "x", x, "y", y, "z", z, "world", world);
     }
 
     Document toDocument() {

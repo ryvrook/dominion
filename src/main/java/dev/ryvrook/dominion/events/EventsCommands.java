@@ -13,6 +13,7 @@ import dev.ryvrook.dominion.command.Call;
 import dev.ryvrook.dominion.command.PlayerCmd;
 import dev.ryvrook.dominion.command.ServerCmd;
 import dev.ryvrook.dominion.command.Targets;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Players;
 import org.joml.Vector3d;
@@ -57,10 +58,10 @@ final class EventsCommands {
     }
 
     ServerCmd build() {
-        ServerCmd root = new ServerCmd("fe", "Faction events. KOTH hills, outposts, envoys, bounties and the season.");
+        ServerCmd root = new ServerCmd("fe", Messages.get(EventsText.CMD_FE));
         root.handler(this::list);
-        root.sub(new ServerCmd("list", "Show every event with its status.")).handler(this::list);
-        root.sub(new PlayerCmd("panel", "Open the events panel.")).handler(this::panel);
+        root.sub(new ServerCmd("list", Messages.get(EventsText.CMD_LIST))).handler(this::list);
+        root.sub(new PlayerCmd("panel", Messages.get(EventsText.CMD_PANEL))).handler(this::panel);
         koth(root);
         outpost(root);
         envoy(root);
@@ -74,30 +75,30 @@ final class EventsCommands {
     // ---- koth --------------------------------------------------------------------
 
     private void koth(ServerCmd root) {
-        ServerCmd koth = root.sub(new ServerCmd("koth", "List KOTH hills."));
-        koth.handler(c -> lines(c, "No hills are set.", events.koths()));
+        ServerCmd koth = root.sub(new ServerCmd("koth", Messages.get(EventsText.CMD_KOTH)));
+        koth.handler(c -> lines(c, Messages.get(EventsText.NO_HILLS), events.koths()));
 
-        PlayerCmd create = koth.sub(adminHere("create", "Create a hill where you stand."));
-        RequiredArg<String> createName = create.withRequiredArg("name", "Hill name", ArgTypes.STRING);
+        PlayerCmd create = koth.sub(adminHere("create", Messages.get(EventsText.CMD_KOTH_CREATE)));
+        RequiredArg<String> createName = create.withRequiredArg("name", Messages.get(EventsText.ARG_HILL_NAME), ArgTypes.STRING);
         create.handler(c -> createHill(c, c.arg(createName), 0));
-        PlayerCmd createRadius = adminHereVariant("Create a hill with a radius in blocks.");
-        RequiredArg<String> crName = createRadius.withRequiredArg("name", "Hill name", ArgTypes.STRING);
-        RequiredArg<Integer> crRadius = createRadius.withRequiredArg("radius", "Radius in blocks", ArgTypes.INTEGER);
+        PlayerCmd createRadius = adminHereVariant(Messages.get(EventsText.CMD_KOTH_CREATE_RADIUS));
+        RequiredArg<String> crName = createRadius.withRequiredArg("name", Messages.get(EventsText.ARG_HILL_NAME), ArgTypes.STRING);
+        RequiredArg<Integer> crRadius = createRadius.withRequiredArg("radius", Messages.get(EventsText.ARG_RADIUS), ArgTypes.INTEGER);
         createRadius.handler(c -> createHill(c, c.arg(crName), c.arg(crRadius)));
         create.variant(createRadius);
 
-        named(koth, "delete", "Delete a hill.", (c, n) -> c.reply(events.kothDelete(c.uuid(), n)));
-        named(koth, "start", "Open a hill now.", (c, n) -> c.reply(events.kothStart(c.uuid(), n)));
-        named(koth, "stop", "Close a hill with no winner.", (c, n) -> c.reply(events.kothStop(c.uuid(), n)));
+        named(koth, "delete", Messages.get(EventsText.CMD_KOTH_DELETE), (c, n) -> c.reply(events.kothDelete(c.uuid(), n)));
+        named(koth, "start", Messages.get(EventsText.CMD_KOTH_START), (c, n) -> c.reply(events.kothStart(c.uuid(), n)));
+        named(koth, "stop", Messages.get(EventsText.CMD_KOTH_STOP), (c, n) -> c.reply(events.kothStop(c.uuid(), n)));
 
-        ServerCmd schedule = koth.sub(admin("schedule", "Schedule a hill with every 30m or at 18:00,21:30."));
-        RequiredArg<String> sName = schedule.withRequiredArg("name", "Hill name", ArgTypes.STRING);
-        RequiredArg<String> sMode = schedule.withRequiredArg("mode", "every or at", ArgTypes.STRING);
-        RequiredArg<String> sWhen = schedule.withRequiredArg("when", "Minutes such as 30m, or times such as 18:00,21:30", ArgTypes.STRING);
+        ServerCmd schedule = koth.sub(admin("schedule", Messages.get(EventsText.CMD_KOTH_SCHEDULE)));
+        RequiredArg<String> sName = schedule.withRequiredArg("name", Messages.get(EventsText.ARG_HILL_NAME), ArgTypes.STRING);
+        RequiredArg<String> sMode = schedule.withRequiredArg("mode", Messages.get(EventsText.ARG_MODE), ArgTypes.STRING);
+        RequiredArg<String> sWhen = schedule.withRequiredArg("when", Messages.get(EventsText.ARG_WHEN), ArgTypes.STRING);
         schedule.handler(c -> c.reply(events.kothSchedule(c.uuid(), c.arg(sName), c.arg(sMode) + " " + c.arg(sWhen))));
-        ServerCmd scheduleOff = adminVariant("Clear a hill schedule with off.");
-        RequiredArg<String> soName = scheduleOff.withRequiredArg("name", "Hill name", ArgTypes.STRING);
-        RequiredArg<String> soMode = scheduleOff.withRequiredArg("mode", "off", ArgTypes.STRING);
+        ServerCmd scheduleOff = adminVariant(Messages.get(EventsText.CMD_KOTH_SCHEDULE_OFF));
+        RequiredArg<String> soName = scheduleOff.withRequiredArg("name", Messages.get(EventsText.ARG_HILL_NAME), ArgTypes.STRING);
+        RequiredArg<String> soMode = scheduleOff.withRequiredArg("mode", Messages.get(EventsText.ARG_OFF), ArgTypes.STRING);
         scheduleOff.handler(c -> c.reply(events.kothSchedule(c.uuid(), c.arg(soName), c.arg(soMode))));
         schedule.variant(scheduleOff);
     }
@@ -106,7 +107,7 @@ final class EventsCommands {
         Vector3d pos = Players.position(c.player());
         String world = Players.worldName(c.player());
         if (pos == null || world == null) {
-            c.bad("Your position is not known yet. Try again in a moment.");
+            c.bad(Messages.get(EventsText.POSITION_UNKNOWN));
             return;
         }
         c.reply(events.kothCreate(c.uuid(), name, world, pos.x, pos.y, pos.z, radius));
@@ -115,31 +116,31 @@ final class EventsCommands {
     // ---- outposts ----------------------------------------------------------------
 
     private void outpost(ServerCmd root) {
-        ServerCmd outpost = root.sub(new ServerCmd("outpost", "List outposts."));
-        outpost.handler(c -> lines(c, "No outposts are set.", events.outposts()));
+        ServerCmd outpost = root.sub(new ServerCmd("outpost", Messages.get(EventsText.CMD_OUTPOST)));
+        outpost.handler(c -> lines(c, Messages.get(EventsText.NO_OUTPOSTS), events.outposts()));
 
-        PlayerCmd create = outpost.sub(adminHere("create", "Create an outpost where you stand. Boosts are xp, missions, tax or sell."));
-        RequiredArg<String> name = create.withRequiredArg("name", "Outpost name", ArgTypes.STRING);
-        RequiredArg<String> boost = create.withRequiredArg("boost", "xp, missions, tax or sell", ArgTypes.STRING);
-        RequiredArg<Double> mult = create.withRequiredArg("multiplier", "Boost multiplier such as 1.25", ArgTypes.DOUBLE);
+        PlayerCmd create = outpost.sub(adminHere("create", Messages.get(EventsText.CMD_OUTPOST_CREATE)));
+        RequiredArg<String> name = create.withRequiredArg("name", Messages.get(EventsText.ARG_OUTPOST_NAME), ArgTypes.STRING);
+        RequiredArg<String> boost = create.withRequiredArg("boost", Messages.get(EventsText.ARG_BOOST), ArgTypes.STRING);
+        RequiredArg<Double> mult = create.withRequiredArg("multiplier", Messages.get(EventsText.ARG_MULTIPLIER), ArgTypes.DOUBLE);
         create.handler(c -> createOutpost(c, c.arg(name), c.arg(boost), c.arg(mult), 0));
-        PlayerCmd createRadius = adminHereVariant("Create an outpost with a radius in blocks.");
-        RequiredArg<String> rName = createRadius.withRequiredArg("name", "Outpost name", ArgTypes.STRING);
-        RequiredArg<String> rBoost = createRadius.withRequiredArg("boost", "xp, missions, tax or sell", ArgTypes.STRING);
-        RequiredArg<Double> rMult = createRadius.withRequiredArg("multiplier", "Boost multiplier such as 1.25", ArgTypes.DOUBLE);
-        RequiredArg<Integer> rRadius = createRadius.withRequiredArg("radius", "Radius in blocks", ArgTypes.INTEGER);
+        PlayerCmd createRadius = adminHereVariant(Messages.get(EventsText.CMD_OUTPOST_CREATE_RADIUS));
+        RequiredArg<String> rName = createRadius.withRequiredArg("name", Messages.get(EventsText.ARG_OUTPOST_NAME), ArgTypes.STRING);
+        RequiredArg<String> rBoost = createRadius.withRequiredArg("boost", Messages.get(EventsText.ARG_BOOST), ArgTypes.STRING);
+        RequiredArg<Double> rMult = createRadius.withRequiredArg("multiplier", Messages.get(EventsText.ARG_MULTIPLIER), ArgTypes.DOUBLE);
+        RequiredArg<Integer> rRadius = createRadius.withRequiredArg("radius", Messages.get(EventsText.ARG_RADIUS), ArgTypes.INTEGER);
         createRadius.handler(c -> createOutpost(c, c.arg(rName), c.arg(rBoost), c.arg(rMult), c.arg(rRadius)));
         create.variant(createRadius);
 
-        named(outpost, "delete", "Delete an outpost.", (c, n) -> c.reply(events.outpostDelete(c.uuid(), n)));
-        named(outpost, "reset", "Clear the holder and control of an outpost.", (c, n) -> c.reply(events.outpostReset(c.uuid(), n)));
+        named(outpost, "delete", Messages.get(EventsText.CMD_OUTPOST_DELETE), (c, n) -> c.reply(events.outpostDelete(c.uuid(), n)));
+        named(outpost, "reset", Messages.get(EventsText.CMD_OUTPOST_RESET), (c, n) -> c.reply(events.outpostReset(c.uuid(), n)));
     }
 
     private void createOutpost(Call c, String name, String boost, double multiplier, int radius) {
         Vector3d pos = Players.position(c.player());
         String world = Players.worldName(c.player());
         if (pos == null || world == null) {
-            c.bad("Your position is not known yet. Try again in a moment.");
+            c.bad(Messages.get(EventsText.POSITION_UNKNOWN));
             return;
         }
         c.reply(events.outpostCreate(c.uuid(), name, world, pos.x, pos.y, pos.z, radius, boost, multiplier));
@@ -148,21 +149,21 @@ final class EventsCommands {
     // ---- envoys ------------------------------------------------------------------
 
     private void envoy(ServerCmd root) {
-        ServerCmd envoy = root.sub(new ServerCmd("envoy", "List envoys and envoy timers."));
-        envoy.handler(c -> lines(c, "No envoys are out and none are scheduled.", events.envoys()));
+        ServerCmd envoy = root.sub(new ServerCmd("envoy", Messages.get(EventsText.CMD_ENVOY)));
+        envoy.handler(c -> lines(c, Messages.get(EventsText.NO_ENVOYS_OR_TIMERS), events.envoys()));
 
-        ServerCmd spawn = envoy.sub(admin("spawn", "Drop an envoy in a war zone now."));
-        RequiredArg<String> zone = spawn.withRequiredArg("zoneTag", "War zone tag", ArgTypes.STRING);
+        ServerCmd spawn = envoy.sub(admin("spawn", Messages.get(EventsText.CMD_ENVOY_SPAWN)));
+        RequiredArg<String> zone = spawn.withRequiredArg("zoneTag", Messages.get(EventsText.ARG_ZONE), ArgTypes.STRING);
         spawn.handler(c -> c.reply(events.envoySpawn(c.uuid(), c.arg(zone))));
 
-        ServerCmd schedule = envoy.sub(admin("schedule", "Drop envoys in a war zone every few minutes, or 0 to stop."));
-        RequiredArg<String> sZone = schedule.withRequiredArg("zoneTag", "War zone tag", ArgTypes.STRING);
-        RequiredArg<Integer> every = schedule.withRequiredArg("minutes", "Minutes between drops, 0 to stop", ArgTypes.INTEGER);
+        ServerCmd schedule = envoy.sub(admin("schedule", Messages.get(EventsText.CMD_ENVOY_SCHEDULE)));
+        RequiredArg<String> sZone = schedule.withRequiredArg("zoneTag", Messages.get(EventsText.ARG_ZONE), ArgTypes.STRING);
+        RequiredArg<Integer> every = schedule.withRequiredArg("minutes", Messages.get(EventsText.ARG_MINUTES), ArgTypes.INTEGER);
         schedule.handler(c -> c.reply(events.envoySchedule(c.uuid(), c.arg(sZone), c.arg(every))));
 
-        envoy.sub(new PlayerCmd("claim", "Take the loot of an envoy next to you.")).handler(c -> {
+        envoy.sub(new PlayerCmd("claim", Messages.get(EventsText.CMD_ENVOY_CLAIM))).handler(c -> {
             if (!events.enabled()) {
-                c.bad("Events are turned off on this server.");
+                c.bad(Messages.get(EventsText.TURNED_OFF));
                 return;
             }
             c.reply(events.envoyClaim(c.uuid()));
@@ -172,57 +173,57 @@ final class EventsCommands {
     // ---- season ------------------------------------------------------------------
 
     private void season(ServerCmd root) {
-        ServerCmd season = root.sub(new ServerCmd("season", "Show the season status."));
+        ServerCmd season = root.sub(new ServerCmd("season", Messages.get(EventsText.CMD_SEASON)));
         season.handler(c -> c.info(events.seasonStatus()));
-        season.sub(new ServerCmd("status", "Show the season status.")).handler(c -> c.info(events.seasonStatus()));
+        season.sub(new ServerCmd("status", Messages.get(EventsText.CMD_SEASON))).handler(c -> c.info(events.seasonStatus()));
 
-        ServerCmd start = season.sub(admin("start", "Start a season with no grace and no end date."));
+        ServerCmd start = season.sub(admin("start", Messages.get(EventsText.CMD_SEASON_START)));
         start.handler(c -> c.reply(events.seasonStart(c.uuid(), 0, 0)));
-        ServerCmd startGrace = adminVariant("Start a season with grace days.");
-        RequiredArg<Integer> g1 = startGrace.withRequiredArg("graceDays", "Days of grace", ArgTypes.INTEGER);
+        ServerCmd startGrace = adminVariant(Messages.get(EventsText.CMD_SEASON_START_GRACE));
+        RequiredArg<Integer> g1 = startGrace.withRequiredArg("graceDays", Messages.get(EventsText.ARG_GRACE_DAYS), ArgTypes.INTEGER);
         startGrace.handler(c -> c.reply(events.seasonStart(c.uuid(), c.arg(g1), 0)));
         start.variant(startGrace);
-        ServerCmd startBoth = adminVariant("Start a season with grace days and raid days before the end of the world.");
-        RequiredArg<Integer> g2 = startBoth.withRequiredArg("graceDays", "Days of grace", ArgTypes.INTEGER);
-        RequiredArg<Integer> r2 = startBoth.withRequiredArg("raidDays", "Days of raiding after grace", ArgTypes.INTEGER);
+        ServerCmd startBoth = adminVariant(Messages.get(EventsText.CMD_SEASON_START_BOTH));
+        RequiredArg<Integer> g2 = startBoth.withRequiredArg("graceDays", Messages.get(EventsText.ARG_GRACE_DAYS), ArgTypes.INTEGER);
+        RequiredArg<Integer> r2 = startBoth.withRequiredArg("raidDays", Messages.get(EventsText.ARG_RAID_DAYS), ArgTypes.INTEGER);
         startBoth.handler(c -> c.reply(events.seasonStart(c.uuid(), c.arg(g2), c.arg(r2))));
         start.variant(startBoth);
 
-        season.sub(admin("end", "End the season, start the end of the world and freeze the leaderboard."))
+        season.sub(admin("end", Messages.get(EventsText.CMD_SEASON_END)))
                 .handler(c -> c.reply(events.seasonEnd(c.uuid())));
     }
 
     // ---- bounties ----------------------------------------------------------------
 
     private void bounty(ServerCmd root) {
-        ServerCmd bounty = root.sub(new ServerCmd("bounty", "List bounties."));
+        ServerCmd bounty = root.sub(new ServerCmd("bounty", Messages.get(EventsText.CMD_BOUNTY)));
         bounty.handler(this::showBounties);
-        PlayerCmd place = bounty.sub(new PlayerCmd("place", "Put money on a player's head."));
-        RequiredArg<String> who = place.withRequiredArg("player", "Player name", ArgTypes.STRING);
-        RequiredArg<Double> amount = place.withRequiredArg("amount", "Amount to put up", ArgTypes.DOUBLE);
+        PlayerCmd place = bounty.sub(new PlayerCmd("place", Messages.get(EventsText.CMD_BOUNTY_PLACE)));
+        RequiredArg<String> who = place.withRequiredArg("player", Messages.get(EventsText.ARG_PLAYER), ArgTypes.STRING);
+        RequiredArg<Double> amount = place.withRequiredArg("amount", Messages.get(EventsText.ARG_AMOUNT), ArgTypes.DOUBLE);
         place.handler(c -> {
             Targets.Target t = targets.resolveAnywhere(c.arg(who));
             if (t == null) {
-                c.bad("No player named " + c.arg(who) + " was found.");
+                c.bad(Messages.get(EventsText.NO_PLAYER_NAMED, "player", c.arg(who)));
                 return;
             }
             c.reply(events.bountyPlace(c.uuid(), t.uuid(), c.arg(amount)));
         });
-        root.sub(new ServerCmd("bounties", "List bounties.")).handler(this::showBounties);
+        root.sub(new ServerCmd("bounties", Messages.get(EventsText.CMD_BOUNTY))).handler(this::showBounties);
     }
 
     private void showBounties(Call c) {
-        lines(c, "No bounties are out.", events.bounties());
+        lines(c, Messages.get(EventsText.NO_BOUNTIES), events.bounties());
     }
 
     // ---- payouts -----------------------------------------------------------------
 
     private void payouts(ServerCmd root) {
-        ServerCmd payouts = root.sub(admin("payouts", "Preview the season payout commands."));
-        payouts.handler(c -> lines(c, "Nothing to pay out.", events.payoutsPreview()));
-        payouts.sub(admin("preview", "Preview the season payout commands."))
-                .handler(c -> lines(c, "Nothing to pay out.", events.payoutsPreview()));
-        payouts.sub(new ServerCmd("run", "Run the season payout commands from the console.").permission(PAYOUTS))
+        ServerCmd payouts = root.sub(admin("payouts", Messages.get(EventsText.CMD_PAYOUTS)));
+        payouts.handler(c -> lines(c, Messages.get(EventsText.NOTHING_TO_PAY), events.payoutsPreview()));
+        payouts.sub(admin("preview", Messages.get(EventsText.CMD_PAYOUTS)))
+                .handler(c -> lines(c, Messages.get(EventsText.NOTHING_TO_PAY), events.payoutsPreview()));
+        payouts.sub(new ServerCmd("run", Messages.get(EventsText.CMD_PAYOUTS_RUN)).permission(PAYOUTS))
                 .handler(c -> c.reply(events.payoutsRun(c.uuid())));
     }
 
@@ -230,17 +231,17 @@ final class EventsCommands {
 
     private void list(Call c) {
         if (!events.enabled()) {
-            c.info("Events are turned off on this server.");
+            c.info(Messages.get(EventsText.TURNED_OFF));
         }
-        c.send(Msg.colored("Hills", Msg.GOLD).bold(true));
-        sub(c, "No hills are set.", events.koths());
-        c.send(Msg.colored("Outposts", Msg.GOLD).bold(true));
-        sub(c, "No outposts are set.", events.outposts());
-        c.send(Msg.colored("Envoys", Msg.GOLD).bold(true));
-        sub(c, "No envoys are out.", events.envoys());
-        c.send(Msg.colored("Bounties", Msg.GOLD).bold(true));
-        sub(c, "No bounties are out.", events.bounties());
-        c.send(Msg.colored("Season", Msg.GOLD).bold(true));
+        c.send(Msg.colored(Messages.get(EventsText.SECTION_HILLS), Msg.GOLD).bold(true));
+        sub(c, Messages.get(EventsText.NO_HILLS), events.koths());
+        c.send(Msg.colored(Messages.get(EventsText.SECTION_OUTPOSTS), Msg.GOLD).bold(true));
+        sub(c, Messages.get(EventsText.NO_OUTPOSTS), events.outposts());
+        c.send(Msg.colored(Messages.get(EventsText.SECTION_ENVOYS), Msg.GOLD).bold(true));
+        sub(c, Messages.get(EventsText.NO_ENVOYS), events.envoys());
+        c.send(Msg.colored(Messages.get(EventsText.SECTION_BOUNTIES), Msg.GOLD).bold(true));
+        sub(c, Messages.get(EventsText.NO_BOUNTIES), events.bounties());
+        c.send(Msg.colored(Messages.get(EventsText.SECTION_SEASON), Msg.GOLD).bold(true));
         c.send(Msg.colored(" " + events.seasonStatus(), Msg.TEXT));
     }
 
@@ -248,7 +249,7 @@ final class EventsCommands {
         PlayerRef player = c.player();
         World world = c.world() != null ? c.world() : Players.world(player);
         if (player == null || world == null) {
-            c.bad("The panel can only be opened in game.");
+            c.bad(Messages.get(EventsText.PANEL_IN_GAME));
             return;
         }
         world.execute(() -> {
@@ -276,7 +277,7 @@ final class EventsCommands {
 
     private void named(ServerCmd parent, String name, String description, NamedHandler handler) {
         ServerCmd cmd = parent.sub(admin(name, description));
-        RequiredArg<String> arg = cmd.withRequiredArg("name", "Name", ArgTypes.STRING);
+        RequiredArg<String> arg = cmd.withRequiredArg("name", Messages.get(EventsText.ARG_NAME), ArgTypes.STRING);
         cmd.handler(c -> handler.run(c, c.arg(arg)));
     }
 

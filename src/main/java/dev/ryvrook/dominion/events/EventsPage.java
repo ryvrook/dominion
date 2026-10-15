@@ -13,6 +13,7 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.api.Result;
 import dev.ryvrook.dominion.service.EconomyService;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.ui.PageEvent;
 
@@ -46,35 +47,35 @@ final class EventsPage extends InteractiveCustomUIPage<PageEvent> {
             render(c, e);
         } catch (Exception ex) {
             ctx.logger().at(Level.WARNING).withCause(ex).log("Dominion events page failed to render");
-            Msg.send(playerRef, Msg.bad("Part of this page could not be shown. Try again in a moment."));
+            Msg.send(playerRef, Msg.bad(Messages.get(EventsText.PAGE_FAILED)));
         }
     }
 
     private void render(UICommandBuilder c, UIEventBuilder e) {
         count = 0;
         c.append(PAGE);
-        c.set("#PageTitle.Text", "Events");
-        c.set("#Heading.Text", "Faction events");
-        c.set("#Subheading.Text", events.enabled() ? "Hills, outposts, envoys and bounties" : "Events are turned off");
+        c.set("#PageTitle.Text", Messages.get(EventsText.PANEL_TITLE));
+        c.set("#Heading.Text", Messages.get(EventsText.PANEL_HEADING));
+        c.set("#Subheading.Text", Messages.get(events.enabled() ? EventsText.PANEL_SUBHEADING : EventsText.PANEL_OFF));
         c.clear("#Body");
         c.set("#F1.Visible", true);
-        c.set("#F1.Text", "Refresh");
+        c.set("#F1.Text", Messages.get(EventsText.BUTTON_REFRESH));
         bind(e, "#F1", "refresh", "");
         c.set("#F2.Visible", true);
-        c.set("#F2.Text", "Claim envoy");
+        c.set("#F2.Text", Messages.get(EventsText.BUTTON_CLAIM));
         bind(e, "#F2", "claim", "");
 
-        section(c, "Hills");
-        rows(c, events.hillRows(), "No hills are set.");
-        section(c, "Outposts");
-        rows(c, events.outpostRows(), "No outposts are set.");
-        section(c, "Envoys");
-        rows(c, events.envoyRows(), "No envoys are out right now.");
+        section(c, Messages.get(EventsText.SECTION_HILLS));
+        rows(c, events.hillRows(), Messages.get(EventsText.NO_HILLS));
+        section(c, Messages.get(EventsText.SECTION_OUTPOSTS));
+        rows(c, events.outpostRows(), Messages.get(EventsText.NO_OUTPOSTS));
+        section(c, Messages.get(EventsText.SECTION_ENVOYS));
+        rows(c, events.envoyRows(), Messages.get(EventsText.NO_ENVOYS_NOW));
 
-        section(c, "Bounties");
+        section(c, Messages.get(EventsText.SECTION_BOUNTIES));
         List<Object[]> bounties = events.bountyRows();
         if (bounties.isEmpty()) {
-            text(c, "No bounties are out.", Msg.MUTED);
+            text(c, Messages.get(EventsText.NO_BOUNTIES), Msg.MUTED);
         }
         EconomyService eco = ctx.serviceOrNull(EconomyService.class);
         for (int i = 0; i < Math.min(MAX_BOUNTIES, bounties.size()); i++) {
@@ -82,14 +83,14 @@ final class EventsPage extends InteractiveCustomUIPage<PageEvent> {
             double amount = (double) b[1];
             int placers = (int) b[2];
             row(c, new EventsServiceImpl.Row((String) b[0], eco != null ? eco.format(amount) : Msg.number(amount),
-                    placers + (placers == 1 ? " placer" : " placers"), Msg.BAD));
+                    Messages.get(placers == 1 ? EventsText.ROW_PLACER : EventsText.ROW_PLACERS, "count", placers), Msg.BAD));
         }
 
-        section(c, "Season");
+        section(c, Messages.get(EventsText.SECTION_SEASON));
         text(c, events.seasonStatus(), Msg.TEXT);
         List<String> board = events.snapshotLines();
         if (!board.isEmpty()) {
-            text(c, "Final standings", Msg.GOLD);
+            text(c, Messages.get(EventsText.FINAL_STANDINGS), Msg.GOLD);
             for (String line : board) {
                 text(c, line, Msg.TEXT);
             }

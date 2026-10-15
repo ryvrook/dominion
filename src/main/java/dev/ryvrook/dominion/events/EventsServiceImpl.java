@@ -24,6 +24,7 @@ import dev.ryvrook.dominion.service.FactionService;
 import dev.ryvrook.dominion.service.MarketService;
 import dev.ryvrook.dominion.service.ProgressService;
 import dev.ryvrook.dominion.service.ShieldService;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Keys;
 import dev.ryvrook.dominion.util.Players;
@@ -280,7 +281,7 @@ public final class EventsServiceImpl implements EventsService {
     }
 
     private static String at(String world, double x, double y, double z) {
-        return fmt(x) + ", " + fmt(y) + ", " + fmt(z) + " in " + world;
+        return Messages.get(EventsText.WHERE, "x", fmt(x), "y", fmt(y), "z", fmt(z), "world", world);
     }
 
     private FactionService factions() {
@@ -297,12 +298,12 @@ public final class EventsServiceImpl implements EventsService {
 
     private String tagOf(UUID id) {
         Faction f = faction(id);
-        return f == null ? "a disbanded faction" : f.tag();
+        return f == null ? Messages.get(EventsText.DISBANDED_FACTION) : f.tag();
     }
 
     private String nameOf(UUID uuid) {
         if (uuid == null) {
-            return "Server";
+            return Messages.get(EventsText.SERVER);
         }
         PlayerRef ref = Players.online(uuid);
         return ref != null ? ref.getUsername() : ctx.player(uuid).name();
@@ -344,7 +345,7 @@ public final class EventsServiceImpl implements EventsService {
     private void audit(Faction f, String text) {
         FactionService fs = factions();
         if (fs != null && f != null) {
-            fs.audit(f, null, "Server", "events", text);
+            fs.audit(f, null, Messages.get(EventsText.SERVER), "events", text);
         }
     }
 
@@ -384,57 +385,57 @@ public final class EventsServiceImpl implements EventsService {
     @Override
     public Result kothCreate(UUID admin, String name, String world, double x, double y, double z, int radius) {
         if (!validName(name)) {
-            return Result.fail("Hill names use letters, numbers, dashes and underscores, up to 24 characters.");
+            return Result.fail(Messages.get(EventsText.HILL_NAME_RULES));
         }
         if (world == null || world.isBlank()) {
-            return Result.fail("Your position is not known yet. Try again in a moment.");
+            return Result.fail(Messages.get(EventsText.POSITION_UNKNOWN));
         }
         int r = radius > 0 ? radius : Math.max(1, ctx.settings().integer("events.kothRadius"));
         if (r > MAX_RADIUS) {
-            return Result.fail("A hill radius can be at most " + MAX_RADIUS + " blocks.");
+            return Result.fail(Messages.get(EventsText.HILL_RADIUS_MAX, "max", MAX_RADIUS));
         }
         synchronized (lock) {
             if (hills.containsKey(key(name))) {
-                return Result.fail("A hill named " + name + " already exists.");
+                return Result.fail(Messages.get(EventsText.HILL_EXISTS, "hill", name));
             }
             hills.put(key(name), new Hill(name, world, x, y, z, r));
             dirty = true;
         }
         save();
-        return Result.pass("Hill " + name + " is set at " + at(world, x, y, z) + " with a radius of " + r + " blocks.");
+        return Result.pass(Messages.get(EventsText.HILL_SET, "hill", name, "where", at(world, x, y, z), "radius", r));
     }
 
     @Override
     public Result kothDelete(UUID admin, String name) {
         synchronized (lock) {
             if (hills.remove(key(name)) == null) {
-                return Result.fail("No hill is named " + name + ".");
+                return Result.fail(Messages.get(EventsText.NO_SUCH_HILL, "hill", name));
             }
             dirty = true;
         }
         save();
-        return Result.pass("Hill " + name + " was removed.");
+        return Result.pass(Messages.get(EventsText.HILL_REMOVED, "hill", name));
     }
 
     @Override
     public Result kothStart(UUID admin, String name) {
         if (!enabled()) {
-            return Result.fail("Events are turned off on this server.");
+            return Result.fail(Messages.get(EventsText.TURNED_OFF));
         }
         List<Runnable> after = new ArrayList<>();
         synchronized (lock) {
             Hill h = hills.get(key(name));
             if (h == null) {
-                return Result.fail("No hill is named " + name + ".");
+                return Result.fail(Messages.get(EventsText.NO_SUCH_HILL, "hill", name));
             }
             if (h.running) {
-                return Result.fail("Hill " + h.name + " is already open.");
+                return Result.fail(Messages.get(EventsText.HILL_ALREADY_OPEN, "hill", h.name));
             }
             open(h, Time.now(), after);
         }
         run(after);
         save();
-        return Result.pass("Hill " + name + " is open.");
+        return Result.pass(Messages.get(EventsText.HILL_OPENED, "hill", name));
     }
 
     @Override
@@ -443,16 +444,16 @@ public final class EventsServiceImpl implements EventsService {
         synchronized (lock) {
             Hill h = hills.get(key(name));
             if (h == null) {
-                return Result.fail("No hill is named " + name + ".");
+                return Result.fail(Messages.get(EventsText.NO_SUCH_HILL, "hill", name));
             }
             if (!h.running) {
-                return Result.fail("Hill " + h.name + " is not open.");
+                return Result.fail(Messages.get(EventsText.HILL_NOT_OPEN, "hill", h.name));
             }
-            close(h, "was closed by an admin with no winner", after);
+            close(h, EventsText.HILL_CLOSED_BY_ADMIN, after);
         }
         run(after);
         save();
-        return Result.pass("Hill " + name + " is closed.");
+        return Result.pass(Messages.get(EventsText.HILL_CLOSED, "hill", name));
     }
 
     @Override
@@ -462,17 +463,17 @@ public final class EventsServiceImpl implements EventsService {
         synchronized (lock) {
             Hill h = hills.get(key(name));
             if (h == null) {
-                return Result.fail("No hill is named " + name + ".");
+                return Result.fail(Messages.get(EventsText.NO_SUCH_HILL, "hill", name));
             }
             if (text.equalsIgnoreCase("off") || text.equalsIgnoreCase("none") || text.equalsIgnoreCase("clear")) {
                 h.schedule = null;
                 h.nextRun = 0;
                 dirty = true;
-                msg = "Hill " + h.name + " no longer opens on a schedule.";
+                msg = Messages.get(EventsText.HILL_UNSCHEDULED, "hill", h.name);
             } else {
                 Schedule s = Schedule.parse(text);
                 if (s == null) {
-                    return Result.fail("Use every and a number of minutes such as every 30m, or at and times such as at 18:00,21:30.");
+                    return Result.fail(Messages.get(EventsText.SCHEDULE_USAGE));
                 }
                 long now = Time.now();
                 h.schedule = s;
@@ -480,8 +481,8 @@ public final class EventsServiceImpl implements EventsService {
                 h.warned10 = false;
                 h.warned1 = false;
                 dirty = true;
-                msg = "Hill " + h.name + " opens " + s.describe() + ". The next opening is in "
-                        + Time.remaining(h.nextRun - now) + ".";
+                msg = Messages.get(EventsText.HILL_SCHEDULED, "hill", h.name, "schedule", s.describe(),
+                        "time", Time.remaining(h.nextRun - now));
             }
         }
         // The file is written outside the lock so the tick never waits on the disk.
@@ -538,21 +539,26 @@ public final class EventsServiceImpl implements EventsService {
                 return null;
             }
             long now = Time.now();
-            String base = "Hill " + h.name + " at " + at(h.world, h.x, h.y, h.z);
+            String where = at(h.world, h.x, h.y, h.z);
             if (h.running) {
                 long cap = capSeconds();
-                String state = h.contested ? " is contested"
-                        : h.capturer == null ? " is open and nobody holds it"
-                        : " is open and " + tagOf(h.capturer) + " has held it for " + Time.remaining(h.held * 1000L)
-                        + " of " + Time.remaining(cap * 1000L);
-                return base + state + ". It closes in " + Time.remaining(h.startedAt + MAX_KOTH_MILLIS - now) + ".";
+                String closes = Time.remaining(h.startedAt + MAX_KOTH_MILLIS - now);
+                if (h.contested) {
+                    return Messages.get(EventsText.HILL_STATUS_CONTESTED, "hill", h.name, "where", where, "time", closes);
+                }
+                if (h.capturer == null) {
+                    return Messages.get(EventsText.HILL_STATUS_FREE, "hill", h.name, "where", where, "time", closes);
+                }
+                return Messages.get(EventsText.HILL_STATUS_HELD, "hill", h.name, "where", where, "faction", tagOf(h.capturer),
+                        "held", Time.remaining(h.held * 1000L), "cap", Time.remaining(cap * 1000L), "time", closes);
             }
-            String last = h.lastWinner.isBlank() ? "" : " Last won by " + h.lastWinner + " " + Time.ago(h.lastCapturedAt) + ".";
+            String last = h.lastWinner.isBlank() ? ""
+                    : " " + Messages.get(EventsText.HILL_LAST_WON, "faction", h.lastWinner, "ago", Time.ago(h.lastCapturedAt));
             if (h.schedule != null && h.nextRun > 0) {
-                return base + " is closed and opens in " + Time.remaining(h.nextRun - now) + ", "
-                        + h.schedule.describe() + "." + last;
+                return Messages.get(EventsText.HILL_STATUS_SCHEDULED, "hill", h.name, "where", where,
+                        "time", Time.remaining(h.nextRun - now), "schedule", h.schedule.describe()) + last;
             }
-            return base + " is closed with no schedule." + last;
+            return Messages.get(EventsText.HILL_STATUS_UNSCHEDULED, "hill", h.name, "where", where) + last;
         }
     }
 
@@ -569,8 +575,8 @@ public final class EventsServiceImpl implements EventsService {
         h.contested = false;
         h.lastNotice = now;
         dirty = true;
-        String text = "Hill " + h.name + " is open at " + at(h.world, h.x, h.y, h.z) + ". Hold it for "
-                + Time.remaining(capSeconds() * 1000L) + " to win " + rewardText() + ".";
+        String text = Messages.get(EventsText.HILL_OPEN_ANNOUNCE, "hill", h.name, "where", at(h.world, h.x, h.y, h.z),
+                "time", Time.remaining(capSeconds() * 1000L), "reward", rewardText());
         String name = h.name;
         String world = h.world;
         after.add(() -> {
@@ -588,14 +594,14 @@ public final class EventsServiceImpl implements EventsService {
         EconomyService eco = ctx.serviceOrNull(EconomyService.class);
         double coins = ctx.settings().decimal("events.kothRewardCoins");
         int points = ctx.settings().integer("events.kothRewardPoints");
-        List<String> parts = new ArrayList<>();
-        if (coins > 0 && eco != null && eco.enabled()) {
-            parts.add(eco.format(coins) + (yours ? " for your faction bank" : " for its bank"));
+        String coinPart = coins > 0 && eco != null && eco.enabled()
+                ? Messages.get(yours ? EventsText.REWARD_COINS_YOURS : EventsText.REWARD_COINS_ITS, "amount", eco.format(coins))
+                : null;
+        String pointPart = points > 0 ? Messages.get(EventsText.REWARD_POINTS, "points", points) : null;
+        if (coinPart != null && pointPart != null) {
+            return Messages.get(EventsText.REWARD_BOTH, "coins", coinPart, "points", pointPart);
         }
-        if (points > 0) {
-            parts.add(points + " faction points");
-        }
-        return parts.isEmpty() ? "the hill" : String.join(" and ", parts);
+        return coinPart != null ? coinPart : pointPart != null ? pointPart : Messages.get(EventsText.REWARD_NONE);
     }
 
     /**
@@ -611,14 +617,14 @@ public final class EventsServiceImpl implements EventsService {
     }
 
     /** Closes a hill without a winner. Caller holds the lock. */
-    private void close(Hill h, String why, List<Runnable> after) {
+    private void close(Hill h, String whyId, List<Runnable> after) {
         reschedule(h, Time.now());
         h.running = false;
         h.capturer = null;
         h.held = 0;
         h.contested = false;
         dirty = true;
-        String text = "Hill " + h.name + " " + why + ".";
+        String text = Messages.get(whyId, "hill", h.name);
         String name = h.name;
         String world = h.world;
         after.add(() -> {
@@ -651,17 +657,17 @@ public final class EventsServiceImpl implements EventsService {
             if (left <= MINUTE && !h.warned1) {
                 h.warned1 = true;
                 h.warned10 = true;
-                String text = "Hill " + h.name + " opens in one minute at " + at(h.world, h.x, h.y, h.z) + ".";
+                String text = Messages.get(EventsText.HILL_OPENS_ONE_MINUTE, "hill", h.name, "where", at(h.world, h.x, h.y, h.z));
                 after.add(() -> broadcast(Msg.info(text)));
             } else if (left <= 10 * MINUTE && left > MINUTE && !h.warned10) {
                 h.warned10 = true;
-                String text = "Hill " + h.name + " opens in ten minutes at " + at(h.world, h.x, h.y, h.z) + ".";
+                String text = Messages.get(EventsText.HILL_OPENS_TEN_MINUTES, "hill", h.name, "where", at(h.world, h.x, h.y, h.z));
                 after.add(() -> broadcast(Msg.info(text)));
             }
             return;
         }
         if (now - h.startedAt >= MAX_KOTH_MILLIS) {
-            close(h, "closed after an hour with no winner", after);
+            close(h, EventsText.HILL_TIMED_OUT, after);
             return;
         }
         Map<UUID, Presence> inside = new LinkedHashMap<>();
@@ -676,7 +682,7 @@ public final class EventsServiceImpl implements EventsService {
         Hill.Step step = h.step(new ArrayList<>(inside.keySet()), cap);
         if (step == Hill.Step.CONTESTED) {
             if (!wasContested) {
-                String text = "Hill " + h.name + " is contested.";
+                String text = Messages.get(EventsText.HILL_CONTESTED, "hill", h.name);
                 after.add(() -> broadcast(Msg.warn(text)));
             }
             return;
@@ -692,7 +698,7 @@ public final class EventsServiceImpl implements EventsService {
         if (!f.id().equals(hadCapturer)) {
             h.lastNotice = now;
             dirty = true;
-            String text = f.tag() + " is taking hill " + h.name + ".";
+            String text = Messages.get(EventsText.HILL_TAKING, "faction", f.tag(), "hill", h.name);
             after.add(() -> broadcast(Msg.info(text)));
         }
         if (step == Hill.Step.CAPTURED) {
@@ -701,7 +707,7 @@ public final class EventsServiceImpl implements EventsService {
         }
         if (now - h.lastNotice >= NOTICE_MILLIS) {
             h.lastNotice = now;
-            String text = f.tag() + " holds hill " + h.name + " and wins in " + Time.remaining((cap - h.held) * 1000L) + ".";
+            String text = Messages.get(EventsText.HILL_HOLDS, "faction", f.tag(), "hill", h.name, "time", Time.remaining((cap - h.held) * 1000L));
             after.add(() -> broadcast(Msg.info(text)));
         }
     }
@@ -723,7 +729,7 @@ public final class EventsServiceImpl implements EventsService {
             int points = ctx.settings().integer("events.kothRewardPoints");
             EconomyService eco = ctx.serviceOrNull(EconomyService.class);
             if (coins > 0 && eco != null && eco.enabled()) {
-                Result r = eco.bankCredit(f, coins, "capturing hill " + name);
+                Result r = eco.bankCredit(f, coins, Messages.get(EventsText.MEMO_HILL, "hill", name));
                 if (r.failed()) {
                     ctx.logger().at(Level.WARNING).log("Hill reward for %s failed, %s", f.tag(), r.message());
                 }
@@ -742,8 +748,8 @@ public final class EventsServiceImpl implements EventsService {
                     ctx.logger().at(Level.WARNING).withCause(e).log("Progress update for a hill failed");
                 }
             }
-            audit(f, "Captured hill " + name);
-            String text = f.tag() + " captured hill " + name + " and won " + rewardText(false) + ".";
+            audit(f, Messages.get(EventsText.AUDIT_HILL, "hill", name));
+            String text = Messages.get(EventsText.HILL_CAPTURED, "faction", f.tag(), "hill", name, "reward", rewardText(false));
             publish("koth", name, "captured", world, f.id(), text);
             broadcast(Msg.good(text));
         });
@@ -755,44 +761,44 @@ public final class EventsServiceImpl implements EventsService {
     public Result outpostCreate(UUID admin, String name, String world, double x, double y, double z, int radius,
                                 String boost, double multiplier) {
         if (!validName(name)) {
-            return Result.fail("Outpost names use letters, numbers, dashes and underscores, up to 24 characters.");
+            return Result.fail(Messages.get(EventsText.OUTPOST_NAME_RULES));
         }
         if (world == null || world.isBlank()) {
-            return Result.fail("Your position is not known yet. Try again in a moment.");
+            return Result.fail(Messages.get(EventsText.POSITION_UNKNOWN));
         }
         String kind = boost == null ? "" : boost.trim().toLowerCase(Locale.ROOT);
         if (!BOOSTS.contains(kind)) {
-            return Result.fail("The boost must be xp, missions, tax or sell.");
+            return Result.fail(Messages.get(EventsText.BOOST_KINDS));
         }
         if (!(multiplier > 0) || multiplier > 10) {
-            return Result.fail("The multiplier must be above 0 and at most 10.");
+            return Result.fail(Messages.get(EventsText.MULTIPLIER_RANGE));
         }
         int r = radius > 0 ? radius : Math.max(1, ctx.settings().integer("events.kothRadius"));
         if (r > MAX_RADIUS) {
-            return Result.fail("An outpost radius can be at most " + MAX_RADIUS + " blocks.");
+            return Result.fail(Messages.get(EventsText.OUTPOST_RADIUS_MAX, "max", MAX_RADIUS));
         }
         synchronized (lock) {
             if (outposts.containsKey(key(name))) {
-                return Result.fail("An outpost named " + name + " already exists.");
+                return Result.fail(Messages.get(EventsText.OUTPOST_EXISTS, "outpost", name));
             }
             outposts.put(key(name), new Outpost(name, world, x, y, z, r, kind, multiplier));
             dirty = true;
         }
         save();
-        return Result.pass("Outpost " + name + " is set at " + at(world, x, y, z) + " with a radius of " + r
-                + " blocks. Holding it gives " + boostName(kind) + " of " + multiplier + " times.");
+        return Result.pass(Messages.get(EventsText.OUTPOST_SET, "outpost", name, "where", at(world, x, y, z), "radius", r,
+                "boost", boostName(kind), "multiplier", multiplier));
     }
 
     @Override
     public Result outpostDelete(UUID admin, String name) {
         synchronized (lock) {
             if (outposts.remove(key(name)) == null) {
-                return Result.fail("No outpost is named " + name + ".");
+                return Result.fail(Messages.get(EventsText.NO_SUCH_OUTPOST, "outpost", name));
             }
             dirty = true;
         }
         save();
-        return Result.pass("Outpost " + name + " was removed.");
+        return Result.pass(Messages.get(EventsText.OUTPOST_REMOVED, "outpost", name));
     }
 
     @Override
@@ -801,7 +807,7 @@ public final class EventsServiceImpl implements EventsService {
         synchronized (lock) {
             Outpost o = outposts.get(key(name));
             if (o == null) {
-                return Result.fail("No outpost is named " + name + ".");
+                return Result.fail(Messages.get(EventsText.NO_SUCH_OUTPOST, "outpost", name));
             }
             old = o.holder;
             o.holder = null;
@@ -811,9 +817,9 @@ public final class EventsServiceImpl implements EventsService {
         }
         save();
         if (old != null) {
-            alert(faction(old), Msg.warn("An admin reset outpost " + name + ". Your faction no longer holds it."));
+            alert(faction(old), Msg.warn(Messages.get(EventsText.OUTPOST_RESET_ALERT, "outpost", name)));
         }
-        return Result.pass("Outpost " + name + " was reset and nobody holds it.");
+        return Result.pass(Messages.get(EventsText.OUTPOST_RESET, "outpost", name));
     }
 
     @Override
@@ -841,10 +847,10 @@ public final class EventsServiceImpl implements EventsService {
             if (o == null) {
                 return null;
             }
-            String base = "Outpost " + o.name + " at " + at(o.world, o.x, o.y, o.z) + " gives " + boostName(o.boost) + " of "
-                    + o.multiplier + " times";
-            String holder = o.holder == null ? ". Nobody holds it"
-                    : ". " + tagOf(o.holder) + " holds it with " + fmt(o.controlOf(o.holder)) + " percent control";
+            String base = Messages.get(EventsText.OUTPOST_STATUS, "outpost", o.name, "where", at(o.world, o.x, o.y, o.z),
+                    "boost", boostName(o.boost), "multiplier", o.multiplier);
+            String holder = o.holder == null ? Messages.get(EventsText.OUTPOST_STATUS_UNHELD)
+                    : Messages.get(EventsText.OUTPOST_STATUS_HELD, "faction", tagOf(o.holder), "control", fmt(o.controlOf(o.holder)));
             UUID top = null;
             double best = 0;
             for (Map.Entry<UUID, Double> e : o.control.entrySet()) {
@@ -853,8 +859,10 @@ public final class EventsServiceImpl implements EventsService {
                     top = e.getKey();
                 }
             }
-            String challenger = top == null ? "" : " and " + tagOf(top) + " is at " + fmt(best) + " percent";
-            return base + holder + challenger + (o.contested ? ". It is contested." : ".");
+            String challenger = top == null ? ""
+                    : Messages.get(EventsText.OUTPOST_STATUS_CHALLENGER, "faction", tagOf(top), "control", fmt(best));
+            return base + holder + challenger
+                    + Messages.get(o.contested ? EventsText.OUTPOST_STATUS_CONTESTED : EventsText.OUTPOST_STATUS_END);
         }
     }
 
@@ -939,14 +947,16 @@ public final class EventsServiceImpl implements EventsService {
         double mult = o.multiplier;
         after.add(() -> {
             Faction loser = faction(old);
-            String text = winner.tag() + " took outpost " + name + (loser != null ? " from " + loser.tag() : "") + ".";
+            String text = loser != null
+                    ? Messages.get(EventsText.OUTPOST_TAKEN_FROM, "faction", winner.tag(), "outpost", name, "loser", loser.tag())
+                    : Messages.get(EventsText.OUTPOST_TAKEN, "faction", winner.tag(), "outpost", name);
             publish("outpost", name, "captured", world, winner.id(), text);
-            alert(winner, Msg.good("Your faction took outpost " + name + ". You now get " + boostName(boost) + " of "
-                    + mult + " times while you hold it."));
-            audit(winner, "Took outpost " + name);
+            alert(winner, Msg.good(Messages.get(EventsText.OUTPOST_WON, "outpost", name, "boost", boostName(boost),
+                    "multiplier", mult)));
+            audit(winner, Messages.get(EventsText.AUDIT_OUTPOST_TOOK, "outpost", name));
             if (loser != null) {
-                alert(loser, Msg.bad(winner.tag() + " took outpost " + name + " from your faction."));
-                audit(loser, "Lost outpost " + name + " to " + winner.tag());
+                alert(loser, Msg.bad(Messages.get(EventsText.OUTPOST_LOST, "faction", winner.tag(), "outpost", name)));
+                audit(loser, Messages.get(EventsText.AUDIT_OUTPOST_LOST, "outpost", name, "faction", winner.tag()));
             }
         });
     }
@@ -967,14 +977,14 @@ public final class EventsServiceImpl implements EventsService {
     @Override
     public Result envoySpawn(UUID admin, String zoneTag) {
         if (!enabled()) {
-            return Result.fail("Events are turned off on this server.");
+            return Result.fail(Messages.get(EventsText.TURNED_OFF));
         }
         Faction zone = zoneTag == null ? null : ctx.repo().factionByTag(zoneTag);
         if (zone == null) {
-            return Result.fail("No zone has the tag " + zoneTag + ".");
+            return Result.fail(Messages.get(EventsText.NO_SUCH_ZONE, "tag", zoneTag));
         }
         if (zone.type() != FactionType.WARZONE) {
-            return Result.fail(zone.tag() + " is not a war zone.");
+            return Result.fail(Messages.get(EventsText.NOT_WAR_ZONE, "zone", zone.tag()));
         }
         List<String> worlds = new ArrayList<>();
         List<Long> chunks = new ArrayList<>();
@@ -985,7 +995,7 @@ public final class EventsServiceImpl implements EventsService {
             }
         }
         if (chunks.isEmpty()) {
-            return Result.fail(zone.tag() + " has no claimed land for an envoy to land on.");
+            return Result.fail(Messages.get(EventsText.ZONE_NO_LAND, "zone", zone.tag()));
         }
         ThreadLocalRandom rnd = ThreadLocalRandom.current();
         int pick = rnd.nextInt(chunks.size());
@@ -1007,7 +1017,7 @@ public final class EventsServiceImpl implements EventsService {
         World world = Universe.get() == null ? null : Universe.get().getWorld(worldName);
         if (world == null) {
             announceEnvoy(envoy, tag);
-            return Result.pass("An envoy dropped in " + tag + " at " + envoy.where() + ". Its world is not loaded so no chest was placed.");
+            return Result.pass(Messages.get(EventsText.ENVOY_NO_WORLD, "zone", tag, "where", envoy.where()));
         }
         String chest = ctx.settings().text("events.envoyChestItem");
         world.execute(() -> {
@@ -1033,7 +1043,7 @@ public final class EventsServiceImpl implements EventsService {
             }
             announceEnvoy(envoy, tag);
         });
-        return Result.pass("An envoy is dropping in " + tag + ".");
+        return Result.pass(Messages.get(EventsText.ENVOY_DROPPING, "zone", tag));
     }
 
     /**
@@ -1055,8 +1065,7 @@ public final class EventsServiceImpl implements EventsService {
 
     private void announceEnvoy(Envoy envoy, String tag) {
         long left = envoy.expiresAt - Time.now();
-        String text = "An envoy landed in " + tag + " at " + envoy.where() + ". Stand next to it and run /fe envoy claim within "
-                + Time.remaining(left) + " to take the loot.";
+        String text = Messages.get(EventsText.ENVOY_LANDED, "zone", tag, "where", envoy.where(), "time", Time.remaining(left));
         broadcast(Msg.warn(text));
         publish("envoy", envoy.id, "spawned", envoy.world, null, text);
     }
@@ -1077,13 +1086,13 @@ public final class EventsServiceImpl implements EventsService {
     public Result envoySchedule(UUID admin, String zoneTag, int everyMinutes) {
         Faction zone = zoneTag == null ? null : ctx.repo().factionByTag(zoneTag);
         if (zone == null) {
-            return Result.fail("No zone has the tag " + zoneTag + ".");
+            return Result.fail(Messages.get(EventsText.NO_SUCH_ZONE, "tag", zoneTag));
         }
         if (zone.type() != FactionType.WARZONE) {
-            return Result.fail(zone.tag() + " is not a war zone.");
+            return Result.fail(Messages.get(EventsText.NOT_WAR_ZONE, "zone", zone.tag()));
         }
         if (everyMinutes > 0 && everyMinutes < 5) {
-            return Result.fail("The shortest envoy timer is 5 minutes.");
+            return Result.fail(Messages.get(EventsText.ENVOY_TIMER_MIN));
         }
         synchronized (lock) {
             if (everyMinutes <= 0) {
@@ -1095,9 +1104,9 @@ public final class EventsServiceImpl implements EventsService {
         }
         save();
         if (everyMinutes <= 0) {
-            return Result.pass("Envoys no longer drop in " + zone.tag() + " on a timer.");
+            return Result.pass(Messages.get(EventsText.ENVOY_TIMER_OFF, "zone", zone.tag()));
         }
-        return Result.pass("An envoy drops in " + zone.tag() + " every " + everyMinutes + " minutes.");
+        return Result.pass(Messages.get(EventsText.ENVOY_TIMER_SET, "zone", zone.tag(), "minutes", everyMinutes));
     }
 
     @Override
@@ -1106,14 +1115,14 @@ public final class EventsServiceImpl implements EventsService {
         long now = Time.now();
         synchronized (lock) {
             for (Envoy e : envoys) {
-                out.add("Envoy in " + e.zone + " at " + e.where() + " vanishes in " + Time.remaining(e.expiresAt - now)
-                        + (e.placed ? "." : ". No chest could be placed so it is marked by coordinates only."));
+                out.add(Messages.get(e.placed ? EventsText.ENVOY_LINE : EventsText.ENVOY_LINE_NO_CHEST, "zone", e.zone,
+                        "where", e.where(), "time", Time.remaining(e.expiresAt - now)));
             }
             for (Map.Entry<String, long[]> t : envoyTimers.entrySet()) {
                 Faction zone = ctx.repo().factionByTag(t.getKey());
                 String tag = zone == null ? t.getKey() : zone.tag();
-                out.add("Envoys drop in " + tag + " every " + t.getValue()[0] + " minutes. The next one lands in "
-                        + Time.remaining(t.getValue()[1] - now) + ".");
+                out.add(Messages.get(EventsText.ENVOY_TIMER_LINE, "zone", tag, "minutes", t.getValue()[0],
+                        "time", Time.remaining(t.getValue()[1] - now)));
             }
         }
         return out;
@@ -1125,11 +1134,11 @@ public final class EventsServiceImpl implements EventsService {
         Vector3d pos = Players.position(ref);
         String world = Players.worldName(ref);
         if (pos == null || world == null) {
-            return Result.fail("Your position is not known yet. Try again in a moment.");
+            return Result.fail(Messages.get(EventsText.POSITION_UNKNOWN));
         }
         MarketService market = ctx.serviceOrNull(MarketService.class);
         if (market == null) {
-            return Result.fail("Envoy loot is delivered through the market mailbox, which is not installed.");
+            return Result.fail(Messages.get(EventsText.ENVOY_NEEDS_MARKET));
         }
         Envoy found = null;
         synchronized (lock) {
@@ -1148,7 +1157,7 @@ public final class EventsServiceImpl implements EventsService {
                 }
             }
             if (found == null) {
-                return Result.fail("No envoy is within " + (int) CLAIM_DISTANCE + " blocks of you.");
+                return Result.fail(Messages.get(EventsText.NO_ENVOY_NEAR, "distance", (int) CLAIM_DISTANCE));
             }
             envoys.remove(found);
             dirty = true;
@@ -1157,7 +1166,7 @@ public final class EventsServiceImpl implements EventsService {
         market.mail(player, loot, 0);
         removeChest(found);
         String name = ref.getUsername();
-        String text = name + " claimed the envoy in " + found.zone + ".";
+        String text = Messages.get(EventsText.ENVOY_CLAIMED, "player", name, "zone", found.zone);
         broadcast(Msg.info(text));
         publish("envoy", found.id, "claimed", found.world, null, text);
         ProgressService progress = ctx.serviceOrNull(ProgressService.class);
@@ -1169,7 +1178,7 @@ public final class EventsServiceImpl implements EventsService {
             }
         }
         save();
-        return Result.pass("The envoy loot is in your market mailbox. Collect it with /f market collect.");
+        return Result.pass(Messages.get(EventsText.ENVOY_LOOT_MAILED));
     }
 
     private List<ItemStack> loot() {
@@ -1228,7 +1237,7 @@ public final class EventsServiceImpl implements EventsService {
             envoys.removeAll(expired);
             dirty = true;
             for (Envoy e : expired) {
-                String text = "The envoy in " + e.zone + " at " + e.where() + " vanished unclaimed.";
+                String text = Messages.get(EventsText.ENVOY_VANISHED, "zone", e.zone, "where", e.where());
                 after.add(() -> {
                     removeChest(e);
                     broadcast(Msg.muted(text));
@@ -1251,30 +1260,30 @@ public final class EventsServiceImpl implements EventsService {
     @Override
     public Result bountyPlace(UUID placer, UUID target, double amount) {
         if (!enabled()) {
-            return Result.fail("Events are turned off on this server.");
+            return Result.fail(Messages.get(EventsText.TURNED_OFF));
         }
         if (placer == null || target == null) {
-            return Result.fail("That player could not be found.");
+            return Result.fail(Messages.get(EventsText.PLAYER_NOT_FOUND));
         }
         if (placer.equals(target)) {
-            return Result.fail("You cannot place a bounty on yourself.");
+            return Result.fail(Messages.get(EventsText.BOUNTY_SELF));
         }
         double min = ctx.settings().decimal("events.bountyMin");
         EconomyService eco = ctx.serviceOrNull(EconomyService.class);
         if (eco == null || !eco.enabled()) {
-            return Result.fail("Bounties need the economy, which is turned off.");
+            return Result.fail(Messages.get(EventsText.BOUNTY_NO_ECONOMY));
         }
         switch (Payouts.checkAmount(amount, min, eco.wholeUnits())) {
             case TOO_SMALL -> {
-                return Result.fail("The smallest bounty is " + eco.format(Math.max(min, 0)) + ".");
+                return Result.fail(Messages.get(EventsText.BOUNTY_MIN, "amount", eco.format(Math.max(min, 0))));
             }
             case NOT_WHOLE -> {
-                return Result.fail("Bounties must be whole amounts.");
+                return Result.fail(Messages.get(EventsText.BOUNTY_WHOLE));
             }
             case NONE -> { }
         }
         String targetName = nameOf(target);
-        Result paid = eco.withdraw(placer, amount, "bounty on " + targetName);
+        Result paid = eco.withdraw(placer, amount, Messages.get(EventsText.MEMO_BOUNTY, "player", targetName));
         if (paid.failed()) {
             return paid;
         }
@@ -1289,11 +1298,11 @@ public final class EventsServiceImpl implements EventsService {
             bountiesDirty = true;
         }
         save();
-        String text = nameOf(placer) + " put " + eco.format(amount) + " on the head of " + targetName
-                + ". The bounty is now " + eco.format(total) + ".";
+        String text = Messages.get(EventsText.BOUNTY_PLACED_ANNOUNCE, "placer", nameOf(placer), "amount", eco.format(amount),
+                "player", targetName, "total", eco.format(total));
         broadcast(Msg.warn(text));
         publish("bounty", targetName, "placed", null, null, text);
-        return Result.pass("Your bounty of " + eco.format(amount) + " on " + targetName + " is placed.");
+        return Result.pass(Messages.get(EventsText.BOUNTY_PLACED, "amount", eco.format(amount), "player", targetName));
     }
 
     @Override
@@ -1307,8 +1316,8 @@ public final class EventsServiceImpl implements EventsService {
         List<String> out = new ArrayList<>();
         for (Bounty b : list) {
             String money = eco != null ? eco.format(b.amount) : fmt(b.amount);
-            out.add(b.name + " is worth " + money + " from " + b.placers.size()
-                    + (b.placers.size() == 1 ? " placer." : " placers."));
+            out.add(Messages.get(b.placers.size() == 1 ? EventsText.BOUNTY_LINE_ONE : EventsText.BOUNTY_LINE_MANY,
+                    "player", b.name, "amount", money, "count", b.placers.size()));
         }
         return out;
     }
@@ -1385,7 +1394,7 @@ public final class EventsServiceImpl implements EventsService {
         }
         Result r;
         try {
-            r = eco.deposit(killer, bounty.amount, "bounty on " + bounty.name);
+            r = eco.deposit(killer, bounty.amount, Messages.get(EventsText.MEMO_BOUNTY, "player", bounty.name));
         } catch (RuntimeException e) {
             r = Result.fail(String.valueOf(e.getMessage()));
         }
@@ -1395,7 +1404,7 @@ public final class EventsServiceImpl implements EventsService {
             return;
         }
         save();
-        String text = nameOf(killer) + " collected the bounty of " + eco.format(bounty.amount) + " on " + bounty.name + ".";
+        String text = Messages.get(EventsText.BOUNTY_COLLECTED, "killer", nameOf(killer), "amount", eco.format(bounty.amount), "player", bounty.name);
         broadcast(Msg.good(text));
         publish("bounty", bounty.name, "claimed", null, kf == null ? null : kf.id(), text);
     }
@@ -1411,11 +1420,11 @@ public final class EventsServiceImpl implements EventsService {
 
     private Result startSeason(UUID admin, int graceDays, int raidDays) {
         if (graceDays < 0 || raidDays < 0) {
-            return Result.fail("Days cannot be negative.");
+            return Result.fail(Messages.get(EventsText.DAYS_NEGATIVE));
         }
         Settings s = ctx.settings();
         if (s.bool("season.active")) {
-            return Result.fail("A season is already running. End it first with /fe season end.");
+            return Result.fail(Messages.get(EventsText.SEASON_RUNNING));
         }
         long now = Time.now();
         ShieldService shields = ctx.serviceOrNull(ShieldService.class);
@@ -1430,7 +1439,7 @@ public final class EventsServiceImpl implements EventsService {
                 }
             }
         } else if (graceDays > 0) {
-            return Result.fail("Grace needs the shield module, which is not installed.");
+            return Result.fail(Messages.get(EventsText.GRACE_NEEDS_SHIELD));
         }
         long raidEnds = raidDays > 0 ? now + (graceDays + (long) raidDays) * DAY : 0L;
         s.set("season.active", true);
@@ -1443,11 +1452,14 @@ public final class EventsServiceImpl implements EventsService {
             dirty = true;
         }
         save();
-        String text = "A new season has begun." + (graceDays > 0 ? " Grace lasts " + plural(graceDays, "day") + "." : "")
-                + (raidDays > 0 ? " The end of the world comes in " + plural(graceDays + raidDays, "day") + "." : "");
+        String text = Messages.get(EventsText.SEASON_BEGUN)
+                + (graceDays > 0 ? " " + Messages.get(EventsText.SEASON_BEGUN_GRACE, "days",
+                        plural(graceDays, EventsText.DAYS_ONE, EventsText.DAYS_MANY)) : "")
+                + (raidDays > 0 ? " " + Messages.get(EventsText.SEASON_BEGUN_EOTW, "days",
+                        plural(graceDays + raidDays, EventsText.DAYS_ONE, EventsText.DAYS_MANY)) : "");
         broadcast(Msg.good(text));
         publish("season", "season", "started", null, null, text);
-        return Result.pass("The season started.");
+        return Result.pass(Messages.get(EventsText.SEASON_STARTED));
     }
 
     @Override
@@ -1462,7 +1474,7 @@ public final class EventsServiceImpl implements EventsService {
         synchronized (lock) {
             // Ending twice would refreeze the board and clear the payout record, letting payouts run again.
             if (!s.bool("season.active") && snapshotAt > 0) {
-                return Result.fail("The season already ended " + Time.ago(snapshotAt) + ". Start a new one first.");
+                return Result.fail(Messages.get(EventsText.SEASON_ALREADY_ENDED, "ago", Time.ago(snapshotAt)));
             }
         }
         ShieldService shields = ctx.serviceOrNull(ShieldService.class);
@@ -1493,12 +1505,12 @@ public final class EventsServiceImpl implements EventsService {
         for (Document d : frozen) {
             tags.add(d.getString("Tag"));
         }
-        String text = "The season is over and the end of the world has begun."
-                + (frozen.isEmpty() ? "" : (frozen.size() == 1 ? " The top faction is " : " The top factions are ")
-                + Payouts.topList(tags, 3) + ".");
+        String text = Messages.get(EventsText.SEASON_OVER)
+                + (frozen.isEmpty() ? "" : " " + Messages.get(frozen.size() == 1 ? EventsText.SEASON_TOP_ONE : EventsText.SEASON_TOP_MANY,
+                "factions", Payouts.topList(tags, 3)));
         broadcast(Msg.warn(text));
         publish("season", "season", "ended", null, null, text);
-        return Result.pass("The season ended and the leaderboard is frozen.");
+        return Result.pass(Messages.get(EventsText.SEASON_ENDED));
     }
 
     private List<Document> leaderboard(int limit) {
@@ -1534,25 +1546,26 @@ public final class EventsServiceImpl implements EventsService {
         ShieldService shields = ctx.serviceOrNull(ShieldService.class);
         StringBuilder out = new StringBuilder();
         if (s.bool("season.active")) {
-            out.append("The season started ").append(Time.ago(s.longValue("season.startedAt"))).append(".");
+            out.append(Messages.get(EventsText.STATUS_STARTED, "ago", Time.ago(s.longValue("season.startedAt"))));
             if (shields != null && shields.graceActive()) {
                 long ends = shields.graceEndsAt();
-                out.append(ends > 0 ? " Grace ends in " + Time.remaining(ends - now) + "." : " Grace is on.");
+                out.append(' ').append(ends > 0 ? Messages.get(EventsText.STATUS_GRACE_ENDS, "time", Time.remaining(ends - now))
+                        : Messages.get(EventsText.STATUS_GRACE_ON));
             }
             long raid = s.longValue("season.raidEndsAt");
             if (raid > 0) {
-                out.append(" The end of the world begins in ").append(Time.remaining(raid - now)).append(".");
+                out.append(' ').append(Messages.get(EventsText.STATUS_EOTW_IN, "time", Time.remaining(raid - now)));
             }
         } else if (shields != null && shields.eotwActive()) {
-            out.append("The season is over and the end of the world is running.");
+            out.append(Messages.get(EventsText.STATUS_EOTW_RUNNING));
         } else {
-            out.append("No season is running.");
+            out.append(Messages.get(EventsText.STATUS_NO_SEASON));
         }
         synchronized (lock) {
             if (snapshotAt > 0) {
-                out.append(" The leaderboard was frozen ").append(Time.ago(snapshotAt)).append(".");
+                out.append(' ').append(Messages.get(EventsText.STATUS_FROZEN, "ago", Time.ago(snapshotAt)));
                 if (payoutsRunAt > 0) {
-                    out.append(" Payouts ran ").append(Time.ago(payoutsRunAt)).append(".");
+                    out.append(' ').append(Messages.get(EventsText.STATUS_PAYOUTS_RAN, "ago", Time.ago(payoutsRunAt)));
                 }
             }
         }
@@ -1614,18 +1627,17 @@ public final class EventsServiceImpl implements EventsService {
             frozen = !snapshot.isEmpty();
         }
         if (targets.isEmpty()) {
-            out.add("No factions qualify for payouts yet.");
+            out.add(Messages.get(EventsText.NO_QUALIFIERS));
             return out;
         }
         if (templates.isEmpty()) {
-            out.add("No payout commands are set. Add them to events.payoutCommands in config.json, separated by pipes.");
+            out.add(Messages.get(EventsText.NO_PAYOUT_COMMANDS_HINT));
             return out;
         }
-        out.add(frozen ? "Payouts use the leaderboard frozen at the end of the season."
-                : "No season has ended so payouts use the live leaderboard.");
+        out.add(Messages.get(frozen ? EventsText.PAYOUTS_FROZEN : EventsText.PAYOUTS_LIVE));
         for (String[] t : targets) {
             for (String template : templates) {
-                out.add("Rank " + t[0] + " " + t[1] + " runs /" + fill(template, t[1], t[0]));
+                out.add(Messages.get(EventsText.PAYOUT_LINE, "rank", t[0], "faction", t[1], "command", fill(template, t[1], t[0])));
             }
         }
         return out;
@@ -1640,21 +1652,21 @@ public final class EventsServiceImpl implements EventsService {
         if (admin != null) {
             PlayerRef ref = Players.online(admin);
             if (ref == null || !ref.hasPermission(EventsCommands.PAYOUTS)) {
-                return Result.fail("Running payouts needs the " + EventsCommands.PAYOUTS + " permission.");
+                return Result.fail(Messages.get(EventsText.PAYOUTS_PERMISSION, "permission", EventsCommands.PAYOUTS));
             }
         }
         List<String[]> targets = payoutTargets();
         List<String> templates = templates();
         if (targets.isEmpty()) {
-            return Result.fail("No factions qualify for payouts yet.");
+            return Result.fail(Messages.get(EventsText.NO_QUALIFIERS));
         }
         if (templates.isEmpty()) {
-            return Result.fail("No payout commands are set in events.payoutCommands in config.json.");
+            return Result.fail(Messages.get(EventsText.NO_PAYOUT_COMMANDS));
         }
         synchronized (lock) {
             // Only a season start or a season end clears this, so payouts never run twice for one board.
             if (payoutsRunAt > 0) {
-                return Result.fail("Payouts already ran for this season " + Time.ago(payoutsRunAt) + ".");
+                return Result.fail(Messages.get(EventsText.PAYOUTS_ALREADY_RAN, "ago", Time.ago(payoutsRunAt)));
             }
             payoutsRunAt = Time.now();
             dirty = true;
@@ -1665,7 +1677,7 @@ public final class EventsServiceImpl implements EventsService {
                 payoutsRunAt = 0;
                 dirty = true;
             }
-            return Result.fail("The payout record could not be saved, so no payout commands ran. Check the log.");
+            return Result.fail(Messages.get(EventsText.PAYOUT_RECORD_FAILED));
         }
         int ran = 0;
         int failed = 0;
@@ -1690,12 +1702,12 @@ public final class EventsServiceImpl implements EventsService {
                 }
             }
         }
-        publish("season", "payouts", "ran", null, null, "Season payouts ran for " + plural(targets.size(), "faction") + ".");
+        publish("season", "payouts", "ran", null, null, Messages.get(EventsText.PAYOUTS_RAN_FEED, "factions", plural(targets.size(), EventsText.FACTIONS_ONE, EventsText.FACTIONS_MANY)));
         if (manager == null) {
-            return Result.fail("The command manager is not available, so the payout commands were only written to the log.");
+            return Result.fail(Messages.get(EventsText.NO_COMMAND_MANAGER));
         }
-        return Result.pass("Sent " + plural(ran, "payout command") + " to the console"
-                + (failed > 0 ? " and " + failed + " failed. Check the log." : "."));
+        return Result.pass(Messages.get(failed > 0 ? EventsText.PAYOUTS_SENT_FAILED : EventsText.PAYOUTS_SENT,
+                "commands", plural(ran, EventsText.COMMANDS_ONE, EventsText.COMMANDS_MANY), "failed", failed));
     }
 
     private void tickSeason(long now) {
@@ -1713,12 +1725,28 @@ public final class EventsServiceImpl implements EventsService {
     /** The boost with its article, such as an xp boost or a tax boost. */
     static String boostName(String kind) {
         String k = kind == null ? "" : kind;
-        boolean vowel = !k.isEmpty() && "aeiox".indexOf(Character.toLowerCase(k.charAt(0))) >= 0;
-        return (vowel ? "an " : "a ") + k + " boost";
+        switch (k.toLowerCase(Locale.ROOT)) {
+            case "xp" -> {
+                return Messages.get(EventsText.BOOST_XP);
+            }
+            case "missions" -> {
+                return Messages.get(EventsText.BOOST_MISSIONS);
+            }
+            case "tax" -> {
+                return Messages.get(EventsText.BOOST_TAX);
+            }
+            case "sell" -> {
+                return Messages.get(EventsText.BOOST_SELL);
+            }
+            default -> {
+                boolean vowel = !k.isEmpty() && "aeiox".indexOf(Character.toLowerCase(k.charAt(0))) >= 0;
+                return Messages.get(vowel ? EventsText.BOOST_OTHER_VOWEL : EventsText.BOOST_OTHER, "kind", k);
+            }
+        }
     }
 
-    private static String plural(long n, String noun) {
-        return n + " " + noun + (n == 1 ? "" : "s");
+    private static String plural(long n, String one, String many) {
+        return Messages.get(n == 1 ? one : many, "count", n);
     }
 
     // ---- map points ----------------------------------------------------------------
@@ -1731,7 +1759,7 @@ public final class EventsServiceImpl implements EventsService {
                 if (world != null && !world.equals(h.world)) {
                     continue;
                 }
-                String label = "Hill " + h.name + (h.running ? " is open" : "");
+                String label = Messages.get(h.running ? EventsText.POI_HILL_OPEN : EventsText.POI_HILL, "hill", h.name);
                 out.add(new PointOfInterest("hill:" + key(h.name), "hill", label, h.world, h.x, h.y, h.z,
                         h.capturer, h.running ? Msg.WARN : Msg.MUTED, h.running ? h.startedAt + MAX_KOTH_MILLIS : 0L));
             }
@@ -1740,7 +1768,8 @@ public final class EventsServiceImpl implements EventsService {
                     continue;
                 }
                 Faction holder = faction(o.holder);
-                String label = "Outpost " + o.name + (holder != null ? " held by " + holder.tag() : "");
+                String label = holder != null ? Messages.get(EventsText.POI_OUTPOST_HELD, "outpost", o.name, "faction", holder.tag())
+                        : Messages.get(EventsText.POI_OUTPOST, "outpost", o.name);
                 String color = holder != null && holder.color() != null && holder.color().matches("#[0-9a-fA-F]{6}")
                         ? holder.color() : Msg.INFO;
                 out.add(new PointOfInterest("outpost:" + key(o.name), "outpost", label, o.world, o.x, o.y, o.z,
@@ -1750,7 +1779,7 @@ public final class EventsServiceImpl implements EventsService {
                 if (world != null && !world.equals(e.world)) {
                     continue;
                 }
-                out.add(new PointOfInterest("envoy:" + e.id, "envoy", "Envoy in " + e.zone, e.world, e.x + 0.5, e.y,
+                out.add(new PointOfInterest("envoy:" + e.id, "envoy", Messages.get(EventsText.POI_ENVOY, "zone", e.zone), e.world, e.x + 0.5, e.y,
                         e.z + 0.5, null, Msg.GOLD, e.expiresAt));
             }
         }
@@ -1768,12 +1797,18 @@ public final class EventsServiceImpl implements EventsService {
         synchronized (lock) {
             for (Hill h : hills.values()) {
                 if (h.running) {
-                    String state = h.contested ? "Contested" : h.capturer == null ? "Open" : tagOf(h.capturer) + " "
-                            + Math.min(100, h.held * 100 / Math.max(1, capSeconds())) + "%";
-                    out.add(new Row(h.name, state, "closes in " + Time.remaining(h.startedAt + MAX_KOTH_MILLIS - now), Msg.WARN));
+                    String state = h.contested ? Messages.get(EventsText.ROW_CONTESTED)
+                            : h.capturer == null ? Messages.get(EventsText.ROW_OPEN)
+                            : Messages.get(EventsText.ROW_HELD, "faction", tagOf(h.capturer),
+                                    "percent", Math.min(100, h.held * 100 / Math.max(1, capSeconds())));
+                    out.add(new Row(h.name, state, Messages.get(EventsText.ROW_CLOSES_IN,
+                            "time", Time.remaining(h.startedAt + MAX_KOTH_MILLIS - now)), Msg.WARN));
                 } else {
-                    String timer = h.schedule != null && h.nextRun > 0 ? "opens in " + Time.remaining(h.nextRun - now) : "no schedule";
-                    out.add(new Row(h.name, h.lastWinner.isBlank() ? "Closed" : "Won by " + h.lastWinner, timer, Msg.TEXT));
+                    String timer = h.schedule != null && h.nextRun > 0
+                            ? Messages.get(EventsText.ROW_OPENS_IN, "time", Time.remaining(h.nextRun - now))
+                            : Messages.get(EventsText.ROW_NO_SCHEDULE);
+                    out.add(new Row(h.name, h.lastWinner.isBlank() ? Messages.get(EventsText.ROW_CLOSED)
+                            : Messages.get(EventsText.ROW_WON_BY, "faction", h.lastWinner), timer, Msg.TEXT));
                 }
             }
         }
@@ -1784,8 +1819,10 @@ public final class EventsServiceImpl implements EventsService {
         List<Row> out = new ArrayList<>();
         synchronized (lock) {
             for (Outpost o : outposts.values()) {
-                String holder = o.holder == null ? "Unheld" : tagOf(o.holder) + " " + fmt(o.controlOf(o.holder)) + "%";
-                out.add(new Row(o.name, holder, o.boost + " x" + o.multiplier + (o.contested ? ", contested" : ""),
+                String holder = o.holder == null ? Messages.get(EventsText.ROW_UNHELD)
+                        : Messages.get(EventsText.ROW_HELD, "faction", tagOf(o.holder), "percent", fmt(o.controlOf(o.holder)));
+                out.add(new Row(o.name, holder, Messages.get(o.contested ? EventsText.ROW_BOOST_CONTESTED : EventsText.ROW_BOOST,
+                        "boost", o.boost, "multiplier", o.multiplier),
                         o.holder == null ? Msg.TEXT : Msg.GOOD));
             }
         }
@@ -1797,12 +1834,14 @@ public final class EventsServiceImpl implements EventsService {
         long now = Time.now();
         synchronized (lock) {
             for (Envoy e : envoys) {
-                out.add(new Row("Envoy in " + e.zone, e.x + ", " + e.y + ", " + e.z, "vanishes in " + Time.remaining(e.expiresAt - now), Msg.GOLD));
+                out.add(new Row(Messages.get(EventsText.POI_ENVOY, "zone", e.zone), Messages.get(EventsText.COORDS, "x", e.x, "y", e.y, "z", e.z),
+                        Messages.get(EventsText.ROW_VANISHES_IN, "time", Time.remaining(e.expiresAt - now)), Msg.GOLD));
             }
             for (Map.Entry<String, long[]> t : envoyTimers.entrySet()) {
                 Faction zone = ctx.repo().factionByTag(t.getKey());
-                out.add(new Row("Drops in " + (zone == null ? t.getKey() : zone.tag()), "every " + t.getValue()[0] + "m",
-                        "next in " + Time.remaining(t.getValue()[1] - now), Msg.MUTED));
+                out.add(new Row(Messages.get(EventsText.ROW_DROPS_IN, "zone", zone == null ? t.getKey() : zone.tag()),
+                        Messages.get(EventsText.ROW_EVERY, "minutes", t.getValue()[0]),
+                        Messages.get(EventsText.ROW_NEXT_IN, "time", Time.remaining(t.getValue()[1] - now)), Msg.MUTED));
             }
         }
         return out;
