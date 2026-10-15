@@ -35,6 +35,27 @@ public final class StatMapper {
 
         /** The leader of a player faction created within the founding window, else null. */
         UUID founder(UUID factionId);
+
+        /**
+         * True the first time this faction invites this player, so revoking and inviting again counts once. The
+         * default answers true for facts that keep no memory.
+         */
+        default boolean firstInvite(UUID factionId, UUID target) {
+            return true;
+        }
+
+        /**
+         * The whole coins a deposit adds to the player's net deposits into this faction's bank today, deposits
+         * minus withdrawals and never below zero, less what was already credited today. A deposit and withdraw
+         * loop credits nothing after the first round. The default credits the whole coins of the deposit.
+         */
+        default long depositCredit(UUID factionId, UUID player, double amount) {
+            return (long) Math.floor(amount + 1e-9);
+        }
+
+        /** Takes a withdrawal off the player's net deposits today. */
+        default void withdrew(UUID factionId, UUID player, double amount) {
+        }
     }
 
     public static List<Credit> credits(DominionEvent event, Facts facts) {
@@ -62,9 +83,14 @@ public final class StatMapper {
                 }
             }
             case DominionEvent.BankDeposited b -> {
-                long coins = (long) Math.floor(b.amount() + 1e-9);
-                if (b.player() != null && coins > 0) {
+                long coins = b.player() == null || b.amount() <= 0 ? 0 : facts.depositCredit(b.factionId(), b.player(), b.amount());
+                if (coins > 0) {
                     out.add(new Credit(b.player(), StatKeys.BANK_DEPOSITED, coins));
+                }
+            }
+            case DominionEvent.BankWithdrawn w -> {
+                if (w.player() != null && w.amount() > 0) {
+                    facts.withdrew(w.factionId(), w.player(), w.amount());
                 }
             }
             case DominionEvent.FactionCreated c -> {
@@ -74,7 +100,7 @@ public final class StatMapper {
                 }
             }
             case DominionEvent.MemberInvited i -> {
-                if (i.actor() != null) {
+                if (i.actor() != null && (i.target() == null || facts.firstInvite(i.factionId(), i.target()))) {
                     out.add(new Credit(i.actor(), StatKeys.INVITES, 1));
                 }
             }

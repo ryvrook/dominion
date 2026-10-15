@@ -124,4 +124,36 @@ class BusCountersTest {
         assertTrue(facts.atWar(b.id(), a.id()));
         assertFalse(facts.atWar(a.id(), null));
     }
+
+    @Test
+    void reinvitingTheSamePlayerCountsOnce() {
+        Faction a = fx.faction("Alpha");
+        ContextFacts facts = new ContextFacts(fx.ctx);
+        UUID target = UUID.randomUUID();
+        var invite = new dev.ryvrook.dominion.api.DominionEvent.MemberInvited(a.id(), a.leader(), target);
+        assertEquals(1, StatMapper.credits(invite, facts).size());
+        assertTrue(StatMapper.credits(invite, facts).isEmpty(), "revoke and invite again is not a new invite");
+        assertEquals(1, StatMapper.credits(new dev.ryvrook.dominion.api.DominionEvent.MemberInvited(a.id(), a.leader(),
+                UUID.randomUUID()), facts).size());
+    }
+
+    @Test
+    void bankDepositsCountTheNetAmountOfTheDay() {
+        Faction a = fx.faction("Alpha");
+        UUID p = a.leader();
+        ContextFacts facts = new ContextFacts(fx.ctx);
+        var deposit = new dev.ryvrook.dominion.api.DominionEvent.BankDeposited(a.id(), p, 100);
+        var withdraw = new dev.ryvrook.dominion.api.DominionEvent.BankWithdrawn(a.id(), p, 100);
+        assertEquals(List.of(new StatMapper.Credit(p, StatKeys.BANK_DEPOSITED, 100)), StatMapper.credits(deposit, facts));
+        for (int round = 0; round < 5; round++) {
+            assertTrue(StatMapper.credits(withdraw, facts).isEmpty());
+            assertTrue(StatMapper.credits(deposit, facts).isEmpty(), "a deposit and withdraw loop credits nothing more");
+        }
+        assertEquals(List.of(new StatMapper.Credit(p, StatKeys.BANK_DEPOSITED, 50)),
+                StatMapper.credits(new dev.ryvrook.dominion.api.DominionEvent.BankDeposited(a.id(), p, 50.5), facts));
+        StatMapper.credits(new dev.ryvrook.dominion.api.DominionEvent.BankWithdrawn(a.id(), p, 1000), facts);
+        assertEquals(List.of(new StatMapper.Credit(p, StatKeys.BANK_DEPOSITED, 1)),
+                StatMapper.credits(new dev.ryvrook.dominion.api.DominionEvent.BankDeposited(a.id(), p, 151.5), facts),
+                "the net never goes below zero, so only coins past what was credited count");
+    }
 }

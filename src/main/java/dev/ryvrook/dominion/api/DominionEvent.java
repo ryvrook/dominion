@@ -43,6 +43,8 @@ public sealed interface DominionEvent {
     record BankDeposited(UUID factionId, UUID player, double amount) implements DominionEvent {}
     /** A member invited a player to the faction. */
     record MemberInvited(UUID factionId, UUID actor, UUID target) implements DominionEvent {}
+    /** A member took money out of their faction bank into their own wallet, with /f withdraw or in Coinage's pages. */
+    record BankWithdrawn(UUID factionId, UUID player, double amount) implements DominionEvent {}
     /** A line was added to a faction audit log. who is null for the server. */
     record AuditLogged(UUID factionId, UUID who, String category, String text) implements DominionEvent {}
 }

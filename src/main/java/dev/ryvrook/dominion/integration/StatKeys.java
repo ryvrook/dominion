@@ -36,6 +36,6 @@ public final class StatKeys {
     public static final List<String> ALL = List.of(CLAIMS, UNCLAIMS, ENEMY_KILLS, ENEMY_LAND_DEATHS, SIEGES_WON,
             SIEGES_LOST, MISSIONS, BANK_DEPOSITED, FACTIONS_FOUNDED, INVITES);
 
-    /** The keys TrackerAPI is asked to keep a leaderboard for. */
-    public static final List<String> BOARDS = List.of(CLAIMS, ENEMY_KILLS, SIEGES_WON, MISSIONS, BANK_DEPOSITED);
+    /** The keys TrackerAPI is asked to keep a leaderboard for, all ten, so every reader of the boards reads one source. */
+    public static final List<String> BOARDS = ALL;
 }

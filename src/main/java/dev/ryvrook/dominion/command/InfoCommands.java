@@ -380,6 +380,10 @@ final class InfoCommands extends Section {
         }
         Map<String, Long> stats = new TreeMap<>(f.stats());
         for (Map.Entry<String, Long> e : stats.entrySet()) {
+            // Per player bookkeeping, the withdraw allowance and the counter memories, is not a faction stat.
+            if (e.getKey().startsWith("eco.") || e.getKey().startsWith("counter.")) {
+                continue;
+            }
             c.send(Msg.muted(" " + e.getKey() + " " + Msg.number(e.getValue())));
         }
     }

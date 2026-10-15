@@ -200,6 +200,7 @@ public final class EconomyServiceImpl implements EconomyService {
             return Result.fail(failed);
         }
         bankChanged(f, actor, Messages.get(EconomyText.WITHDREW_LOG, "amount", format(amount)));
+        ctx.bus().publish(new DominionEvent.BankWithdrawn(f.id(), actor, amount));
         return Result.pass(Messages.get(EconomyText.WITHDREW, "amount", format(amount)));
     }
 
@@ -687,6 +688,7 @@ public final class EconomyServiceImpl implements EconomyService {
             bankChanged(payer, player, Messages.get(EconomyText.COINAGE_OUT_LOG, "amount", money, "to", named(toName), "reason", why));
             if (player != null && payer.isMember(player)) {
                 settle(payer, player, CoinageAmounts.toAmount(amount, d));
+                ctx.bus().publish(new DominionEvent.BankWithdrawn(payer.id(), player, CoinageAmounts.toAmount(amount, d)));
             }
         }
         if (payee != null) {
