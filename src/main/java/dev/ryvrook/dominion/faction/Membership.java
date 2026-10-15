@@ -40,9 +40,13 @@ final class Membership {
             return Result.fail("Your faction is full");
         }
         long hours = Math.max(1, s.settings().integer("faction.inviteHours"));
+        // Renewing an invite that is still open is not a new invite, so counters cannot be farmed with it.
+        boolean fresh = !f.hasValidInvite(target, Time.now());
         f.invite(target, Time.now() + hours * FactionSupport.HOUR);
         s.audit(f, actor, "member", "Invited " + targetName);
-        s.publish(new DominionEvent.MemberInvited(f.id(), actor, target));
+        if (fresh) {
+            s.publish(new DominionEvent.MemberInvited(f.id(), actor, target));
+        }
         s.tell(target, Msg.info(s.nameOf(actor) + " invited you to join " + f.tag() + ". Use /f join " + f.tag()
                 + " within " + hours + (hours == 1 ? " hour" : " hours")));
         return Result.pass("Invited " + targetName + " to " + f.tag());

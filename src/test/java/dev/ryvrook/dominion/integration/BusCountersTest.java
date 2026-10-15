@@ -78,6 +78,8 @@ class BusCountersTest {
         ok(fs.invite(ann, bo, "Bo"));
         assertEquals(List.of("Ann dominion:invites 1"), counted);
         counted.clear();
+        ok(fs.invite(ann, bo, "Bo"));
+        assertEquals(List.of(), counted, "renewing an open invite counts nothing");
 
         ok(claims.claim(ann, W, Keys.chunk(0, 0)));
         ok(claims.claim(ann, W, Keys.chunk(1, 0)));
