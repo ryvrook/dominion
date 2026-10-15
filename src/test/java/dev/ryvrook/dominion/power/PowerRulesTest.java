@@ -163,6 +163,36 @@ class PowerRulesTest {
     }
 
     @Test
+    void poolRulesFollowTheirSettings() {
+        fx.set("power.dtrMode", true);
+        fx.set("power.dtrBase", 5.0);
+        fx.set("power.dtrPerMember", 2.0);
+        fx.set("power.dtrCap", 8.0);
+        fx.set("power.dtrLossPerDeath", 3.0);
+        fx.set("power.dtrFloor", -1.0);
+        Faction f = fx.faction("Alpha");
+        assertEquals(7, power.factionMaxPower(f));
+        assertEquals(7, power.factionPower(f));
+        fx.member(f, "Two", Rank.MEMBER);
+        assertEquals(8, power.factionMaxPower(f), "capped by power.dtrCap");
+        UUID p = f.leader();
+        power.onDeath(p, "w", false);
+        assertEquals(4, power.factionPower(f), 1e-9);
+        for (int i = 0; i < 4; i++) {
+            power.onDeath(p, "w", false);
+        }
+        assertEquals(-1, power.factionPower(f), 1e-9, "held at power.dtrFloor");
+    }
+
+    @Test
+    void maxPowerUpgradeStepIsASetting() {
+        fx.set("power.upgradeStep", 5.0);
+        Faction f = fx.faction("Alpha");
+        f.setUpgrade("maxpower", 2);
+        assertEquals(30, power.maxPowerOf(f.leader()));
+    }
+
+    @Test
     void poolLosesOnePerMemberDeathDownToMinusThree() {
         fx.set("power.dtrMode", true);
         Faction f = fx.faction("Alpha");

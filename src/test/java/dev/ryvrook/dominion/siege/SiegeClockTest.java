@@ -199,4 +199,15 @@ class SiegeClockTest {
         // With the save time stuck at the breach start, the whole breach would run again.
         assertEquals(boot + 30 * minute, SiegeClock.resumedEnd(endsAt, breachStart, boot, 0));
     }
+
+    @Test
+    void holdOffAndResumeGraceAreSettings() {
+        Siege s = siege();
+        long t = START + 1000;
+        assertEquals(CONTINUE, SiegeClock.capture(s, 0, 2, t, ABSENT, 0L, 5_000L));
+        assertEquals(CONTINUE, SiegeClock.capture(s, 0, 2, t + 4_999, ABSENT, 0L, 5_000L));
+        assertEquals(DEFENDED, SiegeClock.capture(s, 0, 2, t + 5_000, ABSENT, 0L, 5_000L));
+        assertEquals(10_000L, SiegeClock.resumeGrace(false, 10_000L));
+        assertEquals(0L, SiegeClock.resumeGrace(true, 10_000L));
+    }
 }
