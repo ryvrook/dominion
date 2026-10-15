@@ -200,7 +200,7 @@ public final class ChatServiceImpl implements ChatService {
         if (other != null) {
             line = other.format(sender, content);
         } else {
-            line = Message.join(Msg.colored(sender.getUsername(), Msg.TEXT), Msg.muted(SEPARATOR), Msg.colored(content, CONTENT_COLOR));
+            line = Message.join(Msg.colored(sender.getUsername(), Msg.TEXT), Msg.muted(SEPARATOR), verbatim(content, CONTENT_COLOR));
         }
         if (targets != null) {
             for (PlayerRef target : targets) {
@@ -259,7 +259,7 @@ public final class ChatServiceImpl implements ChatService {
             Message msg = Message.join(Msg.colored(label + " ", color).bold(true),
                     channel == PlayerData.Channel.ALLY ? tagFor(id, sender.getUuid()) : Message.raw(""),
                     Msg.colored(rankPrefix + sender.getUsername(), color),
-                    Msg.muted(SEPARATOR), Msg.colored(content, color));
+                    Msg.muted(SEPARATOR), verbatim(content, color));
             target.sendMessage(msg);
         }
         log(label + " " + plainTag(faction.tag()) + sender.getUsername() + SEPARATOR + content, true);
@@ -282,7 +282,7 @@ public final class ChatServiceImpl implements ChatService {
             }
             target.sendMessage(Message.join(Msg.colored(label, NATION_COLOR).bold(true), tagFor(id, sender.getUuid()),
                     Msg.colored(rankPrefix + sender.getUsername(), NATION_COLOR),
-                    Msg.muted(SEPARATOR), Msg.colored(content, NATION_COLOR)));
+                    Msg.muted(SEPARATOR), verbatim(content, NATION_COLOR)));
         }
         log(label + plainTag(faction.tag()) + sender.getUsername() + SEPARATOR + content, true);
     }
@@ -340,6 +340,11 @@ public final class ChatServiceImpl implements ChatService {
     private void log(String line, boolean privateChannel) {
         Level level = privateChannel && !ctx.settings().bool("chat.logPrivate") ? Level.FINE : Level.INFO;
         ctx.logger().at(level).log("%s", line);
+    }
+
+    /** What a player typed, in a colour. Not passed through Msg, which renames /f in sentences to the registered root. */
+    static Message verbatim(String content, String color) {
+        return Message.raw(content == null ? "" : content).color(color);
     }
 
     private String plainTag(String tag) {
