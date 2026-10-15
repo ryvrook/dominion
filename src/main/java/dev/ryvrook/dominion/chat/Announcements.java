@@ -57,13 +57,9 @@ final class Announcements {
         }
     }
 
-    /** The tag, followed by the name when the name says something the tag does not. */
+    /** The shared faction label, so the announcement reads like every other place a faction is named. */
     static String label(String tag, String name) {
-        String t = tag == null ? "" : tag;
-        if (name == null || name.isBlank() || name.strip().equals(t)) {
-            return t;
-        }
-        return t + " " + name.strip();
+        return Faction.label(tag, name);
     }
 
     /** The plain announcement as players read it. */
