@@ -99,7 +99,11 @@ public final class TrackerBridge implements Link, StatSink {
                     return false;
                 }
             }
-            gather = live.subscribeKinds("Dominion", GATHER, Delivery.ASYNC, e -> gather(feed, e));
+            gather = live.subscribeKinds("Dominion", GATHER, Delivery.ASYNC, e -> {
+                if (!stopped) {
+                    deliver(feed, e);
+                }
+            });
             feed.useTracker(true);
             return true;
         } catch (RuntimeException | LinkageError e) {
@@ -108,9 +112,13 @@ public final class TrackerBridge implements Link, StatSink {
         }
     }
 
-    /** One event on the TrackerAPI dispatch thread. */
-    private void gather(GatherFeed feed, TrackerEvent event) {
-        if (stopped) {
+    /**
+     * One event on the TrackerAPI dispatch thread, turned into the same {@link GatherFeed} call Dominion's own system
+     * makes for the engine event behind it. Nothing is counted while the feed is back on the own systems, which
+     * happens when one kind is no longer tracked but the subscription still gets the other three.
+     */
+    static void deliver(GatherFeed feed, TrackerEvent event) {
+        if (!feed.external()) {
             return;
         }
         UUID player = event.header().player();
