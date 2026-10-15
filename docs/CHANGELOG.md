@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Messages
+- Every player sentence of the shop, events, market, siege, vault, importer, web map feed and map markers now comes from messages.json, including page labels, command help, audit lines and payment notes.
+
 ## 0.3.0 - 2026-10-15
 
 Dominion Factions 0.3.0 is the first release shaped by a client session. Faction names show once, the sidebar,
