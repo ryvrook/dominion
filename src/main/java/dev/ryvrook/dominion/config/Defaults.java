@@ -203,6 +203,11 @@ public final class Defaults {
         s.define("map.borderOnlyAbove", "Map", "Show border chunks only above this many claims", 64);
         s.define("hud.enabledDefault", "Map", "Sidebar on by default", true);
         s.define("hud.refreshSeconds", "Map", "Sidebar refresh in seconds", 2);
+        // Map overlay brief. Claims drawn on the world map images
+        s.define("map.overlay", "Map", "Tint claimed land on the world map in the owner's colour", true);
+        s.define("map.overlayOpacity", "Map", "Claims overlay opacity in percent", 55);
+        s.define("map.overlayBorder", "Map", "Claims overlay border width in pixels", 2);
+        s.define("map.claimMarkers", "Map", "Show an icon on every claimed chunk instead of one label per faction", false);
 
         // Storage and misc
         s.define("storage.autosaveSeconds", "Storage", "Autosave interval in seconds", 30);
@@ -344,6 +349,9 @@ public final class Defaults {
         // Map, HUD and storage
         s.range("map.borderOnlyAbove", 0, 1_000_000);
         s.range("hud.refreshSeconds", 1, 60);
+        // Map overlay brief
+        s.range("map.overlayOpacity", 10, 90);
+        s.range("map.overlayBorder", 0, 4);
         s.range("storage.autosaveSeconds", 10, 3600);
         s.range("storage.backupKeep", 0, 365);
         s.choices("misc.preset", "classic", "singleplayer", "hardcore", "peaceful");
