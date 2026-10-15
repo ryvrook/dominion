@@ -337,7 +337,7 @@ docs/                                      DEVELOPMENT.md conventions and STATUS
 ## Status
 
 Dominion Factions 0.3.0 builds against server 0.7.1 and still compiles on 0.7.0 and 0.6.8, boots headless with all
-23 modules next to Atlas and next to CombatLog, and has a JUnit suite of 461 tests over money moves, storage, settings, parsers, claims,
+23 modules next to Atlas and next to CombatLog, and has a JUnit suite of 530 tests over money moves, storage, settings, parsers, claims,
 power, membership, relations, nations, sieges, shields, the PvP table, events, missions, the market, shops, homes,
 the importer and the web map snapshot contract. **It has not been played in a game client yet.** The following
 are unverified until someone does.
