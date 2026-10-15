@@ -118,7 +118,6 @@ public final class DominionPlugin extends JavaPlugin {
         long failed = moduleState.values().stream().filter(v -> !"ok".equals(v)).count();
         if (failed == 0) {
             getLogger().at(Level.INFO).log("Dominion started with %d modules", modules.size());
-            AssetPackFix.report(this);
         } else {
             getLogger().at(Level.WARNING).log("Dominion started with %d modules and %d of them failed, see the errors above",
                     modules.size(), failed);
@@ -144,6 +143,8 @@ public final class DominionPlugin extends JavaPlugin {
 
     @Override
     protected void start() {
+        // The engine registers a runtime pack between setup and start, so the check only means something here.
+        AssetPackFix.report(this);
         var exec = HytaleServer.SCHEDULED_EXECUTOR;
         tasks.add(exec.scheduleAtFixedRate(() -> run(ctx.halfSecondTasks()), 500, 500, TimeUnit.MILLISECONDS));
         tasks.add(exec.scheduleAtFixedRate(() -> run(ctx.secondTasks()), 1, 1, TimeUnit.SECONDS));
