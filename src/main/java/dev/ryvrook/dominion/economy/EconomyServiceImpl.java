@@ -53,10 +53,15 @@ public final class EconomyServiceImpl implements EconomyService {
      * Allowance booked by {@link #coinageVeto} for a withdrawal a player started in Coinage, by the thread that runs
      * it. Coinage calls the veto and, when the move went through, the after listener on that same thread, so
      * {@link #coinageMoved} settles the booking. A booking that is still here when its thread asks again, or after
-     * {@link #HELD_MILLIS}, belongs to a move that failed after the veto and is given back.
+     * {@link #HELD_MILLIS}, belongs to a move that failed after the veto and is given back. Every booking left at
+     * shutdown is given back too, since the next instance never sees it.
      */
     private final Map<Long, Held> held = new java.util.concurrent.ConcurrentHashMap<>();
     static final long HELD_MILLIS = 10_000L;
+    /** Set at shutdown, after which the veto books nothing. */
+    private volatile boolean closed;
+    /** Wall clock of the bookings, replaced in tests. */
+    java.util.function.LongSupplier clock = System::currentTimeMillis;
 
     private record Held(Faction faction, UUID player, double amount, long at) {}
 
@@ -542,7 +547,7 @@ public final class EconomyServiceImpl implements EconomyService {
      * were turned off. Also rebuilds the member index of the net worth part.
      */
     void coinageTick() {
-        releaseStaleHolds(System.currentTimeMillis());
+        releaseStaleHolds(clock.getAsLong());
         if (coinage.live() == null || !enabled()) {
             return;
         }
@@ -622,13 +627,17 @@ public final class EconomyServiceImpl implements EconomyService {
         }
         double amount = CoinageAmounts.toAmount(minor, Math.max(0, coinage.decimals()));
         long thread = Thread.currentThread().threadId();
+        long now = clock.getAsLong();
         synchronized (lock) {
             release(held.remove(thread));
+            // A move that failed on another thread gives its booking back here too, not only on the minute tick.
+            releaseStaleHolds(now);
             // Booked now, under the same lock as the check, so two withdrawals at once cannot both fit the allowance.
             String over = CoinageBanks.limitDenied(f, player, amount, limit, this::format);
-            if (over == null) {
+            // After shutdown nothing books, the after listener counts the move in full as it did before bookings.
+            if (over == null && !closed) {
                 WithdrawLimits.record(f, player, amount);
-                held.put(thread, new Held(f, player, amount, System.currentTimeMillis()));
+                held.put(thread, new Held(f, player, amount, now));
             }
             return over;
         }
@@ -641,8 +650,11 @@ public final class EconomyServiceImpl implements EconomyService {
         }
     }
 
-    /** Gives back bookings older than {@link #HELD_MILLIS}, from the minute tick. */
+    /** Gives back bookings older than {@link #HELD_MILLIS}, from the veto and the minute tick. */
     void releaseStaleHolds(long now) {
+        if (held.isEmpty()) {
+            return;
+        }
         synchronized (lock) {
             held.values().removeIf(h -> {
                 if (now - h.at() > HELD_MILLIS) {
@@ -650,6 +662,20 @@ public final class EconomyServiceImpl implements EconomyService {
                     return true;
                 }
                 return false;
+            });
+        }
+    }
+
+    /**
+     * Gives back every booking, at shutdown before the factions are saved. A booking still here then belongs to a move
+     * that failed, or to one in flight whose after listener the next instance counts in full.
+     */
+    void releaseAllHolds() {
+        synchronized (lock) {
+            closed = true;
+            held.values().removeIf(h -> {
+                release(h);
+                return true;
             });
         }
     }

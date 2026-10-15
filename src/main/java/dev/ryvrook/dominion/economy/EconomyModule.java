@@ -31,4 +31,11 @@ public final class EconomyModule implements DominionModule {
         ctx.onPlayerReady(player -> service.onReady(player.getUuid()));
         ctx.onPlayerQuit(service::forget);
     }
+
+    @Override
+    public void shutdown(DominionContext ctx) {
+        if (service != null) {
+            service.releaseAllHolds();
+        }
+    }
 }

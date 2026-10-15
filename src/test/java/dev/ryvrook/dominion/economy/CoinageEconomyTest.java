@@ -474,7 +474,6 @@ class CoinageEconomyTest {
         assertEquals(Messages.get(EconomyText.WITHDRAW_LEFT_TODAY, "amount", eco.format(10)), other[0],
                 "a second withdrawal on another thread sees the first one booked");
         eco.releaseStaleHolds(System.currentTimeMillis() + EconomyServiceImpl.HELD_MILLIS + 1);
-        eco.releaseStaleHolds(System.currentTimeMillis() + EconomyServiceImpl.HELD_MILLIS + 1);
 
         coinage.accountsApi.setStatus(acc, AccountStatus.FROZEN, Initiator.server());
         var r = coinage.ledgerApi.transfer(Request.transfer(acc, off, null, 2500).by(Initiator.player(off, "Off")).plugin("Coinage"));
@@ -484,6 +483,54 @@ class CoinageEconomyTest {
         assertTrue(r.ok(), "the failed move gave its booking back, " + r.message());
         assertEquals(Messages.get(EconomyText.WITHDRAW_LEFT_TODAY, "amount", eco.format(0)), eco.bankWithdraw(off, 1).message(),
                 "the move that went through is counted once");
+    }
+
+    @Test
+    void aBookingLeftOnOneThreadIsGivenBackToAnotherAfterTheWindow() throws Exception {
+        Faction f = fx.faction("ABC");
+        UUID off = fx.member(f, "Off", Rank.OFFICER);
+        assertTrue(eco.bankCredit(f, 100, "start").success());
+        UUID acc = account(f);
+        fx.set("eco.withdrawDailyLimitOfficer", 30.0);
+        eco.coinageTick();
+        long[] now = {1_000_000L};
+        eco.clock = () -> now[0];
+
+        // Thread A passes the veto and its move fails in Coinage, so no after listener comes.
+        Thread a = new Thread(() -> eco.coinageVeto(acc, off, 3000));
+        a.start();
+        a.join();
+        String[] b = new String[1];
+        Runnable retry = () -> b[0] = eco.coinageVeto(acc, off, 3000);
+        Thread t = new Thread(retry);
+        t.start();
+        t.join();
+        assertEquals(Messages.get(EconomyText.WITHDRAW_LEFT_TODAY, "amount", eco.format(0)), b[0],
+                "inside the window the booking may still belong to a move in flight");
+        now[0] += EconomyServiceImpl.HELD_MILLIS + 1;
+        t = new Thread(retry);
+        t.start();
+        t.join();
+        assertNull(b[0], "after the window the next veto gives the dead booking back without waiting for the minute tick");
+    }
+
+    @Test
+    void shutdownGivesBookingsBackAndAMoveAfterItCountsOnce() {
+        Faction f = fx.faction("ABC");
+        UUID off = fx.member(f, "Off", Rank.OFFICER);
+        assertTrue(eco.bankCredit(f, 100, "start").success());
+        UUID acc = account(f);
+        fx.set("eco.withdrawDailyLimitOfficer", 30.0);
+        eco.coinageTick();
+        coinage.accountsApi.player(off);
+
+        assertNull(eco.coinageVeto(acc, off, 2000));
+        eco.releaseAllHolds();
+        // The Coinage link stops after the economy module, so a move can still pass the veto and settle.
+        var r = coinage.ledgerApi.transfer(Request.transfer(acc, off, null, 3000).by(Initiator.player(off, "Off")).plugin("Coinage"));
+        assertTrue(r.ok(), "the booking of the move that never came was given back, " + r.message());
+        assertEquals(Messages.get(EconomyText.WITHDRAW_LEFT_TODAY, "amount", eco.format(0)), eco.bankWithdraw(off, 1).message(),
+                "the move after shutdown is counted once, by the after listener");
     }
 
     @Test
