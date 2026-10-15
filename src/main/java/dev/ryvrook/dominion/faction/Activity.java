@@ -4,6 +4,7 @@ import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.Member;
 import dev.ryvrook.dominion.model.PlayerData;
 import dev.ryvrook.dominion.service.ChatService;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Time;
 
@@ -54,7 +55,7 @@ final class Activity {
         if (online && f.setting("loginAlerts", s.settings().bool("chat.loginAlerts"))) {
             ChatService chat = s.ctx.serviceOrNull(ChatService.class);
             if (chat != null) {
-                chat.alert(f, Msg.info(s.nameOf(player) + " is now online"));
+                chat.alert(f, Msg.info(Messages.get(FactionText.NOW_ONLINE, "name", s.nameOf(player))));
             }
         }
     }
@@ -85,7 +86,7 @@ final class Activity {
                     continue;
                 }
                 if (disbandDays > 0 && newestSeen(f, now) < now - disbandDays * FactionSupport.DAY) {
-                    s.disband(f, null, "no member logged in for " + disbandDays + " days");
+                    s.disband(f, null, Messages.get(FactionText.DISBAND_REASON_INACTIVE, "days", disbandDays));
                     continue;
                 }
                 if (memberDays > 0) {
@@ -144,9 +145,9 @@ final class Activity {
                     continue;
                 }
                 ranks.handOver(f, m.uuid(), successor.uuid());
-                s.toFaction(f, Msg.info(successor.name() + " now leads the faction because the leader was inactive"), false);
+                s.toFaction(f, Msg.info(Messages.get(FactionText.INACTIVE_SUCCESSOR, "name", successor.name())), false);
             }
-            s.removeMember(f, m.uuid(), null, "inactive", s.nameOf(m.uuid()) + " was removed after " + days + " days offline");
+            s.removeMember(f, m.uuid(), null, "inactive", Messages.get(FactionText.REMOVED_INACTIVE, "name", s.nameOf(m.uuid()), "days", days));
         }
     }
 

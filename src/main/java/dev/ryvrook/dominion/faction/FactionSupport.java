@@ -15,6 +15,8 @@ import dev.ryvrook.dominion.model.PlayerData;
 import dev.ryvrook.dominion.model.Rank;
 import dev.ryvrook.dominion.service.ChatService;
 import dev.ryvrook.dominion.service.EconomyService;
+import dev.ryvrook.dominion.text.CommonText;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Players;
 import dev.ryvrook.dominion.util.Time;
@@ -76,7 +78,7 @@ final class FactionSupport {
     Gate gate(UUID actor, FactionAction action) {
         Faction f = factionOf(actor);
         if (f == null) {
-            return new Gate(null, Result.fail("You are not in a faction"));
+            return new Gate(null, Result.fail(Messages.get(CommonText.NOT_IN_FACTION)));
         }
         if (action != null && !Perms.can(f, actor, action, Time.now())) {
             return new Gate(f, Result.fail(Perms.denial(f, actor, action, Time.now())));
@@ -86,7 +88,7 @@ final class FactionSupport {
 
     String nameOf(UUID player) {
         if (player == null) {
-            return "Server";
+            return Messages.get(FactionText.SERVER_NAME);
         }
         String n = ctx.player(player).name();
         return n == null || n.isEmpty() ? player.toString().substring(0, 8) : n;
@@ -162,9 +164,9 @@ final class FactionSupport {
         PlayerData p = ctx.player(player);
         p.setName(name);
         p.setFactionId(f.id());
-        audit(f, who, whoName, "member", name + " joined " + how);
+        audit(f, who, whoName, "member", Messages.get(FactionText.AUDIT_JOINED, "name", name, "how", how));
         publish(new DominionEvent.MemberJoined(f.id(), player));
-        toFaction(f, Msg.good(name + " joined the faction"), false);
+        toFaction(f, Msg.good(Messages.get(FactionText.JOINED_NOTICE, "name", name)), false);
         return m;
     }
 
@@ -193,7 +195,7 @@ final class FactionSupport {
         EconomyService eco = economy();
         double bank;
         if (eco != null) {
-            bank = eco.bankDrain(f, "Faction disbanded");
+            bank = eco.bankDrain(f, Messages.get(FactionText.LEDGER_DISBANDED));
         } else {
             synchronized (f) {
                 bank = f.bank();
@@ -212,7 +214,7 @@ final class FactionSupport {
             lp.setBalance(lp.balance() + amount);
             return;
         }
-        if (eco.deposit(leader, amount, "Faction disbanded").failed()) {
+        if (eco.deposit(leader, amount, Messages.get(FactionText.LEDGER_DISBANDED)).failed()) {
             // The bank is already empty, so a refused payment would destroy the money. Mail it instead.
             dev.ryvrook.dominion.service.MarketService market = ctx.serviceOrNull(dev.ryvrook.dominion.service.MarketService.class);
             if (market != null) {
@@ -232,8 +234,8 @@ final class FactionSupport {
     /** As above with the audit written under an explicit name, used by admin actions. */
     void disband(Faction f, UUID actor, String actorName, String reason) {
         UUID leader = f.leader();
-        audit(f, actor, actorName, "faction", "Faction disbanded because " + reason);
-        toFaction(f, Msg.warn("Your faction " + f.tag() + " was disbanded"), false);
+        audit(f, actor, actorName, "faction", Messages.get(FactionText.AUDIT_DISBANDED, "reason", reason));
+        toFaction(f, Msg.warn(Messages.get(FactionText.DISBANDED_NOTICE, "faction", f.tag())), false);
         for (Member m : f.members()) {
             f.removeMember(m.uuid());
             PlayerData p = ctx.player(m.uuid());

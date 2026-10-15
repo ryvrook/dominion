@@ -4,6 +4,7 @@ import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.FactionAction;
 import dev.ryvrook.dominion.model.Member;
 import dev.ryvrook.dominion.model.Rank;
+import dev.ryvrook.dominion.text.Messages;
 
 import java.util.EnumSet;
 import java.util.Locale;
@@ -47,8 +48,8 @@ final class Perms {
     static String denial(Faction f, UUID actor, FactionAction action, long now) {
         Member m = f.member(actor);
         if (m != null && held(f, m, action, now) && f.rankCan(f.rankOf(actor), action)) {
-            return "New members cannot do that until their hold ends";
+            return Messages.get(FactionText.NEW_MEMBER_HOLD);
         }
-        return "Your rank does not allow you to " + action.description().toLowerCase(Locale.ROOT);
+        return Messages.get(FactionText.RANK_DENIED, "action", action.description().toLowerCase(Locale.ROOT));
     }
 }

@@ -1,6 +1,7 @@
 package dev.ryvrook.dominion.faction;
 
 import dev.ryvrook.dominion.config.Settings;
+import dev.ryvrook.dominion.text.Messages;
 
 import java.util.Locale;
 
@@ -14,26 +15,26 @@ final class TagRules {
 
     static String tag(Settings s, String tag) {
         if (tag == null || tag.isBlank()) {
-            return "Please choose a tag";
+            return Messages.get(FactionText.TAG_EMPTY);
         }
         int min = s.integer("faction.tagMin");
         int max = s.integer("faction.tagMax");
         if (tag.length() < min) {
-            return "Tags must be at least " + min + " characters long";
+            return Messages.get(FactionText.TAG_TOO_SHORT, "min", min);
         }
         if (tag.length() > max) {
-            return "Tags can be at most " + max + " characters long";
+            return Messages.get(FactionText.TAG_TOO_LONG, "max", max);
         }
         for (int i = 0; i < tag.length(); i++) {
             char c = tag.charAt(i);
             if (!(c < 128 && Character.isLetterOrDigit(c))) {
-                return "Tags may only use letters and digits";
+                return Messages.get(FactionText.TAG_CHARACTERS);
             }
         }
         String lower = tag.toLowerCase(Locale.ROOT);
         for (String banned : s.text("faction.tagBlacklist").split(",")) {
             if (!banned.isBlank() && banned.trim().toLowerCase(Locale.ROOT).equals(lower)) {
-                return "That tag is not allowed";
+                return Messages.get(FactionText.TAG_BLOCKED);
             }
         }
         return null;
@@ -45,9 +46,9 @@ final class TagRules {
         }
         int max = s.integer("faction.nameMax");
         if (name.strip().length() > max) {
-            return "Names can be at most " + max + " characters long";
+            return Messages.get(FactionText.NAME_TOO_LONG, "max", max);
         }
-        return plain(name) ? null : "Names cannot contain special characters";
+        return plain(name) ? null : Messages.get(FactionText.NAME_CHARACTERS);
     }
 
     static String text(String value, int max, String what) {
@@ -55,14 +56,14 @@ final class TagRules {
             return null;
         }
         if (value.length() > max) {
-            return what + " can be at most " + max + " characters long";
+            return Messages.get(FactionText.TEXT_TOO_LONG, "what", what, "max", max);
         }
-        return plain(value) ? null : what + " cannot contain special characters";
+        return plain(value) ? null : Messages.get(FactionText.TEXT_CHARACTERS, "what", what);
     }
 
     static String color(String color) {
         if (color == null || !color.matches("#?[0-9a-fA-F]{6}")) {
-            return "Colours must be a hex value such as #7fd6ff";
+            return Messages.get(FactionText.COLOUR_INVALID);
         }
         return null;
     }
@@ -73,7 +74,7 @@ final class TagRules {
 
     static String playerName(String name) {
         if (name == null || !name.matches("[A-Za-z0-9_]{3,16}")) {
-            return "That is not a valid player name";
+            return Messages.get(FactionText.PLAYER_NAME_INVALID);
         }
         return null;
     }
