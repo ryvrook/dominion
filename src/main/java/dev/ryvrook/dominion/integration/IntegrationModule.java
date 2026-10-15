@@ -86,7 +86,9 @@ public final class IntegrationModule implements DominionModule {
 
     /**
      * Reloads Dominion through the plugin manager a few seconds later on a thread of its own, so the sibling finishes
-     * its start first and the reload never runs inside one of Dominion's own timers it is about to stop.
+     * its start first and the reload never runs inside one of Dominion's own timers it is about to stop. The reload
+     * waits for a TrackerAPI or Coinage pass that is reloading the same plugins and is dropped when that pass already
+     * reloaded Dominion, see {@link SelfReload}.
      */
     private static void reloadSelf(DominionContext ctx) {
         Thread t = new Thread(() -> {
@@ -94,7 +96,15 @@ public final class IntegrationModule implements DominionModule {
                 Thread.sleep(3000);
                 var id = ctx.plugin().getIdentifier();
                 var manager = com.hypixel.hytale.server.core.plugin.PluginManager.get();
-                if (manager == null || !manager.reload(id)) {
+                if (manager == null) {
+                    ctx.logger().at(Level.WARNING).log("Dominion could not reload itself, run %s", Binding.RELOAD);
+                    return;
+                }
+                SelfReload.Outcome done = SelfReload.run(() -> manager.getPlugin(id), ctx.plugin(), () -> manager.reload(id),
+                        SelfReload.sharedLock());
+                if (done == SelfReload.Outcome.SKIPPED) {
+                    ctx.logger().at(Level.INFO).log("Dominion was already reloaded by another plugin, so it skips its own reload");
+                } else if (done == SelfReload.Outcome.FAILED) {
                     ctx.logger().at(Level.WARNING).log("Dominion could not reload itself, run %s", Binding.RELOAD);
                 }
             } catch (InterruptedException e) {
