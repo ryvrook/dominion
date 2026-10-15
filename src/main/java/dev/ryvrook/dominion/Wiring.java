@@ -35,7 +35,8 @@ final class Wiring {
             "dev.ryvrook.dominion.map.MapModule",
             "dev.ryvrook.dominion.command.CommandModule",
             "dev.ryvrook.dominion.admin.AdminModule",
-            "dev.ryvrook.dominion.export.ExportModule"
+            "dev.ryvrook.dominion.export.ExportModule",
+            "dev.ryvrook.dominion.integration.IntegrationModule"
     };
 
     static List<DominionModule> load(HytaleLogger logger) {

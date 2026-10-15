@@ -237,6 +237,19 @@ class SnapshotContractTest {
         assertEquals("PACT", b.get("nation").getAsString());
     }
 
+    /** The faction fields Chronicle Stats reads in DominionSnapshotReader, with the member list it logs from. */
+    @Test
+    void factionsCarryWhatChronicleReads() {
+        JsonObject w = byKey(snapshot().getAsJsonArray("factions"), "tag", "WOLF");
+        text(w, "tag", "name", "color");
+        number(w, "claims", "power", "maxPower", "level", "kills", "deaths", "createdAt");
+        assertEquals(1_700_000_000_000L, w.get("createdAt").getAsLong());
+        JsonArray ids = w.getAsJsonArray("memberIds");
+        assertTrue(ids.contains(new com.google.gson.JsonPrimitive(wolf.leader().toString())));
+        JsonObject b = byKey(snapshot().getAsJsonArray("factions"), "tag", "BEAR");
+        assertEquals("PACT", b.get("nation").getAsString(), "the nation is the tag Chronicle shows");
+    }
+
     @Test
     void relationsAreTheResolvedOnes() {
         JsonArray factions = snapshot().getAsJsonArray("factions");

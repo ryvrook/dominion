@@ -13,7 +13,10 @@
   "ServerVersion": ">=0.6.8",
   "Dependencies": {},
   "OptionalDependencies": {
-    "Devify:CombatLog": ">=1.7.0"
+    "Devify:CombatLog": ">=1.7.0",
+    "Ryvrook:TrackerAPI": ">=1.0.0",
+    "Ryvrook:Feats": ">=1.5.0",
+    "Ryvrook:Atlas": ">=1.6.0"
   },
   "LoadBefore": {},
   "DisabledByDefault": false,
