@@ -22,6 +22,7 @@ import dev.ryvrook.dominion.service.FactionService;
 import dev.ryvrook.dominion.service.PowerService;
 import dev.ryvrook.dominion.service.ProgressService;
 import dev.ryvrook.dominion.service.SiegeService;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Players;
 
@@ -94,7 +95,7 @@ final class DeathTrackingSystem extends DeathSystems.OnDeathSystem {
         }
         playerKill(killerId, victimId);
 
-        String line = victim.getUsername() + " was slain by " + killer.getUsername() + ".";
+        String line = Messages.get(CombatText.SLAIN, "victim", victim.getUsername(), "killer", killer.getUsername());
         String reward = reward(victimFaction, killerFaction, victim.getUsername(), killer.getUsername());
         ChatService chat = ctx.serviceOrNull(ChatService.class);
         if (chat == null) {
@@ -156,11 +157,11 @@ final class DeathTrackingSystem extends DeathSystems.OnDeathSystem {
         }
         // The economy moves the money under its ledger lock and audits both banks.
         Result moved = eco.bankTransfer(victim, killer, amount,
-                "the death of " + victimName + " at the hands of " + killerName);
+                Messages.get(CombatText.KILL_REWARD_REASON, "victim", victimName, "killer", killerName));
         if (moved.failed()) {
             return "";
         }
-        return killer.tag() + " took " + eco.format(amount) + " from the bank of " + victim.tag() + ".";
+        return Messages.get(CombatText.KILL_REWARD, "killer", killer.tag(), "amount", eco.format(amount), "victim", victim.tag());
     }
 
     /** Tells the siege module about the death so its raid log stays accurate. */

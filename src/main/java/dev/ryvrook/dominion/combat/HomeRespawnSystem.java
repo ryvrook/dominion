@@ -17,6 +17,7 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.model.Location;
 import dev.ryvrook.dominion.service.HomeService;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Players;
 
@@ -102,6 +103,6 @@ final class HomeRespawnSystem extends EntityEventSystem<EntityStore, RespawnEven
         }
         Transform transform = new Transform(home.x(), home.y(), home.z(), home.pitch(), home.yaw(), 0f);
         store.putComponent(ref, Teleport.getComponentType(), Teleport.createForPlayer(target, transform));
-        player.sendMessage(Msg.info("You respawned at your faction home."));
+        player.sendMessage(Msg.info(Messages.get(CombatText.RESPAWNED_HOME)));
     }
 }
