@@ -165,6 +165,54 @@ public final class DominionHud extends CustomUIHud {
         return String.format(Locale.ROOT, MARKUP, edge, Math.max(0, top), WIDTH, HEIGHT, rows);
     }
 
+    /**
+     * The values of one fill, by selector. A refresh compares them with what the client was last sent and sends only
+     * the changes, so a sidebar where nothing moved costs no packet at all.
+     */
+    static final class Values {
+        /** A bar colour, kept as its hex so two fills compare equal. */
+        record Patch(String hex) {}
+
+        final java.util.LinkedHashMap<String, Object> map = new java.util.LinkedHashMap<>();
+
+        void set(String selector, String value) {
+            map.put(selector, value == null ? "" : value);
+        }
+
+        void set(String selector, boolean value) {
+            map.put(selector, value);
+        }
+
+        void patch(String selector, String hex) {
+            map.put(selector, new Patch(hex));
+        }
+
+        /** Writes the values that differ from {@code last} and answers how many it wrote. */
+        int writeChanges(UICommandBuilder c, java.util.Map<String, Object> last) {
+            int n = 0;
+            for (java.util.Map.Entry<String, Object> e : map.entrySet()) {
+                if (last != null && e.getValue().equals(last.get(e.getKey()))) {
+                    continue;
+                }
+                n++;
+                switch (e.getValue()) {
+                    case String text -> c.set(e.getKey(), text);
+                    case Boolean b -> c.set(e.getKey(), b);
+                    case Patch pt -> c.setObject(e.getKey(), DominionHud.patch(pt.hex()));
+                    default -> { }
+                }
+            }
+            return n;
+        }
+    }
+
+    /** Every value is sent again this often, in case the client dropped an update. */
+    static final long FULL_EVERY_MILLIS = 30_000L;
+
+    /** What the client was last sent and when everything was. Read and written on the player's world thread only. */
+    private java.util.Map<String, Object> sent;
+    private long fullAt;
+
     @Override
     protected void build(UICommandBuilder commands) {
         String side = "right";
@@ -176,22 +224,36 @@ public final class DominionHud extends CustomUIHud {
             ctx.logger().at(Level.FINE).withCause(e).log("Dominion HUD position unavailable");
         }
         commands.appendInline(null, markup(side, top));
-        fill(commands);
+        Values v = new Values();
+        fill(v);
+        v.writeChanges(commands, null);
+        sent = v.map;
+        fullAt = System.currentTimeMillis();
     }
 
-    /** Pushes fresh values. Must run on the player's world thread. */
+    /** Pushes the values that changed since the last push, nothing when none did. Must run on the player's world thread. */
     void refresh() {
+        Values v = new Values();
+        fill(v);
         UICommandBuilder commands = new UICommandBuilder();
-        fill(commands);
+        long now = System.currentTimeMillis();
+        boolean full = now - fullAt >= FULL_EVERY_MILLIS;
+        if (v.writeChanges(commands, full ? null : sent) == 0) {
+            return;
+        }
         try {
             update(false, commands);
+            sent = v.map;
+            if (full) {
+                fullAt = now;
+            }
         } catch (Exception e) {
             ctx.logger().at(Level.FINE).withCause(e).log("Dominion HUD update failed");
         }
     }
 
     /** Each part fills on its own, so one missing service blanks only its own rows. */
-    private void fill(UICommandBuilder c) {
+    private void fill(Values c) {
         Faction f;
         try {
             f = ctx.service(FactionService.class).factionOf(getPlayerRef().getUuid());
@@ -215,7 +277,7 @@ public final class DominionHud extends CustomUIHud {
         }
     }
 
-    private void fillTitle(UICommandBuilder c, Faction f) {
+    private void fillTitle(Values c, Faction f) {
         if (f == null) {
             c.set("#DomTitle.Text", Messages.get(UiText.HUD_NO_FACTION));
             c.set("#DomTitle.Style.TextColor", Msg.MUTED);
@@ -231,7 +293,7 @@ public final class DominionHud extends CustomUIHud {
         c.set("#DomRank.Text", rank == null ? "" : fit(f.rankName(rank), RANK_CHARS));
     }
 
-    private void fillStats(UICommandBuilder c, Faction f) {
+    private void fillStats(Values c, Faction f) {
         var uuid = getPlayerRef().getUuid();
         PowerService ps = ctx.service(PowerService.class);
         c.set("#DomPower.Text", Msg.number(ps.powerOf(uuid)) + " / " + Msg.number(ps.maxPowerOf(uuid)));
@@ -258,7 +320,7 @@ public final class DominionHud extends CustomUIHud {
         c.set("#DomOnline.Text", online + " / " + f.memberCount());
     }
 
-    private void fillHere(UICommandBuilder c, Faction f) {
+    private void fillHere(Values c, Faction f) {
         PlayerRef player = getPlayerRef();
         ClaimService cs = ctx.service(ClaimService.class);
         String world = Players.worldName(player);
@@ -270,7 +332,7 @@ public final class DominionHud extends CustomUIHud {
         if (here == null) {
             name = Messages.get(UiText.HUD_WILDERNESS);
             color = WILD_TEXT;
-            c.setObject("#DomHereBar.Background", patch(WILD_BAR));
+            c.patch("#DomHereBar.Background", WILD_BAR);
         } else {
             name = here.label();
             if (here.type() == FactionType.SAFEZONE) {
@@ -291,7 +353,7 @@ public final class DominionHud extends CustomUIHud {
                     flags = flags.isEmpty() ? breached : flags + "  " + breached;
                 }
             }
-            c.setObject("#DomHereBar.Background", patch(color));
+            c.patch("#DomHereBar.Background", color);
         }
         c.set("#DomHere.Text", fit(name, flags.isEmpty() ? HERE_CHARS + FLAG_CHARS - 2 : HERE_CHARS));
         c.set("#DomHere.Style.TextColor", color);
@@ -305,7 +367,7 @@ public final class DominionHud extends CustomUIHud {
     }
 
     /** Fills the status row and answers whether the grace countdown went there. */
-    private boolean fillStatus(UICommandBuilder c, Faction f) {
+    private boolean fillStatus(Values c, Faction f) {
         RulesService rules = ctx.serviceOrNull(RulesService.class);
         ShieldService shieldService = ctx.serviceOrNull(ShieldService.class);
         ClaimService cs = ctx.service(ClaimService.class);
@@ -365,7 +427,7 @@ public final class DominionHud extends CustomUIHud {
     }
 
     /** Siege, shield and grace lines. Reads the active sieges once per refresh. */
-    private void fillSiegeLines(UICommandBuilder c, Faction f, boolean graceOnStatus) {
+    private void fillSiegeLines(Values c, Faction f, boolean graceOnStatus) {
         long now = Time.now();
         String siegeText = "";
         SiegeService sieges = ctx.serviceOrNull(SiegeService.class);

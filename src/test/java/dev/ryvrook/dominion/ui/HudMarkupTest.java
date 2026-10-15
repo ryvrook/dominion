@@ -50,4 +50,23 @@ class HudMarkupTest {
         }
         return n;
     }
+
+    @Test
+    void aRefreshSendsOnlyWhatChanged() {
+        DominionHud.Values first = new DominionHud.Values();
+        first.set("#A.Text", "one");
+        first.set("#A.Visible", true);
+        first.patch("#Bar.Background", "#112233");
+        assertEquals(3, first.writeChanges(new com.hypixel.hytale.server.core.ui.builder.UICommandBuilder(), null));
+        DominionHud.Values same = new DominionHud.Values();
+        same.set("#A.Text", "one");
+        same.set("#A.Visible", true);
+        same.patch("#Bar.Background", "#112233");
+        assertEquals(0, same.writeChanges(new com.hypixel.hytale.server.core.ui.builder.UICommandBuilder(), first.map));
+        DominionHud.Values moved = new DominionHud.Values();
+        moved.set("#A.Text", "two");
+        moved.set("#A.Visible", true);
+        moved.patch("#Bar.Background", "#445566");
+        assertEquals(2, moved.writeChanges(new com.hypixel.hytale.server.core.ui.builder.UICommandBuilder(), first.map));
+    }
 }
