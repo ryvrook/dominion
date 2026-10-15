@@ -42,4 +42,18 @@ public final class ConfigText {
             "{id} is back to its default wording.");
     public static final String MESSAGES_RESET_FAILED = Messages.define("admin.messages.resetFailed",
             "messages.json could not be changed. The server log has the reason.");
+
+    // Command and argument descriptions, read once when the commands are registered.
+    public static final String CMD_CONFIG = Messages.define("admin.config.cmdConfig", "Browse, read, change and dump the settings.");
+    public static final String CMD_CONFIG_ONE = Messages.define("admin.config.cmdConfigOne", "Show a section, a setting, or dump every setting to a file.");
+    public static final String CMD_CONFIG_TWO = Messages.define("admin.config.cmdConfigTwo", "Show a page of a section, or change a setting.");
+    public static final String ARG_TARGET = Messages.define("admin.config.argTarget", "Section, key or dump");
+    public static final String ARG_TARGET_TWO = Messages.define("admin.config.argTargetTwo", "Section or key");
+    public static final String ARG_VALUE = Messages.define("admin.config.argValue", "Page number or new value");
+    public static final String CMD_MESSAGES = Messages.define("admin.messages.cmdMessages", "Look up, search and reset the wording in messages.json.");
+    public static final String CMD_MESSAGES_ID = Messages.define("admin.messages.cmdMessagesId", "Show the default and custom wording of one message.");
+    public static final String CMD_MESSAGES_SEARCH = Messages.define("admin.messages.cmdSearch", "List the message ids whose wording contains some text.");
+    public static final String CMD_MESSAGES_RESET = Messages.define("admin.messages.cmdReset", "Put the default wording of one message back.");
+    public static final String ARG_MESSAGE_ID = Messages.define("admin.messages.argId", "Message id");
+    public static final String ARG_SEARCH_TEXT = Messages.define("admin.messages.argText", "Text to find");
 }

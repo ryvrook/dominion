@@ -46,30 +46,30 @@ final class ConfigCommands {
     }
 
     void register(ServerCmd root) {
-        ServerCmd config = root.sub(server("config", "Browse, read, change and dump the settings."));
+        ServerCmd config = root.sub(server("config", Messages.get(ConfigText.CMD_CONFIG)));
         config.handler(this::sections);
-        ServerCmd one = variant("Show a section, a setting, or dump every setting to a file.");
-        RequiredArg<String> target = one.withRequiredArg("target", "Section, key or dump", ArgTypes.STRING);
+        ServerCmd one = variant(Messages.get(ConfigText.CMD_CONFIG_ONE));
+        RequiredArg<String> target = one.withRequiredArg("target", Messages.get(ConfigText.ARG_TARGET), ArgTypes.STRING);
         one.handler(c -> target(c, c.arg(target)));
         config.variant(one);
-        ServerCmd two = variant("Show a page of a section, or change a setting.");
-        RequiredArg<String> target2 = two.withRequiredArg("target", "Section or key", ArgTypes.STRING);
-        RequiredArg<String> value = two.withRequiredArg("value", "Page number or new value", ArgTypes.GREEDY_STRING);
+        ServerCmd two = variant(Messages.get(ConfigText.CMD_CONFIG_TWO));
+        RequiredArg<String> target2 = two.withRequiredArg("target", Messages.get(ConfigText.ARG_TARGET_TWO), ArgTypes.STRING);
+        RequiredArg<String> value = two.withRequiredArg("value", Messages.get(ConfigText.ARG_VALUE), ArgTypes.GREEDY_STRING);
         two.handler(c -> targetWith(c, c.arg(target2), c.arg(value).trim()));
         config.variant(two);
 
-        ServerCmd messages = root.sub(server("messages", "Look up, search and reset the wording in messages.json."));
+        ServerCmd messages = root.sub(server("messages", Messages.get(ConfigText.CMD_MESSAGES)));
         messages.handler(this::messageCount);
-        ServerCmd id = variant("Show the default and custom wording of one message.");
-        RequiredArg<String> idArg = id.withRequiredArg("id", "Message id", ArgTypes.STRING);
+        ServerCmd id = variant(Messages.get(ConfigText.CMD_MESSAGES_ID));
+        RequiredArg<String> idArg = id.withRequiredArg("id", Messages.get(ConfigText.ARG_MESSAGE_ID), ArgTypes.STRING);
         id.handler(c -> message(c, c.arg(idArg)));
         messages.variant(id);
         // Sub commands rather than variants, because the engine picks a variant by word count and the search text may have several words.
-        ServerCmd search = messages.sub(server("search", "List the message ids whose wording contains some text."));
-        RequiredArg<String> text = search.withRequiredArg("text", "Text to find", ArgTypes.GREEDY_STRING);
+        ServerCmd search = messages.sub(server("search", Messages.get(ConfigText.CMD_MESSAGES_SEARCH)));
+        RequiredArg<String> text = search.withRequiredArg("text", Messages.get(ConfigText.ARG_SEARCH_TEXT), ArgTypes.GREEDY_STRING);
         search.handler(c -> search(c, c.arg(text).trim()));
-        ServerCmd reset = messages.sub(server("reset", "Put the default wording of one message back."));
-        RequiredArg<String> resetId = reset.withRequiredArg("id", "Message id", ArgTypes.STRING);
+        ServerCmd reset = messages.sub(server("reset", Messages.get(ConfigText.CMD_MESSAGES_RESET)));
+        RequiredArg<String> resetId = reset.withRequiredArg("id", Messages.get(ConfigText.ARG_MESSAGE_ID), ArgTypes.STRING);
         reset.handler(c -> reset(c, c.arg(resetId).trim()));
     }
 
