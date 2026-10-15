@@ -1,6 +1,15 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 - 2026-10-15
+
+Dominion Factions 0.3.0 is the first release shaped by a client session. Faction names show once, the sidebar,
+the chat map, `/f who` and `/f top` follow the classic Factions look, claims are painted on the world map the way
+Simple Claims paints them, and Dominion links to TrackerAPI, Feats and Atlas when they are installed.
+
+### Upgrading
+- Replace `DominionFactions-0.2.1.jar` with `DominionFactions-0.3.0.jar`. The data folder and every existing setting carry over.
+- New settings are added to config.json with their defaults on the first start. `hud.side`, `hud.top`, `map.overlay`, `map.overlayOpacity`, `map.overlayBorder`, `map.claimMarkers`, `top.pageSize`, `chat.showTag`, `chat.nameplateTag`, `chat.announceRenames`, `integrations.tracker`, `integrations.feats`, `integrations.atlas` and `integrations.featsAnnounce`.
+- TrackerAPI, Feats and Atlas are optional dependencies. Without them Dominion runs as before.
 
 ### Changed
 - A faction or nation whose tag matches its name is shown by its name once everywhere, in the panel header, the sidebar, the land owner row, world map markers, nation rows, top lists and info pages.
