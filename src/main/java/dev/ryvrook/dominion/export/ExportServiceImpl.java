@@ -44,8 +44,9 @@ import java.util.function.Supplier;
 import java.util.logging.Level;
 
 /**
- * Writes export/snapshot.json for the web map. A change counter is bumped by every bus event and
- * every two seconds while players are online, and the file is only rewritten when it moved.
+ * Writes export/snapshot.json for the web map. A change counter is bumped by every bus event, every two seconds
+ * while players are online and export.playerPositions is on, and otherwise only when the online roster changed
+ * (who is on, in which world, hidden or not). The file is only rewritten when the counter moved.
  */
 public final class ExportServiceImpl implements ExportService {
     private static final int SCHEMA_VERSION = 1;
@@ -58,6 +59,8 @@ public final class ExportServiceImpl implements ExportService {
     private long written;
     private int secondsSinceFlush;
     private int secondsSinceMove;
+    /** A hash of the online roster at the last check, for servers that write no positions. */
+    private long roster;
     private boolean warned;
     /** True while a timed write waits on the IO thread, so a slow disk never queues a pile of them. */
     private final java.util.concurrent.atomic.AtomicBoolean queued = new java.util.concurrent.atomic.AtomicBoolean();
@@ -128,8 +131,16 @@ public final class ExportServiceImpl implements ExportService {
         if (++secondsSinceMove >= 2) {
             secondsSinceMove = 0;
             try {
-                if (Universe.get().getPlayerCount() > 0) {
-                    changes.incrementAndGet();
+                if (ctx.settings().bool("export.playerPositions")) {
+                    if (Universe.get().getPlayerCount() > 0) {
+                        changes.incrementAndGet();
+                    }
+                } else {
+                    long now = rosterHash(onlinePlayers());
+                    if (now != roster) {
+                        roster = now;
+                        changes.incrementAndGet();
+                    }
                 }
             } catch (Exception ignored) {
                 // universe not ready yet
@@ -278,6 +289,17 @@ public final class ExportServiceImpl implements ExportService {
             }
         }
         j.endArray();
+    }
+
+    /** What the snapshot shows of the online players without positions, order free. */
+    private long rosterHash(Collection<PlayerRef> online) {
+        long h = online.size();
+        for (PlayerRef p : online) {
+            String world = Players.worldName(p);
+            long one = p.getUuid().hashCode() * 31L + (world == null ? 0 : world.hashCode());
+            h += one * 1_000_003L + (ctx.player(p.getUuid()).mapHidden() ? 7 : 0);
+        }
+        return h;
     }
 
     private static Collection<PlayerRef> onlinePlayers() {
