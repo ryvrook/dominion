@@ -11,6 +11,8 @@ import dev.ryvrook.dominion.service.ClaimService;
 import dev.ryvrook.dominion.service.FactionService;
 import dev.ryvrook.dominion.service.ProgressService;
 import dev.ryvrook.dominion.service.ShieldService;
+import dev.ryvrook.dominion.text.CommonText;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.util.Keys;
 import dev.ryvrook.dominion.util.Players;
 import dev.ryvrook.dominion.util.Time;
@@ -83,39 +85,38 @@ public final class ShieldServiceImpl implements ShieldService {
         FactionService fs = ctx.service(FactionService.class);
         Faction f = fs.factionOf(actor);
         if (f == null) {
-            return Result.fail("You are not in a faction.");
+            return Result.fail(Messages.get(CommonText.NOT_IN_FACTION));
         }
         if (!fs.can(actor, FactionAction.SETTINGS)) {
-            return Result.fail("Your rank cannot change the shield window.");
+            return Result.fail(Messages.get(ShieldText.RANK_CANNOT));
         }
         if (!ctx.settings().bool("shield.enabled")) {
-            return Result.fail("Shields are turned off on this server.");
+            return Result.fail(Messages.get(ShieldText.SHIELDS_OFF));
         }
         if (startHour < -1 || startHour > 23) {
-            return Result.fail("Pick an hour from 0 to 23, or none to remove the shield.");
+            return Result.fail(Messages.get(ShieldText.PICK_HOUR));
         }
         String who = nameOf(actor);
         boolean pending = f.stat(PENDING_AT) > 0;
         if (startHour == f.shieldStartHour()) {
             if (!pending) {
-                return Result.fail(startHour < 0 ? "Your faction has no shield window already."
-                        : "Your shield already starts at " + hour(startHour) + ".");
+                return Result.fail(startHour < 0 ? Messages.get(ShieldText.ALREADY_NONE)
+                        : Messages.get(ShieldText.ALREADY_STARTS, "hour", hour(startHour)));
             }
             setStat(f, PENDING_AT, 0);
             setStat(f, PENDING_HOUR, 0);
-            fs.audit(f, actor, who, "shield", "Cancelled the pending shield change");
-            return Result.pass("The pending shield change was cancelled.");
+            fs.audit(f, actor, who, "shield", Messages.get(ShieldText.AUDIT_PENDING_CANCELLED));
+            return Result.pass(Messages.get(ShieldText.PENDING_CANCELLED));
         }
         long delay = Math.max(0, ctx.settings().integer("shield.changeDelayHours")) * HOUR;
         if (delay == 0) {
             apply(f, startHour, actor, who);
-            return Result.pass(describeChange(startHour, true));
+            return Result.pass(describeChange(startHour, true, 0));
         }
         setStat(f, PENDING_HOUR, startHour);
         setStat(f, PENDING_AT, Time.now());
-        fs.audit(f, actor, who, "shield", "Asked to " + describeAudit(startHour) + " in "
-                + Time.remaining(delay));
-        return Result.pass(describeChange(startHour, false) + " in " + Time.remaining(delay) + ".");
+        fs.audit(f, actor, who, "shield", describeAudit(startHour, delay));
+        return Result.pass(describeChange(startHour, false, delay));
     }
 
     private void apply(Faction f, int hour, UUID actor, String who) {
@@ -123,48 +124,50 @@ public final class ShieldServiceImpl implements ShieldService {
         setStat(f, PENDING_AT, 0);
         setStat(f, PENDING_HOUR, 0);
         ctx.service(FactionService.class).audit(f, actor, who, "shield",
-                hour < 0 ? "The shield window was removed" : "The shield window now starts at " + hour(hour));
+                hour < 0 ? Messages.get(ShieldText.AUDIT_REMOVED) : Messages.get(ShieldText.AUDIT_STARTS, "hour", hour(hour)));
         ctx.bus().publish(new DominionEvent.FactionChanged(f.id()));
     }
 
-    private static String describeChange(int hour, boolean now) {
+    private static String describeChange(int hour, boolean now, long delay) {
         if (hour < 0) {
-            return now ? "Your shield window was removed." : "Your shield window will be removed";
+            return now ? Messages.get(ShieldText.REMOVED) : Messages.get(ShieldText.WILL_BE_REMOVED, "delay", Time.remaining(delay));
         }
-        return now ? "Your shield now starts at " + hour(hour) + "." : "Your shield will start at " + hour(hour);
+        return now ? Messages.get(ShieldText.NOW_STARTS, "hour", hour(hour))
+                : Messages.get(ShieldText.WILL_START, "hour", hour(hour), "delay", Time.remaining(delay));
     }
 
-    private static String describeAudit(int hour) {
-        return hour < 0 ? "remove the shield window" : "move the shield window to " + hour(hour);
+    private static String describeAudit(int hour, long delay) {
+        return hour < 0 ? Messages.get(ShieldText.AUDIT_ASK_REMOVE, "delay", Time.remaining(delay))
+                : Messages.get(ShieldText.AUDIT_ASK_MOVE, "hour", hour(hour), "delay", Time.remaining(delay));
     }
 
     @Override
     public String status(Faction faction) {
         if (faction == null) {
-            return "No faction.";
+            return Messages.get(ShieldText.STATUS_NO_FACTION);
         }
         Settings s = ctx.settings();
         String text;
         int start = faction.shieldStartHour();
         if (!s.bool("shield.enabled")) {
-            text = "Shields are turned off on this server.";
+            text = Messages.get(ShieldText.SHIELDS_OFF);
         } else if (s.bool("eotw.active")) {
-            text = "Shields are down for the end of the world.";
+            text = Messages.get(ShieldText.STATUS_EOTW);
         } else if (start < 0) {
-            text = "No shield window is set.";
+            text = Messages.get(ShieldText.STATUS_NONE);
         } else {
             long left = minutesLeft(start, s.integer("shield.hours"));
             if (left > 0) {
                 ClaimService claims = ctx.serviceOrNull(ClaimService.class);
                 if (claims != null && claims.raidable(faction)) {
-                    text = "Shield is down because the faction is raidable.";
+                    text = Messages.get(ShieldText.STATUS_RAIDABLE);
                 } else if (faction.home() == null) {
-                    text = "The shield window is open but covers no land until the faction sets a home.";
+                    text = Messages.get(ShieldText.STATUS_NO_HOME);
                 } else {
-                    text = "Shield active for " + Time.remaining(left * MINUTE) + ".";
+                    text = Messages.get(ShieldText.STATUS_ACTIVE, "time", Time.remaining(left * MINUTE));
                 }
             } else {
-                text = "Shield starts at " + hour(start) + ".";
+                text = Messages.get(ShieldText.STATUS_STARTS, "hour", hour(start));
             }
         }
         String pending = pendingSentence(faction);
@@ -180,9 +183,9 @@ public final class ShieldServiceImpl implements ShieldService {
         int next = (int) faction.stat(PENDING_HOUR);
         long applyAt = pendingAt + Math.max(0, ctx.settings().integer("shield.changeDelayHours")) * HOUR;
         long left = applyAt - Time.now();
-        String when = left <= 0 ? "within a minute" : "in " + Time.remaining(left);
-        return next < 0 ? "The shield window will be removed " + when + "."
-                : "The shield window moves to " + hour(next) + " " + when + ".";
+        String when = left <= 0 ? Messages.get(ShieldText.WHEN_SOON) : Messages.get(ShieldText.WHEN_IN, "time", Time.remaining(left));
+        return next < 0 ? Messages.get(ShieldText.PENDING_REMOVE, "when", when)
+                : Messages.get(ShieldText.PENDING_MOVE, "hour", hour(next), "when", when);
     }
 
     // ---- grace and end of world -------------------------------------------
@@ -201,25 +204,25 @@ public final class ShieldServiceImpl implements ShieldService {
     @Override
     public Result setGrace(UUID admin, long endsAtMillis) {
         if (endsAtMillis > 0 && endsAtMillis <= Time.now()) {
-            return Result.fail("The grace end must be in the future.");
+            return Result.fail(Messages.get(ShieldText.GRACE_FUTURE));
         }
         Settings s = ctx.settings();
         s.set("grace.endsAt", endsAtMillis);
         s.set("grace.active", true);
         ctx.bus().publish(new DominionEvent.GraceChanged(true, endsAtMillis));
-        return Result.pass(endsAtMillis > 0 ? "Grace is active for " + Time.remaining(endsAtMillis - Time.now()) + "."
-                : "Grace is active until an admin ends it.");
+        return Result.pass(endsAtMillis > 0 ? Messages.get(ShieldText.GRACE_FOR, "time", Time.remaining(endsAtMillis - Time.now()))
+                : Messages.get(ShieldText.GRACE_UNTIL_ENDED));
     }
 
     @Override
     public Result endGrace(UUID admin) {
         Settings s = ctx.settings();
         if (!s.bool("grace.active")) {
-            return Result.fail("Grace is not active.");
+            return Result.fail(Messages.get(ShieldText.GRACE_NOT_ACTIVE));
         }
         s.set("grace.active", false);
         ctx.bus().publish(new DominionEvent.GraceChanged(false, Time.now()));
-        return Result.pass("Grace has ended.");
+        return Result.pass(Messages.get(ShieldText.GRACE_ENDED));
     }
 
     @Override
@@ -230,14 +233,14 @@ public final class ShieldServiceImpl implements ShieldService {
     @Override
     public Result setEotw(UUID admin, boolean on) {
         if (eotwActive() == on) {
-            return Result.fail(on ? "End of the world is already on." : "End of the world is already off.");
+            return Result.fail(on ? Messages.get(ShieldText.EOTW_ALREADY_ON) : Messages.get(ShieldText.EOTW_ALREADY_OFF));
         }
         ctx.settings().set("eotw.active", on);
         // End of the world belongs to no faction, so the admin audit is a server log line.
         ctx.logger().at(Level.INFO).log("Admin audit. %s turned end of the world %s", adminName(admin), on ? "on" : "off");
         ctx.bus().publish(new DominionEvent.EotwChanged(on));
-        return Result.pass(on ? "End of the world is on. Shields and siege protections are down."
-                : "End of the world is off.");
+        return Result.pass(on ? Messages.get(ShieldText.EOTW_ON)
+                : Messages.get(ShieldText.EOTW_OFF));
     }
 
     // ---- tick ---------------------------------------------------------------
