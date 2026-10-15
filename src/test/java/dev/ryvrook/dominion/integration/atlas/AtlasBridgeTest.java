@@ -95,15 +95,22 @@ class AtlasBridgeTest {
         assertEquals(Tier.PUBLIC, AtlasBridge.tier(null));
     }
 
+    private static int hooks(String field) throws ReflectiveOperationException {
+        java.lang.reflect.Field f = AtlasApi.class.getDeclaredField(field);
+        f.setAccessible(true);
+        return ((List<?>) f.get(null)).size();
+    }
+
     @Test
-    void stopRemovesTheHooksWhenAtlasCan() {
-        boolean has;
-        try {
-            AtlasApi.class.getMethod("removeHooks", Consumer.class, Runnable.class);
-            has = true;
-        } catch (NoSuchMethodException e) {
-            has = false;
-        }
-        assertEquals(has, AtlasBridge.removeHooks(api -> { }, () -> { }), "found by reflection, never thrown");
+    void stopRemovesTheHooksFromAtlas() throws Exception {
+        AtlasApi.class.getMethod("removeHooks", Consumer.class, Runnable.class);
+        int enable = hooks("ENABLE");
+        int disable = hooks("DISABLE");
+        Link link = AtlasBridge.install(TestHosts.host(fx.ctx, Sibling.ATLAS, "1.6.0"));
+        assertEquals(enable + 1, hooks("ENABLE"));
+        assertEquals(disable + 1, hooks("DISABLE"));
+        link.stop();
+        assertEquals(enable, hooks("ENABLE"), "a stopped Dominion leaves no enable hook in Atlas");
+        assertEquals(disable, hooks("DISABLE"));
     }
 }
