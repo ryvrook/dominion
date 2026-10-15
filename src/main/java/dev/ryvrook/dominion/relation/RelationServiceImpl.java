@@ -8,6 +8,8 @@ import dev.ryvrook.dominion.model.Relation;
 import dev.ryvrook.dominion.service.FactionService;
 import dev.ryvrook.dominion.service.NationService;
 import dev.ryvrook.dominion.service.RelationService;
+import dev.ryvrook.dominion.text.CommonText;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.util.Time;
 
 import java.util.ArrayList;
@@ -67,7 +69,7 @@ public final class RelationServiceImpl implements RelationService {
     @Override
     public Result request(UUID actor, String targetTag, Relation relation) {
         if (relation == null || relation == Relation.OWN) {
-            return Result.fail("That is not a relation you can set");
+            return Result.fail(Messages.get(RelationText.NOT_SETTABLE));
         }
         Pair p = pair(actor, targetTag);
         if (p.failure != null) {
@@ -91,11 +93,11 @@ public final class RelationServiceImpl implements RelationService {
         synchronized (lock) {
             Faction.RelationRequest req = p.own.relationRequests().get(p.target.id());
             if (req == null) {
-                return Result.fail(p.target.tag() + " has not asked your faction for anything");
+                return Result.fail(Messages.get(RelationText.NOT_ASKED, "faction", p.target.tag()));
             }
             if (req.expiresAt() <= Time.now()) {
                 p.own.removeRelationRequest(p.target.id());
-                return Result.fail("That request has expired");
+                return Result.fail(Messages.get(RelationText.REQUEST_EXPIRED));
             }
             return establish(p.own, p.target, req.type(), actor);
         }
@@ -112,10 +114,10 @@ public final class RelationServiceImpl implements RelationService {
             req = p.own.removeRelationRequest(p.target.id());
         }
         if (req == null) {
-            return Result.fail(p.target.tag() + " has not asked your faction for anything");
+            return Result.fail(Messages.get(RelationText.NOT_ASKED, "faction", p.target.tag()));
         }
         effects.declined(p.own, p.target, req.type(), actor);
-        return Result.pass("Declined the request from " + p.target.tag());
+        return Result.pass(Messages.get(RelationText.DECLINED, "faction", p.target.tag()));
     }
 
     @Override
@@ -140,7 +142,7 @@ public final class RelationServiceImpl implements RelationService {
 
     private Result enemy(Faction own, Faction target, UUID actor) {
         if (own.relationTo(target.id()) == Relation.ENEMY) {
-            return Result.fail("You are already enemies with " + target.tag());
+            return Result.fail(Messages.get(RelationText.ALREADY_ENEMIES, "faction", target.tag()));
         }
         own.setRelation(target.id(), Relation.ENEMY);
         Relation theirs = target.relationTo(own.id());
@@ -149,32 +151,32 @@ public final class RelationServiceImpl implements RelationService {
         }
         clearRequests(own, target);
         effects.changed(own, target, Relation.ENEMY, actor);
-        return Result.pass(target.tag() + " is now your enemy");
+        return Result.pass(Messages.get(RelationText.NOW_ENEMY, "faction", target.tag()));
     }
 
     private Result neutral(Faction own, Faction target, UUID actor) {
         Relation current = own.relationTo(target.id());
         boolean pending = target.relationRequests().containsKey(own.id());
         if (current == Relation.NEUTRAL && !pending) {
-            return Result.fail("You are already neutral with " + target.tag());
+            return Result.fail(Messages.get(RelationText.ALREADY_NEUTRAL, "faction", target.tag()));
         }
         target.removeRelationRequest(own.id());
         if (current == Relation.NEUTRAL) {
-            return Result.pass("Withdrew your request to " + target.tag());
+            return Result.pass(Messages.get(RelationText.WITHDREW, "faction", target.tag()));
         }
         own.setRelation(target.id(), Relation.NEUTRAL);
         if (current == Relation.ALLY || current == Relation.TRUCE) {
             target.setRelation(own.id(), Relation.NEUTRAL);
         }
         effects.changed(own, target, Relation.NEUTRAL, actor);
-        return Result.pass("You are now neutral with " + target.tag());
+        return Result.pass(Messages.get(RelationText.NOW_NEUTRAL, "faction", target.tag()));
     }
 
     private Result propose(Faction own, Faction target, Relation relation, UUID actor) {
         if (own.relationTo(target.id()) == relation && target.relationTo(own.id()) == relation) {
-            return Result.fail("You are already " + (relation == Relation.ALLY ? "allied with " : "in a truce with ") + target.tag());
+            return Result.fail(Messages.get(relation == Relation.ALLY ? RelationText.ALREADY_ALLIED : RelationText.ALREADY_TRUCE, "faction", target.tag()));
         }
-        Result cap = capacity(own, target, relation, "Your faction");
+        Result cap = capacity(own, target, relation, Messages.get(RelationText.YOUR_FACTION));
         if (cap != null) {
             return cap;
         }
@@ -185,17 +187,17 @@ public final class RelationServiceImpl implements RelationService {
         }
         Faction.RelationRequest outgoing = target.relationRequests().get(own.id());
         if (outgoing != null && outgoing.type() == relation && outgoing.expiresAt() > now) {
-            return Result.fail("You already asked " + target.tag() + " and are waiting for an answer");
+            return Result.fail(Messages.get(RelationText.ALREADY_ASKED, "faction", target.tag()));
         }
         long hours = Math.max(1, ctx.settings().integer("relation.requestHours"));
         // Stored on the receiving faction, keyed by and naming the sending faction.
         target.putRelationRequest(own.id(), new Faction.RelationRequest(relation, own.id(), now + hours * HOUR));
         effects.requested(own, target, relation, actor);
-        return Result.pass("Asked " + target.tag() + ". The request lasts " + hours + (hours == 1 ? " hour" : " hours"));
+        return Result.pass(Messages.get(hours == 1 ? RelationText.ASKED_HOUR : RelationText.ASKED_HOURS, "faction", target.tag(), "hours", hours));
     }
 
     private Result establish(Faction own, Faction target, Relation relation, UUID actor) {
-        Result cap = capacity(own, target, relation, "Your faction");
+        Result cap = capacity(own, target, relation, Messages.get(RelationText.YOUR_FACTION));
         if (cap == null) {
             cap = capacity(target, own, relation, target.tag());
         }
@@ -206,7 +208,7 @@ public final class RelationServiceImpl implements RelationService {
         target.setRelation(own.id(), relation);
         clearRequests(own, target);
         effects.changed(own, target, relation, actor);
-        return Result.pass((relation == Relation.ALLY ? "You are now allied with " : "You are now in a truce with ") + target.tag());
+        return Result.pass(Messages.get(relation == Relation.ALLY ? RelationText.NOW_ALLIED : RelationText.NOW_TRUCE, "faction", target.tag()));
     }
 
     /** Null when the faction has room for one more of this relation toward the other. */
@@ -218,8 +220,10 @@ public final class RelationServiceImpl implements RelationService {
         }
         int count = f.countRelation(relation) - (f.relationTo(other.id()) == relation ? 1 : 0);
         if (count >= max) {
-            String noun = relation == Relation.ALLY ? (max == 1 ? "ally" : "allies") : (max == 1 ? "truce" : "truces");
-            return Result.fail(who + " already has the maximum of " + max + " " + noun);
+            String id = relation == Relation.ALLY
+                    ? (max == 1 ? RelationText.MAX_ALLY : RelationText.MAX_ALLIES)
+                    : (max == 1 ? RelationText.MAX_TRUCE : RelationText.MAX_TRUCES);
+            return Result.fail(Messages.get(id, "who", who, "max", max));
         }
         return null;
     }
@@ -237,23 +241,23 @@ public final class RelationServiceImpl implements RelationService {
         FactionService fs = factions();
         Faction own = fs.factionOf(actor);
         if (own == null) {
-            return new Pair(null, null, Result.fail("You are not in a faction"));
+            return new Pair(null, null, Result.fail(Messages.get(CommonText.NOT_IN_FACTION)));
         }
         if (!fs.can(actor, FactionAction.RELATIONS)) {
-            return new Pair(own, null, Result.fail("Your rank does not allow you to change relations"));
+            return new Pair(own, null, Result.fail(Messages.get(RelationText.RANK_DENIED)));
         }
         Faction target = fs.byTag(targetTag);
         if (target == null) {
-            return new Pair(own, null, Result.fail("No faction has that tag"));
+            return new Pair(own, null, Result.fail(Messages.get(RelationText.NO_FACTION_WITH_TAG)));
         }
         if (target.id().equals(own.id())) {
-            return new Pair(own, target, Result.fail("You cannot set a relation with your own faction"));
+            return new Pair(own, target, Result.fail(Messages.get(RelationText.OWN_FACTION)));
         }
         if (target.isSystem()) {
-            return new Pair(own, target, Result.fail("Server zones do not take part in diplomacy"));
+            return new Pair(own, target, Result.fail(Messages.get(RelationText.ZONES_NO_DIPLOMACY)));
         }
         if (sameNation(own, target)) {
-            return new Pair(own, target, Result.fail("You share a nation with " + target.tag() + " so you are always allies"));
+            return new Pair(own, target, Result.fail(Messages.get(RelationText.SAME_NATION, "faction", target.tag())));
         }
         return new Pair(own, target, null);
     }
