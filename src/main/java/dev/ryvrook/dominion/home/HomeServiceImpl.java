@@ -18,6 +18,8 @@ import dev.ryvrook.dominion.service.EconomyService;
 import dev.ryvrook.dominion.service.FactionService;
 import dev.ryvrook.dominion.service.HomeService;
 import dev.ryvrook.dominion.service.RelationService;
+import dev.ryvrook.dominion.text.CommonText;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Keys;
 import dev.ryvrook.dominion.util.Players;
@@ -62,22 +64,22 @@ public final class HomeServiceImpl implements HomeService {
         FactionService fs = factions();
         Faction faction = fs.factionOf(actor);
         if (faction == null) {
-            return Result.fail("You are not in a faction.");
+            return Result.fail(Messages.get(CommonText.NOT_IN_FACTION));
         }
         if (!fs.can(actor, FactionAction.SET_HOME)) {
-            return Result.fail("You do not have permission to set the faction home.");
+            return Result.fail(Messages.get(HomeText.NO_PERMISSION_SET_HOME));
         }
         Location here = currentLocation(actor);
         if (here == null) {
-            return Result.fail("Your position is not known yet. Try again in a moment.");
+            return Result.fail(Messages.get(HomeText.POSITION_UNKNOWN));
         }
         if (!ownedBy(faction, here)) {
-            return Result.fail("The home must be inside your own territory.");
+            return Result.fail(Messages.get(HomeText.HOME_OUTSIDE_LAND));
         }
         faction.setHome(here);
-        fs.audit(faction, actor, nameOf(actor), "home", "Set the faction home at " + coords(here));
+        fs.audit(faction, actor, nameOf(actor), "home", Messages.get(HomeText.AUDIT_HOME_SET, "coords", coords(here)));
         ctx.bus().publish(new DominionEvent.FactionChanged(faction.id()));
-        return Result.pass("The faction home is set at " + coords(here) + ".");
+        return Result.pass(Messages.get(HomeText.HOME_SET, "coords", coords(here)));
     }
 
     @Override
@@ -85,18 +87,18 @@ public final class HomeServiceImpl implements HomeService {
         FactionService fs = factions();
         Faction faction = fs.factionOf(actor);
         if (faction == null) {
-            return Result.fail("You are not in a faction.");
+            return Result.fail(Messages.get(CommonText.NOT_IN_FACTION));
         }
         if (!fs.can(actor, FactionAction.SET_HOME)) {
-            return Result.fail("You do not have permission to change the faction home.");
+            return Result.fail(Messages.get(HomeText.NO_PERMISSION_CHANGE_HOME));
         }
         if (faction.home() == null) {
-            return Result.fail("Your faction has no home set.");
+            return Result.fail(Messages.get(HomeText.NO_HOME_SET));
         }
         faction.setHome(null);
-        fs.audit(faction, actor, nameOf(actor), "home", "Removed the faction home");
+        fs.audit(faction, actor, nameOf(actor), "home", Messages.get(HomeText.AUDIT_HOME_REMOVED));
         ctx.bus().publish(new DominionEvent.FactionChanged(faction.id()));
-        return Result.pass("The faction home was removed.");
+        return Result.pass(Messages.get(HomeText.HOME_REMOVED));
     }
 
     @Override
@@ -104,20 +106,20 @@ public final class HomeServiceImpl implements HomeService {
         FactionService fs = factions();
         Faction faction = fs.factionOf(player);
         if (faction == null) {
-            return Result.fail("You are not in a faction.");
+            return Result.fail(Messages.get(CommonText.NOT_IN_FACTION));
         }
         if (faction.home() == null) {
-            return Result.fail("Your faction has no home. Use /f sethome inside your land.");
+            return Result.fail(Messages.get(HomeText.NO_HOME));
         }
         if (!fs.can(player, FactionAction.USE_HOME)) {
-            return Result.fail("You do not have permission to use the faction home.");
+            return Result.fail(Messages.get(HomeText.NO_PERMISSION_USE_HOME));
         }
         Result allowed = teleportAllowed(player);
         if (allowed.failed()) {
             return allowed;
         }
         UUID factionId = faction.id();
-        return begin(player, "home", () -> {
+        return begin(player, Messages.get(HomeText.LABEL_HOME), () -> {
             Faction f = factions().byId(factionId);
             return f == null ? null : f.home();
         }, ctx.settings().integer("home.warmupSeconds"), true);
@@ -134,43 +136,47 @@ public final class HomeServiceImpl implements HomeService {
         FactionService fs = factions();
         Faction faction = fs.factionOf(actor);
         if (faction == null) {
-            return Result.fail("You are not in a faction.");
+            return Result.fail(Messages.get(CommonText.NOT_IN_FACTION));
         }
         if (!fs.can(actor, FactionAction.SET_WARP)) {
-            return Result.fail("You do not have permission to create warps.");
+            return Result.fail(Messages.get(HomeText.NO_PERMISSION_CREATE_WARP));
         }
         if (name == null || !WARP_NAME.matcher(name).matches()) {
-            return Result.fail("Warp names use up to 16 letters, numbers, dashes or underscores.");
+            return Result.fail(Messages.get(HomeText.WARP_NAME_RULES));
         }
         boolean replacing = faction.warp(name) != null;
         int max = maxWarps(faction);
         if (!replacing && faction.warps().size() >= max) {
-            return Result.fail("Your faction can hold " + max + " warps. Delete one or buy the warps upgrade.");
+            return Result.fail(Messages.get(HomeText.WARP_LIMIT, "max", max));
         }
         Location here = currentLocation(actor);
         if (here == null) {
-            return Result.fail("Your position is not known yet. Try again in a moment.");
+            return Result.fail(Messages.get(HomeText.POSITION_UNKNOWN));
         }
         if (!ownedBy(faction, here)) {
-            return Result.fail("Warps must be inside your own territory.");
+            return Result.fail(Messages.get(HomeText.WARP_OUTSIDE_LAND));
         }
         String pass = password == null || password.isBlank() ? null : password;
         double cost = ctx.settings().decimal("eco.costWarp");
         if (cost > 0) {
             EconomyService eco = ctx.serviceOrNull(EconomyService.class);
             if (eco != null && eco.enabled()) {
-                Result paid = eco.bankCharge(faction, cost, "Warp " + name.toLowerCase());
+                Result paid = eco.bankCharge(faction, cost, Messages.get(HomeText.BANK_REASON_WARP, "name", name.toLowerCase()));
                 if (paid.failed()) {
-                    return Result.fail("Setting a warp costs " + eco.format(cost) + " from the faction bank. " + paid.message());
+                    return Result.fail(Messages.get(HomeText.WARP_COST, "cost", eco.format(cost), "reason", paid.message()));
                 }
             }
         }
         faction.setWarp(name, new Faction.Warp(here, pass));
-        fs.audit(faction, actor, nameOf(actor), "warp", (replacing ? "Moved" : "Created") + " warp " + name.toLowerCase()
-                + (pass == null ? "" : " with a password"));
+        String auditId = replacing
+                ? (pass == null ? HomeText.AUDIT_WARP_MOVED : HomeText.AUDIT_WARP_MOVED_LOCKED)
+                : (pass == null ? HomeText.AUDIT_WARP_CREATED : HomeText.AUDIT_WARP_CREATED_LOCKED);
+        fs.audit(faction, actor, nameOf(actor), "warp", Messages.get(auditId, "name", name.toLowerCase()));
         ctx.bus().publish(new DominionEvent.FactionChanged(faction.id()));
-        return Result.pass("Warp " + name.toLowerCase() + (replacing ? " moved" : " created")
-                + (pass == null ? "." : " with a password."));
+        String doneId = replacing
+                ? (pass == null ? HomeText.WARP_MOVED : HomeText.WARP_MOVED_LOCKED)
+                : (pass == null ? HomeText.WARP_CREATED : HomeText.WARP_CREATED_LOCKED);
+        return Result.pass(Messages.get(doneId, "name", name.toLowerCase()));
     }
 
     @Override
@@ -178,17 +184,17 @@ public final class HomeServiceImpl implements HomeService {
         FactionService fs = factions();
         Faction faction = fs.factionOf(actor);
         if (faction == null) {
-            return Result.fail("You are not in a faction.");
+            return Result.fail(Messages.get(CommonText.NOT_IN_FACTION));
         }
         if (!fs.can(actor, FactionAction.SET_WARP)) {
-            return Result.fail("You do not have permission to delete warps.");
+            return Result.fail(Messages.get(HomeText.NO_PERMISSION_DELETE_WARP));
         }
         if (name == null || !faction.removeWarp(name)) {
-            return Result.fail("Your faction has no warp called " + name + ".");
+            return Result.fail(Messages.get(HomeText.NO_SUCH_WARP, "name", name));
         }
-        fs.audit(faction, actor, nameOf(actor), "warp", "Deleted warp " + name.toLowerCase());
+        fs.audit(faction, actor, nameOf(actor), "warp", Messages.get(HomeText.AUDIT_WARP_DELETED, "name", name.toLowerCase()));
         ctx.bus().publish(new DominionEvent.FactionChanged(faction.id()));
-        return Result.pass("Warp " + name.toLowerCase() + " deleted.");
+        return Result.pass(Messages.get(HomeText.WARP_DELETED, "name", name.toLowerCase()));
     }
 
     @Override
@@ -196,18 +202,18 @@ public final class HomeServiceImpl implements HomeService {
         FactionService fs = factions();
         Faction faction = fs.factionOf(player);
         if (faction == null) {
-            return Result.fail("You are not in a faction.");
+            return Result.fail(Messages.get(CommonText.NOT_IN_FACTION));
         }
         if (!fs.can(player, FactionAction.USE_WARP)) {
-            return Result.fail("You do not have permission to use warps.");
+            return Result.fail(Messages.get(HomeText.NO_PERMISSION_USE_WARP));
         }
         Faction.Warp warp = name == null ? null : faction.warp(name);
         if (warp == null || warp.location() == null) {
-            return Result.fail("Your faction has no warp called " + name + ". See /f warps.");
+            return Result.fail(Messages.get(HomeText.NO_SUCH_WARP_HINT, "name", name));
         }
         if (warp.password() != null && !warp.password().isBlank() && !warp.password().equals(password)) {
-            return Result.fail(password == null ? "That warp is locked. Add the password after the name."
-                    : "That password is wrong.");
+            return Result.fail(Messages.get(password == null ? HomeText.WARP_LOCKED
+                    : HomeText.WARP_WRONG_PASSWORD));
         }
         Result allowed = teleportAllowed(player);
         if (allowed.failed()) {
@@ -216,7 +222,7 @@ public final class HomeServiceImpl implements HomeService {
         UUID factionId = faction.id();
         String key = name.toLowerCase();
         String given = password;
-        return begin(player, "warp " + key, () -> {
+        return begin(player, Messages.get(HomeText.LABEL_WARP, "name", key), () -> {
             Faction f = factions().byId(factionId);
             Faction.Warp w = f == null ? null : f.warp(key);
             // A password set or changed during the warmup applies to this teleport too.
@@ -235,18 +241,18 @@ public final class HomeServiceImpl implements HomeService {
         String world = Players.worldName(ref);
         long chunk = Players.chunkOf(ref);
         if (ref == null || world == null || chunk == Long.MIN_VALUE) {
-            return Result.fail("Your position is not known yet. Try again in a moment.");
+            return Result.fail(Messages.get(HomeText.POSITION_UNKNOWN));
         }
         if (inCombat(player)) {
-            return Result.fail("You cannot use stuck while in combat. Wait " + Time.remaining(combatLeft(player)) + ".");
+            return Result.fail(Messages.get(HomeText.STUCK_IN_COMBAT, "time", Time.remaining(combatLeft(player))));
         }
         if (claims().ownerAt(world, chunk) == null) {
-            return Result.fail("You are already in the wilderness.");
+            return Result.fail(Messages.get(HomeText.ALREADY_WILDERNESS));
         }
         if (nearestWilderness(world, chunk) == Long.MIN_VALUE) {
-            return Result.fail("There is no wilderness close enough to escape to.");
+            return Result.fail(Messages.get(HomeText.NO_WILDERNESS_NEAR));
         }
-        return begin(player, "the wilderness", () -> {
+        return begin(player, Messages.get(HomeText.LABEL_WILDERNESS), () -> {
             PlayerRef now = Players.online(player);
             Vector3d pos = Players.position(now);
             String w = Players.worldName(now);
@@ -318,22 +324,22 @@ public final class HomeServiceImpl implements HomeService {
         Vector3d pos = Players.position(ref);
         String world = Players.worldName(ref);
         if (ref == null || pos == null || world == null) {
-            return Result.fail("Your position is not known yet. Try again in a moment.");
+            return Result.fail(Messages.get(HomeText.POSITION_UNKNOWN));
         }
         PlayerData pd = ctx.player(player);
         long now = Time.now();
         if (inCombat(player)) {
-            return Result.fail("You cannot teleport while in combat. Wait " + Time.remaining(combatLeft(player)) + ".");
+            return Result.fail(Messages.get(HomeText.TELEPORT_IN_COMBAT, "time", Time.remaining(combatLeft(player))));
         }
         long cooldown = ctx.settings().integer("home.cooldownSeconds") * 1000L;
         long since = now - pd.lastHomeTeleport();
         if (pd.lastHomeTeleport() > 0 && since < cooldown) {
-            return Result.fail("You can teleport again in " + Time.remaining(cooldown - since) + ".");
+            return Result.fail(Messages.get(HomeText.TELEPORT_COOLDOWN, "time", Time.remaining(cooldown - since)));
         }
         Faction owner = claims().ownerAt(world, Keys.chunkAt(pos.x, pos.z));
         RelationService rs = relations();
         if (owner != null && !owner.isSystem() && rs.playerToFaction(player, owner) == Relation.ENEMY) {
-            return Result.fail("You cannot teleport out of enemy territory.");
+            return Result.fail(Messages.get(HomeText.TELEPORT_ENEMY_LAND));
         }
         int radius = ctx.settings().integer("home.enemyRadius");
         if (radius > 0) {
@@ -345,7 +351,7 @@ public final class HomeServiceImpl implements HomeService {
                     }
                     Vector3d op = Players.position(other);
                     if (op != null && op.distance(pos) <= radius && rs.betweenPlayers(player, other.getUuid()) == Relation.ENEMY) {
-                        return Result.fail("An enemy is within " + radius + " blocks, so you cannot teleport.");
+                        return Result.fail(Messages.get(HomeText.TELEPORT_ENEMY_NEAR, "radius", radius));
                     }
                 }
             }
@@ -357,7 +363,7 @@ public final class HomeServiceImpl implements HomeService {
         PlayerRef ref = Players.online(player);
         Warmups.Pos pos = where(ref);
         if (ref == null || pos == null) {
-            return Result.fail("Your position is not known yet. Try again in a moment.");
+            return Result.fail(Messages.get(HomeText.POSITION_UNKNOWN));
         }
         Target t = new Target(label, target, homeCooldown);
         int seconds = Math.max(0, warmup);
@@ -366,7 +372,8 @@ public final class HomeServiceImpl implements HomeService {
             return complete(player, ref, t);
         }
         warmups.start(player, t, pos, seconds);
-        return Result.pass("Teleporting to " + label + " in " + seconds + (seconds == 1 ? " second" : " seconds") + ". Do not move.");
+        return Result.pass(Messages.get(seconds == 1 ? HomeText.TELEPORTING_SECOND : HomeText.TELEPORTING_SECONDS,
+                "destination", label, "seconds", seconds));
     }
 
     private static Warmups.Pos where(PlayerRef ref) {
@@ -394,9 +401,9 @@ public final class HomeServiceImpl implements HomeService {
                     continue;
                 }
                 switch (step.kind()) {
-                    case MOVED -> ref.sendMessage(Msg.bad("Teleport cancelled because you moved."));
-                    case COMBAT -> ref.sendMessage(Msg.bad("Teleport cancelled because you are in combat."));
-                    case COUNTDOWN -> ref.sendMessage(Msg.info("Teleporting in " + step.secondsLeft() + "."));
+                    case MOVED -> ref.sendMessage(Msg.bad(Messages.get(HomeText.CANCELLED_MOVED)));
+                    case COMBAT -> ref.sendMessage(Msg.bad(Messages.get(HomeText.CANCELLED_COMBAT)));
+                    case COUNTDOWN -> ref.sendMessage(Msg.info(Messages.get(HomeText.COUNTDOWN, "seconds", step.secondsLeft())));
                     case DONE -> {
                         Result r = complete(step.player(), ref, step.payload());
                         ref.sendMessage(r.success() ? Msg.good(r.message()) : Msg.bad(r.message()));
@@ -414,7 +421,7 @@ public final class HomeServiceImpl implements HomeService {
     @Override
     public void onDamaged(UUID player) {
         if (warmups.cancel(player)) {
-            Msg.send(Players.online(player), Msg.bad("Teleport cancelled because you took damage."));
+            Msg.send(Players.online(player), Msg.bad(Messages.get(HomeText.CANCELLED_DAMAGE)));
         }
     }
 
@@ -430,16 +437,16 @@ public final class HomeServiceImpl implements HomeService {
     private Result complete(UUID uuid, PlayerRef ref, Target t) {
         Location loc = t.target().get();
         if (loc == null) {
-            return Result.fail("The destination no longer exists or is now locked.");
+            return Result.fail(Messages.get(HomeText.DESTINATION_GONE));
         }
         if (!teleport(ref, loc)) {
-            return Result.fail("The destination world is not loaded.");
+            return Result.fail(Messages.get(HomeText.DESTINATION_WORLD_UNLOADED));
         }
         // The cooldown starts only when a teleport actually happens.
         if (t.homeCooldown()) {
             ctx.player(uuid).setLastHomeTeleport(Time.now());
         }
-        return Result.pass("Teleported to " + t.label() + ".");
+        return Result.pass(Messages.get(HomeText.TELEPORTED, "destination", t.label()));
     }
 
     /** Uses the shared teleport path, see {@link Teleports}. */
@@ -462,17 +469,18 @@ public final class HomeServiceImpl implements HomeService {
         Location home = faction.home();
         if (inChunk(home, change.world(), change.chunkIndex())) {
             faction.setHome(null);
-            factions().audit(faction, null, "Server", "home", "The faction home was lost with its land");
+            factions().audit(faction, null, Messages.get(HomeText.SERVER), "home", Messages.get(HomeText.AUDIT_HOME_LOST));
             if (chat != null) {
-                chat.alert(faction, Msg.warn("Your faction home was lost along with the land it stood on."));
+                chat.alert(faction, Msg.warn(Messages.get(HomeText.HOME_LOST)));
             }
         }
         for (Map.Entry<String, Faction.Warp> e : faction.warps().entrySet()) {
             if (inChunk(e.getValue().location(), change.world(), change.chunkIndex())) {
                 faction.removeWarp(e.getKey());
-                factions().audit(faction, null, "Server", "warp", "Warp " + e.getKey() + " was lost with its land");
+                factions().audit(faction, null, Messages.get(HomeText.SERVER), "warp",
+                        Messages.get(HomeText.AUDIT_WARP_LOST, "name", e.getKey()));
                 if (chat != null) {
-                    chat.alert(faction, Msg.warn("Warp " + e.getKey() + " was lost along with the land it stood on."));
+                    chat.alert(faction, Msg.warn(Messages.get(HomeText.WARP_LOST, "name", e.getKey())));
                 }
             }
         }
@@ -516,11 +524,11 @@ public final class HomeServiceImpl implements HomeService {
         FactionService fs = factions();
         Faction own = fs.factionOf(player);
         if (own == null) {
-            return Result.fail("You are not in a faction.");
+            return Result.fail(Messages.get(CommonText.NOT_IN_FACTION));
         }
         Faction ally = allyTag == null ? null : fs.byTag(allyTag);
         if (ally == null || ally.isSystem()) {
-            return Result.fail("There is no faction called " + allyTag + ".");
+            return Result.fail(Messages.get(HomeText.NO_FACTION_CALLED, "tag", allyTag));
         }
         String denied = allyHomeDenied(own, ally);
         if (denied != null) {
@@ -532,7 +540,7 @@ public final class HomeServiceImpl implements HomeService {
         }
         UUID ownId = own.id();
         UUID allyId = ally.id();
-        return begin(player, ally.tag() + " home", () -> {
+        return begin(player, Messages.get(HomeText.LABEL_ALLY_HOME, "faction", ally.tag()), () -> {
             Faction o = factions().byId(ownId);
             Faction a = factions().byId(allyId);
             if (o == null || a == null || allyHomeDenied(o, a) != null) {
@@ -545,16 +553,16 @@ public final class HomeServiceImpl implements HomeService {
     /** Reason the members of own may not use the ally's home, or null when they may. */
     String allyHomeDenied(Faction own, Faction ally) {
         if (own.id().equals(ally.id())) {
-            return "That is your own faction. Use /f home instead.";
+            return Messages.get(HomeText.ALLY_HOME_OWN);
         }
         if (relations().between(own, ally) != Relation.ALLY) {
-            return ally.tag() + " is not your ally.";
+            return Messages.get(HomeText.ALLY_HOME_NOT_ALLY, "faction", ally.tag());
         }
         if (!ally.setting("allyHome", false) || !ally.relationCan(Relation.ALLY, FactionAction.USE_HOME)) {
-            return ally.tag() + " does not let allies use its home.";
+            return Messages.get(HomeText.ALLY_HOME_CLOSED, "faction", ally.tag());
         }
         if (ally.home() == null) {
-            return ally.tag() + " has no home set.";
+            return Messages.get(HomeText.ALLY_HOME_NONE, "faction", ally.tag());
         }
         return null;
     }
