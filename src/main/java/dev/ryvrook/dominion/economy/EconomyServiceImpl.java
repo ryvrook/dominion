@@ -142,6 +142,7 @@ public final class EconomyServiceImpl implements EconomyService {
             return Result.fail(failed);
         }
         bankChanged(f, actor, "Deposited " + format(amount));
+        ctx.bus().publish(new DominionEvent.BankDeposited(f.id(), actor, amount));
         return Result.pass("Deposited " + format(amount) + " to the bank");
     }
 

@@ -10,6 +10,7 @@ import com.hypixel.hytale.server.core.modules.entity.damage.DeathSystems;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.ryvrook.dominion.DominionContext;
+import dev.ryvrook.dominion.api.DominionEvent;
 import dev.ryvrook.dominion.api.Result;
 import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.FactionType;
@@ -78,12 +79,14 @@ final class DeathTrackingSystem extends DeathSystems.OnDeathSystem {
         siegeDeath(victimId, world, chunk);
 
         PlayerRef killer = killer(death, store, ref);
+        UUID killerId = killer == null ? null : killer.getUuid();
+        Faction killerFaction = killerId == null ? null : factionOf(killerId);
+        ctx.bus().publish(new DominionEvent.PlayerDied(victimId, killerId, victimFaction == null ? null : victimFaction.id(),
+                killerFaction == null ? null : killerFaction.id(), world, chunk, zone == null ? null : zone.id()));
         if (killer == null) {
             return;
         }
-        UUID killerId = killer.getUuid();
         ctx.player(killerId).addKill();
-        Faction killerFaction = factionOf(killerId);
         bump(killerFaction, killerId, true);
         // The kill missions ask for players from other factions, so team kills and factionless victims do not count.
         if (killerFaction != null && victimFaction != null && !killerFaction.id().equals(victimFaction.id())) {
