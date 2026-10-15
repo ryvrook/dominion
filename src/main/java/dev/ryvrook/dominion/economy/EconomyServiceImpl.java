@@ -324,7 +324,7 @@ public final class EconomyServiceImpl implements EconomyService {
     }
 
     void bankChanged(Faction f, UUID who, String text) {
-        String name = who == null ? "Server" : ctx.player(who).name();
+        String name = who == null ? Messages.get(CommonText.SERVER) : ctx.player(who).name();
         factions().audit(f, who, name, "bank", text);
         ctx.bus().publish(new DominionEvent.FactionChanged(f.id()));
     }

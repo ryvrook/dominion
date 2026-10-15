@@ -23,7 +23,6 @@ public final class LandText {
     public static final String BANK_CLAIM_REASON = Messages.define("land.bankClaimReason", "a land claim by {name}");
     public static final String BANK_UNCLAIM_REASON = Messages.define("land.bankUnclaimReason", "an unclaim refund for {name}");
     public static final String THE_SERVER = Messages.define("land.theServer", "the server");
-    public static final String AUDIT_SERVER = Messages.define("land.auditServer", "Server");
 
     // Claim results
     public static final String AUDIT_CLAIMED = Messages.define("land.auditClaimed", "Claimed chunk {chunk} in {world}");

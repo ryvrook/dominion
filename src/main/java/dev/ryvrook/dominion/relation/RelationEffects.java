@@ -7,6 +7,7 @@ import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.Relation;
 import dev.ryvrook.dominion.service.ChatService;
 import dev.ryvrook.dominion.service.FactionService;
+import dev.ryvrook.dominion.text.CommonText;
 import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 
@@ -51,7 +52,7 @@ final class RelationEffects {
 
     void expired(Faction to, Faction from, Relation relation) {
         String noun = noun(relation);
-        String server = Messages.get(RelationText.SERVER);
+        String server = Messages.get(CommonText.SERVER);
         audit(to, null, server, Messages.get(RelationText.AUDIT_EXPIRED_FROM, "noun", noun, "faction", from.tag()));
         audit(from, null, server, Messages.get(RelationText.AUDIT_EXPIRED_TO, "noun", noun, "faction", to.tag()));
     }

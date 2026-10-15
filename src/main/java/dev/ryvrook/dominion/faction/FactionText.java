@@ -35,7 +35,6 @@ public final class FactionText {
     public static final String ADMIN_NOW_LEADS = Messages.define("faction.adminNowLeads", "{name} now leads {faction}");
     public static final String DISBAND_REASON_BY = Messages.define("faction.disbandReasonBy", "{name} disbanded it");
     public static final String DISBANDED = Messages.define("faction.disbanded", "Disbanded {faction}");
-    public static final String SERVER_NAME = Messages.define("faction.serverName", "Server");
     public static final String AUDIT_JOINED = Messages.define("faction.auditJoined", "{name} joined {how}");
     public static final String JOINED_NOTICE = Messages.define("faction.joinedNotice", "{name} joined the faction");
     public static final String LEDGER_DISBANDED = Messages.define("faction.ledgerDisbanded", "Faction disbanded");

@@ -11,5 +11,6 @@ public final class CommonText {
     public static final String WORLD_UNKNOWN = Messages.define("common.worldUnknown", "That world is not known.");
     public static final String FEATURE_OFF = Messages.define("common.featureOff", "That feature is turned off on this server.");
     public static final String NO_PERMISSION = Messages.define("common.noPermission", "You do not have permission to do that.");
+    public static final String SERVER = Messages.define("common.server", "Server");
     public static final String MESSAGES_RELOADED = Messages.define("common.messagesReloaded", "Messages reloaded from messages.json, {customised} customised.");
 }

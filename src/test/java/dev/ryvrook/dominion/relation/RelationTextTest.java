@@ -16,7 +16,6 @@ class RelationTextTest {
                 RelationText.NOUN_ALLY, "",
                 RelationText.NOUN_TRUCE, "",
                 RelationText.YOUR_FACTION, "",
-                RelationText.SERVER, "",
                 RelationText.AUDIT_SET, "faction relation",
                 RelationText.AUDIT_SET_BY, "faction relation",
                 RelationText.NOW_OURS, "faction state",

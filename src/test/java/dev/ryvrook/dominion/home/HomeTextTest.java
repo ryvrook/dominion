@@ -8,7 +8,6 @@ class HomeTextTest {
     void everyIdIsDefinedOnceWithItsPlaceholders() throws Exception {
         TextClassCheck.check(HomeText.class, "home", TextClassCheck.expect(
                 HomeText.POSITION_UNKNOWN, "",
-                HomeText.SERVER, "",
                 HomeText.NO_PERMISSION_SET_HOME, "",
                 HomeText.HOME_OUTSIDE_LAND, "",
                 HomeText.AUDIT_HOME_SET, "coords",

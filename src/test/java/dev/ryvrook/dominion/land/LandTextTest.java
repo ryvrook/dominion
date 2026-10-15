@@ -23,7 +23,6 @@ class LandTextTest {
                 LandText.BANK_CLAIM_REASON, "name",
                 LandText.BANK_UNCLAIM_REASON, "name",
                 LandText.THE_SERVER, "",
-                LandText.AUDIT_SERVER, "",
                 LandText.AUDIT_CLAIMED, "chunk world",
                 LandText.AUDIT_TOOK, "chunk faction world",
                 LandText.AUDIT_TAKEN_BY, "chunk faction world",

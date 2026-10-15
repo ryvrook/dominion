@@ -294,7 +294,7 @@ final class Membership {
         }
         UUID out = pick.uuid();
         String name = s.nameOf(out);
-        s.removeMember(f, out, null, Messages.get(FactionText.SERVER_NAME), "rotation",
+        s.removeMember(f, out, null, Messages.get(CommonText.SERVER), "rotation",
                 Messages.get(FactionText.AUDIT_ROTATED, "name", name, "incoming", incoming));
         s.toFaction(f, Msg.warn(Messages.get(FactionText.ROTATED_NOTICE, "name", name, "incoming", incoming)), false);
         mailNote(out, Messages.get(FactionText.ROTATED_MAIL, "faction", f.tag()));

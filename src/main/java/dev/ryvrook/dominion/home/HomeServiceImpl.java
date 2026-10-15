@@ -469,7 +469,7 @@ public final class HomeServiceImpl implements HomeService {
         Location home = faction.home();
         if (inChunk(home, change.world(), change.chunkIndex())) {
             faction.setHome(null);
-            factions().audit(faction, null, Messages.get(HomeText.SERVER), "home", Messages.get(HomeText.AUDIT_HOME_LOST));
+            factions().audit(faction, null, Messages.get(CommonText.SERVER), "home", Messages.get(HomeText.AUDIT_HOME_LOST));
             if (chat != null) {
                 chat.alert(faction, Msg.warn(Messages.get(HomeText.HOME_LOST)));
             }
@@ -477,7 +477,7 @@ public final class HomeServiceImpl implements HomeService {
         for (Map.Entry<String, Faction.Warp> e : faction.warps().entrySet()) {
             if (inChunk(e.getValue().location(), change.world(), change.chunkIndex())) {
                 faction.removeWarp(e.getKey());
-                factions().audit(faction, null, Messages.get(HomeText.SERVER), "warp",
+                factions().audit(faction, null, Messages.get(CommonText.SERVER), "warp",
                         Messages.get(HomeText.AUDIT_WARP_LOST, "name", e.getKey()));
                 if (chat != null) {
                     chat.alert(faction, Msg.warn(Messages.get(HomeText.WARP_LOST, "name", e.getKey())));

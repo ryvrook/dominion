@@ -21,6 +21,7 @@ import dev.ryvrook.dominion.service.ProgressService;
 import dev.ryvrook.dominion.service.RelationService;
 import dev.ryvrook.dominion.service.ShieldService;
 import dev.ryvrook.dominion.storage.Repository;
+import dev.ryvrook.dominion.text.CommonText;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Players;
 import dev.ryvrook.dominion.util.Time;
@@ -151,7 +152,7 @@ final class Land {
     }
 
     void audit(Faction f, UUID who, String text) {
-        String whoName = who == null ? Messages.get(LandText.AUDIT_SERVER) : ctx.player(who).name();
+        String whoName = who == null ? Messages.get(CommonText.SERVER) : ctx.player(who).name();
         FactionService fs = ctx.serviceOrNull(FactionService.class);
         if (fs != null) {
             fs.audit(f, who, whoName, "land", text);

@@ -88,7 +88,7 @@ final class FactionSupport {
 
     String nameOf(UUID player) {
         if (player == null) {
-            return Messages.get(FactionText.SERVER_NAME);
+            return Messages.get(CommonText.SERVER);
         }
         String n = ctx.player(player).name();
         return n == null || n.isEmpty() ? player.toString().substring(0, 8) : n;

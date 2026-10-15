@@ -7,7 +7,6 @@ public final class HomeText {
     private HomeText() {}
 
     public static final String POSITION_UNKNOWN = Messages.define("home.positionUnknown", "Your position is not known yet. Try again in a moment.");
-    public static final String SERVER = Messages.define("home.server", "Server");
 
     // Faction home.
     public static final String NO_PERMISSION_SET_HOME = Messages.define("home.noPermissionSetHome", "You do not have permission to set the faction home.");

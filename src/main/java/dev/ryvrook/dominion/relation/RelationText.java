@@ -16,7 +16,6 @@ public final class RelationText {
     public static final String NOUN_ALLY = Messages.define("relation.nounAlly", "ally");
     public static final String NOUN_TRUCE = Messages.define("relation.nounTruce", "truce");
     public static final String YOUR_FACTION = Messages.define("relation.yourFaction", "Your faction");
-    public static final String SERVER = Messages.define("relation.server", "Server");
 
     // Announcements and audit log lines.
     public static final String AUDIT_SET = Messages.define("relation.auditSet", "Set {faction} to {relation}");

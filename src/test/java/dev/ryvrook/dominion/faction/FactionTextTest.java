@@ -36,7 +36,6 @@ class FactionTextTest {
                 FactionText.ADMIN_NOW_LEADS, "faction name",
                 FactionText.DISBAND_REASON_BY, "name",
                 FactionText.DISBANDED, "faction",
-                FactionText.SERVER_NAME, "",
                 FactionText.AUDIT_JOINED, "how name",
                 FactionText.JOINED_NOTICE, "name",
                 FactionText.LEDGER_DISBANDED, "",
