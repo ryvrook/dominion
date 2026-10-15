@@ -31,6 +31,9 @@ class ConfigReportTest {
         }
         assertEquals("Colours", ConfigReport.section(s, "colours"));
         assertNull(ConfigReport.section(s, "nothing"));
+        assertEquals("raid", ConfigReport.section(s, "Raid"));
+        assertTrue(ConfigReport.keys(s, "raid").stream().allMatch(d -> d.key().startsWith("raid.")));
+        assertEquals(s.definitions("Colours"), ConfigReport.keys(s, "Colours"));
     }
 
     @Test

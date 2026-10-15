@@ -64,11 +64,13 @@ final class ConfigCommands {
         RequiredArg<String> idArg = id.withRequiredArg("id", "Message id", ArgTypes.STRING);
         id.handler(c -> message(c, c.arg(idArg)));
         messages.variant(id);
-        ServerCmd action = variant("Search the messages or reset one to its default.");
-        RequiredArg<String> verb = action.withRequiredArg("action", "search or reset", ArgTypes.STRING);
-        RequiredArg<String> rest = action.withRequiredArg("text", "Text to find or id to reset", ArgTypes.GREEDY_STRING);
-        action.handler(c -> messageAction(c, c.arg(verb), c.arg(rest).trim()));
-        messages.variant(action);
+        // Sub commands rather than variants, because the engine picks a variant by word count and the search text may have several words.
+        ServerCmd search = messages.sub(server("search", "List the message ids whose wording contains some text."));
+        RequiredArg<String> text = search.withRequiredArg("text", "Text to find", ArgTypes.GREEDY_STRING);
+        search.handler(c -> search(c, c.arg(text).trim()));
+        ServerCmd reset = messages.sub(server("reset", "Put the default wording of one message back."));
+        RequiredArg<String> resetId = reset.withRequiredArg("id", "Message id", ArgTypes.STRING);
+        reset.handler(c -> reset(c, c.arg(resetId).trim()));
     }
 
     // ---- /fa config ----------------------------------------------------------
@@ -203,14 +205,6 @@ final class ConfigCommands {
             c.send(Msg.colored("  " + Messages.raw(id), Msg.TEXT));
         } else {
             c.send(Msg.muted(" " + Messages.get(ConfigText.MESSAGES_NOT_CUSTOM, "id", id)));
-        }
-    }
-
-    private void messageAction(Call c, String verb, String rest) {
-        switch (verb.toLowerCase(Locale.ROOT)) {
-            case "search" -> search(c, rest);
-            case "reset" -> reset(c, rest);
-            default -> c.bad(Messages.get(ConfigText.MESSAGES_HINT));
         }
     }
 

@@ -34,9 +34,9 @@ public final class ConfigText {
     public static final String MESSAGES_CUSTOM = Messages.define("admin.messages.custom", "Custom wording");
     public static final String MESSAGES_NOT_CUSTOM = Messages.define("admin.messages.notCustom",
             "{id} uses the default wording.");
-    public static final String MESSAGES_FOUND = Messages.define("admin.messages.found", "{count} ids match {text}.");
+    public static final String MESSAGES_FOUND = Messages.define("admin.messages.found", "Messages that contain {text}, {count} in all.");
     public static final String MESSAGES_FOUND_MORE = Messages.define("admin.messages.foundMore",
-            "{count} ids match {text}, the first {shown} are listed.");
+            "Messages that contain {text}, {count} in all. The first {shown} are listed.");
     public static final String MESSAGES_NONE = Messages.define("admin.messages.none", "No message contains {text}.");
     public static final String MESSAGES_RESET = Messages.define("admin.messages.reset",
             "{id} is back to its default wording.");

@@ -25,28 +25,49 @@ public final class ConfigReport {
         return out;
     }
 
-    /** The section name as the settings page writes it, matched without case, or null. */
+    /**
+     * The section name as the settings page writes it, matched without case. A key prefix such as raid
+     * also names a section, the keys that start with raid and a dot. Null when neither matches.
+     */
     public static String section(Settings s, String name) {
-        if (name == null) {
+        if (name == null || name.isBlank()) {
             return null;
         }
+        String n = name.trim();
         for (String g : sections(s).keySet()) {
-            if (g.equalsIgnoreCase(name.trim())) {
+            if (g.equalsIgnoreCase(n)) {
                 return g;
             }
         }
-        return null;
+        String prefix = n.toLowerCase(java.util.Locale.ROOT);
+        return byPrefix(s, prefix).isEmpty() ? null : prefix;
+    }
+
+    private static List<Settings.Def> byPrefix(Settings s, String prefix) {
+        List<Settings.Def> out = new ArrayList<>();
+        for (Settings.Def d : s.definitions()) {
+            if (d.key().toLowerCase(java.util.Locale.ROOT).startsWith(prefix + ".")) {
+                out.add(d);
+            }
+        }
+        return out;
+    }
+
+    /** The keys of a section, or of a key prefix when no section has that name. */
+    public static List<Settings.Def> keys(Settings s, String section) {
+        List<Settings.Def> group = s.definitions(section);
+        return group.isEmpty() ? byPrefix(s, section) : group;
     }
 
     /** Number of pages of a section. */
     public static int pages(Settings s, String section) {
-        int n = s.definitions(section).size();
+        int n = keys(s, section).size();
         return Math.max(1, (n + PAGE_SIZE - 1) / PAGE_SIZE);
     }
 
     /** The keys of one page of a section, the first page is 1. Pages past the end are clamped. */
     public static List<Settings.Def> page(Settings s, String section, int page) {
-        List<Settings.Def> all = s.definitions(section);
+        List<Settings.Def> all = keys(s, section);
         int p = Math.max(1, Math.min(pages(s, section), page));
         int from = (p - 1) * PAGE_SIZE;
         return new ArrayList<>(all.subList(Math.min(from, all.size()), Math.min(all.size(), from + PAGE_SIZE)));
