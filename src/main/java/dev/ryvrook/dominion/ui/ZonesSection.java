@@ -8,6 +8,7 @@ import dev.ryvrook.dominion.model.Rank;
 import dev.ryvrook.dominion.model.Zone;
 import dev.ryvrook.dominion.service.ClaimService;
 import dev.ryvrook.dominion.service.FactionService;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.ui.Body.Btn;
 import dev.ryvrook.dominion.util.Players;
@@ -32,36 +33,36 @@ final class ZonesSection {
     }
 
     void buildRankNames(Body body, Faction f) {
-        body.section("Rank names");
-        body.text("Give each rank your own name. Leave a field empty and save to go back to the default name.", Msg.MUTED);
+        body.section(Messages.get(UiText.RANK_NAMES));
+        body.text(Messages.get(UiText.RANK_NAMES_HINT), Msg.MUTED);
         for (Rank r : Rank.values()) {
             String custom = f.rankNames().get(r.name());
-            body.field("Name for " + r.displayName().toLowerCase(java.util.Locale.ROOT), custom == null ? "" : custom, Btn.of("Save", "rankname", r.name()));
+            body.field(Messages.get(UiText.RANK_NAME_FOR, "rank", r.displayName().toLowerCase(java.util.Locale.ROOT)),
+                    custom == null ? "" : custom, Btn.of(Messages.get(UiText.SAVE), "rankname", r.name()));
         }
     }
 
     void buildZones(Body body, Faction f) {
-        body.section("Zones");
-        body.text("A zone is a named part of your land with its own permissions. Stand in a chunk and press Assign here "
-                + "to put it into a zone. Chunks outside any zone follow the faction permissions. "
-                + "Changing the permissions of a zone needs the permissions right.", Msg.MUTED);
+        body.section(Messages.get(UiText.ZONES));
+        body.text(Messages.get(UiText.ZONES_HINT), Msg.MUTED);
         String here = currentZone(f);
         List<Zone> zones = f.zones();
         if (zones.isEmpty()) {
-            body.text("Your faction has no zones yet.", Msg.MUTED);
+            body.text(Messages.get(UiText.NO_ZONES), Msg.MUTED);
         }
         Map<String, Integer> counts = chunkCounts(f);
         for (Zone z : zones) {
             int n = counts.getOrDefault(z.id(), 0);
             boolean standing = z.id().equals(here);
-            body.row(z.name() + (standing ? "  (here)" : ""), standing ? Msg.GOOD : null,
-                    new String[] {n + (n == 1 ? " chunk" : " chunks"), "", "", ""},
-                    Btn.of("Assign here", "zone_assign", z.id()), Btn.of("Permissions", "zone_perms", z.id()),
-                    Btn.of("Delete", "zone_delete", z.id()));
+            body.row(standing ? Messages.get(UiText.ZONE_HERE, "zone", z.name()) : z.name(), standing ? Msg.GOOD : null,
+                    new String[] {Messages.get(n == 1 ? UiText.CHUNK_ONE : UiText.CHUNKS, "count", n), "", "", ""},
+                    Btn.of(Messages.get(UiText.ASSIGN_HERE), "zone_assign", z.id()),
+                    Btn.of(Messages.get(UiText.PERMISSIONS), "zone_perms", z.id()),
+                    Btn.of(Messages.get(UiText.DELETE), "zone_delete", z.id()));
         }
-        body.field("New zone name", "", Btn.of("Create", "zone_create"));
+        body.field(Messages.get(UiText.NEW_ZONE_NAME), "", Btn.of(Messages.get(UiText.CREATE), "zone_create"));
         if (here != null) {
-            body.buttons(Btn.of("Clear this chunk", "zone_clear"));
+            body.buttons(Btn.of(Messages.get(UiText.CLEAR_THIS_CHUNK), "zone_clear"));
         }
     }
 
@@ -78,7 +79,7 @@ final class ZonesSection {
                 String name = e.text().isEmpty() ? r.displayName() : e.text();
                 panel.reply(factions().setRankName(me, r, name));
             }
-            case "zone_create" -> panel.reply(e.text().isEmpty() ? Result.fail("Type a name for the zone first.")
+            case "zone_create" -> panel.reply(e.text().isEmpty() ? Result.fail(Messages.get(UiText.ZONE_NAME_FIRST))
                     : factions().zoneCreate(me, e.text()));
             case "zone_assign" -> panel.reply(factions().zoneAssign(me, e.value()));
             case "zone_clear" -> panel.reply(factions().zoneAssign(me, null));
@@ -89,9 +90,9 @@ final class ZonesSection {
             case "zone_delete" -> {
                 Faction f = factions().factionOf(me);
                 Zone z = f == null ? null : f.zone(e.value());
-                String name = z == null ? "this zone" : z.name();
-                panel.confirmThen("Delete " + name,
-                        "The zone and its permissions are removed. Its chunks stay claimed and follow the faction permissions again.",
+                String name = z == null ? Messages.get(UiText.THIS_ZONE) : z.name();
+                panel.confirmThen(Messages.get(UiText.DELETE_NAMED, "name", name),
+                        Messages.get(UiText.ZONE_DELETE_BODY),
                         () -> factions().zoneDelete(me, e.value()), DominionPanel.SETTINGS);
                 return false;
             }

@@ -9,6 +9,7 @@ import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.ryvrook.dominion.api.Result;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 
 import java.util.UUID;
@@ -87,7 +88,7 @@ public final class Call {
                 send(Msg.good(result.message()));
             }
         } else {
-            send(Msg.bad(result.message().isBlank() ? "That did not work." : result.message()));
+            send(Msg.bad(result.message().isBlank() ? Messages.get(CommandText.THAT_DID_NOT_WORK) : result.message()));
         }
     }
 

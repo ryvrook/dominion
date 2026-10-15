@@ -13,6 +13,8 @@ import dev.ryvrook.dominion.model.FactionAction;
 import dev.ryvrook.dominion.model.Rank;
 import dev.ryvrook.dominion.model.Relation;
 import dev.ryvrook.dominion.model.Zone;
+import dev.ryvrook.dominion.text.CommonText;
+import dev.ryvrook.dominion.text.Messages;
 
 /**
  * Permission grid for one zone, built like the faction grid. A rank or relation without a zone
@@ -22,7 +24,6 @@ public final class ZonePermsPage extends DominionPage {
     private static final String PAGE = "Pages/Dominion_ZonePerms.ui";
     private static final String HEAD = "Pages/Dominion_PermHead.ui";
     private static final String ROW = "Pages/Dominion_PermRow.ui";
-    private static final String INHERIT = "Inherit";
 
     private final String zoneId;
 
@@ -39,14 +40,14 @@ public final class ZonePermsPage extends DominionPage {
         Faction f = factions().factionOf(uuid());
         Zone zone = f == null ? null : f.zone(zoneId);
         if (zone == null) {
-            c.set("#Subtitle.Text", f == null ? "You are not in a faction." : "That zone no longer exists.");
+            c.set("#Subtitle.Text", f == null ? Messages.get(CommonText.NOT_IN_FACTION) : Messages.get(UiText.ZONE_GONE));
             return;
         }
         // Zone permission changes are gated on the permissions right, like the faction grid.
         boolean canEdit = factions().can(uuid(), FactionAction.PERMS);
-        c.set("#Subtitle.Text", zone.name() + " of " + f.tag() + (canEdit
-                ? "    Inherit follows the faction grid. Clicking a cell copies that column for this zone."
-                : "    You can look but only ranks with the permissions right can change these."));
+        c.set("#Subtitle.Text", Messages.get(UiText.ZONE_OF, "zone", zone.name(), "tag", f.tag()) + "    " + (canEdit
+                ? Messages.get(UiText.ZONE_PERMS_CAN_EDIT)
+                : Messages.get(UiText.PERMS_READ_ONLY)));
         c.clear("#Head");
         c.append("#Head", HEAD);
         PermissionsPage.rankHeads(c, f);
@@ -85,7 +86,7 @@ public final class ZonePermsPage extends DominionPage {
         c.set(on + ".Visible", allowed);
         c.set(off + ".Visible", !allowed);
         if (inherited) {
-            c.set((allowed ? on : off) + ".Text", INHERIT);
+            c.set((allowed ? on : off) + ".Text", Messages.get(UiText.INHERIT));
         }
         Body.on(events, allowed ? on : off, "toggle", value);
     }
@@ -101,23 +102,23 @@ public final class ZonePermsPage extends DominionPage {
                 Faction f = factions().factionOf(uuid());
                 Zone zone = f == null ? null : f.zone(zoneId);
                 if (zone == null) {
-                    reply(Result.fail("That zone no longer exists."));
+                    reply(Result.fail(Messages.get(UiText.ZONE_GONE)));
                     return true;
                 }
                 if (!factions().can(uuid(), FactionAction.PERMS)) {
-                    reply(Result.fail("You need the permissions right to change zone permissions."));
+                    reply(Result.fail(Messages.get(UiText.ZONE_PERMS_NEED_RIGHT)));
                     return true;
                 }
                 Result res = factions().zoneReset(uuid(), zoneId);
                 reply(res.success() && res.message().isBlank()
-                        ? Result.pass("The zone follows the faction permissions again.") : res);
+                        ? Result.pass(Messages.get(UiText.ZONE_PERMS_RESET)) : res);
                 return true;
             }
             case "toggle" -> {
                 Faction f = factions().factionOf(uuid());
                 Zone zone = f == null ? null : f.zone(zoneId);
                 if (zone == null) {
-                    reply(Result.fail("That zone no longer exists."));
+                    reply(Result.fail(Messages.get(UiText.ZONE_GONE)));
                     return true;
                 }
                 String[] parts = e.value().split(":");

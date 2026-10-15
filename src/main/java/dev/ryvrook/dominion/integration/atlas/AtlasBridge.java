@@ -6,10 +6,12 @@ import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.api.DominionEvent;
 import dev.ryvrook.dominion.command.PlayerToggles;
 import dev.ryvrook.dominion.integration.Host;
+import dev.ryvrook.dominion.integration.IntegrationText;
 import dev.ryvrook.dominion.integration.Link;
 import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.Siege;
 import dev.ryvrook.dominion.service.SiegeService;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.util.Keys;
 import dev.ryvrook.atlas.api.AtlasApi;
 import dev.ryvrook.atlas.api.Marker;
@@ -42,7 +44,6 @@ import java.util.function.Consumer;
 public final class AtlasBridge implements Link {
     public static final String PLUGIN_ID = "Ryvrook:Dominion";
     public static final String SIEGES = "sieges";
-    static final String HIDE_REASON = "Hidden with /f map hide in Dominion";
     /** Circle radius in chunks, a little over half a chunk so the whole chunk sits inside. */
     private static final double RADIUS_CHUNKS = 0.75;
 
@@ -77,7 +78,7 @@ public final class AtlasBridge implements Link {
         api = live;
         version = host.foundVersion();
         try {
-            live.layer(PLUGIN_ID, SIEGES).label("Live sieges").tier(Tier.PUBLIC).priority(50);
+            live.layer(PLUGIN_ID, SIEGES).label(Messages.get(IntegrationText.ATLAS_LAYER)).tier(Tier.PUBLIC).priority(50);
         } catch (RuntimeException | LinkageError e) {
             host.warn(e, "Dominion could not make its Atlas siege layer");
         }
@@ -153,7 +154,7 @@ public final class AtlasBridge implements Link {
             return;
         }
         try {
-            a.setHidden(player, hidden, HIDE_REASON);
+            a.setHidden(player, hidden, Messages.get(IntegrationText.ATLAS_HIDE_REASON));
         } catch (RuntimeException | LinkageError ignored) {
             // Atlas keeps its own switch, the snapshot still hides the player
         }

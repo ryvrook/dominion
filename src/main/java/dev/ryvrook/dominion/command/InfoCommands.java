@@ -17,6 +17,7 @@ import dev.ryvrook.dominion.service.EconomyService;
 import dev.ryvrook.dominion.service.NationService;
 import dev.ryvrook.dominion.service.ProgressService;
 import dev.ryvrook.dominion.service.SiegeService;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Players;
 import dev.ryvrook.dominion.util.Time;
@@ -41,14 +42,14 @@ final class InfoCommands extends Section {
 
     @Override
     void register(PlayerCmd root) {
-        PlayerCmd help = root.sub(new PlayerCmd("help", "Show what you can do."));
+        PlayerCmd help = root.sub(new PlayerCmd("help", Messages.get(CommandText.DESC_SHOW_WHAT_YOU_CAN_DO)));
         help.handler(c -> HelpTopics.show(c, null));
-        PlayerCmd helpTopic = new PlayerCmd("Show help for one topic.");
-        RequiredArg<String> topic = helpTopic.withRequiredArg("topic", "Help topic", ArgTypes.STRING);
+        PlayerCmd helpTopic = new PlayerCmd(Messages.get(CommandText.DESC_SHOW_HELP_FOR_ONE_TOPIC));
+        RequiredArg<String> topic = helpTopic.withRequiredArg("topic", Messages.get(CommandText.ARG_HELP_TOPIC), ArgTypes.STRING);
         helpTopic.handler(c -> HelpTopics.show(c, c.arg(topic)));
         help.variant(helpTopic);
 
-        PlayerCmd who = root.sub(new PlayerCmd("who", "Show details about your faction."));
+        PlayerCmd who = root.sub(new PlayerCmd("who", Messages.get(CommandText.DESC_SHOW_DETAILS_ABOUT_YOUR_FACTION)));
         who.addAliases("info", "show", "f");
         who.handler(c -> {
             Faction f = requireFaction(c);
@@ -56,8 +57,8 @@ final class InfoCommands extends Section {
                 showFaction(c, f);
             }
         });
-        PlayerCmd whoTag = new PlayerCmd("Show details about another faction.");
-        RequiredArg<String> whoArg = whoTag.withRequiredArg("tag", "Faction tag or player name", ArgTypes.STRING);
+        PlayerCmd whoTag = new PlayerCmd(Messages.get(CommandText.DESC_SHOW_DETAILS_ABOUT_ANOTHER_FACTION));
+        RequiredArg<String> whoArg = whoTag.withRequiredArg("tag", Messages.get(CommandText.ARG_FACTION_TAG_OR_PLAYER_NAME), ArgTypes.STRING);
         whoTag.handler(c -> {
             String text = c.arg(whoArg);
             Faction f = factions().byTag(text);
@@ -68,30 +69,30 @@ final class InfoCommands extends Section {
                 }
                 f = t == null ? null : factions().factionOf(t.uuid());
                 if (f == null && t != null) {
-                    c.info(t.name() + " is not in a faction.");
+                    c.info(Messages.get(CommandText.PLAYER_NOT_IN_A_FACTION, "name", t.name()));
                     return;
                 }
             }
             if (f == null) {
-                c.bad("No faction or player matches " + text + ".");
+                c.bad(Messages.get(CommandText.NO_FACTION_OR_PLAYER, "text", text));
                 return;
             }
             showFaction(c, f);
         });
         who.variant(whoTag);
 
-        PlayerCmd list = root.sub(new PlayerCmd("list", "List factions."));
+        PlayerCmd list = root.sub(new PlayerCmd("list", Messages.get(CommandText.DESC_LIST_FACTIONS)));
         list.handler(c -> showList(c, 1));
-        PlayerCmd listPage = new PlayerCmd("List a page of factions.");
-        RequiredArg<Integer> listArg = listPage.withRequiredArg("page", "Page number", ArgTypes.INTEGER);
+        PlayerCmd listPage = new PlayerCmd(Messages.get(CommandText.DESC_LIST_A_PAGE_OF_FACTIONS));
+        RequiredArg<Integer> listArg = listPage.withRequiredArg("page", Messages.get(CommandText.ARG_PAGE_NUMBER), ArgTypes.INTEGER);
         listPage.handler(c -> showList(c, clampPage(c.arg(listArg))));
         list.variant(listPage);
 
-        PlayerCmd player = root.sub(new PlayerCmd("player", "Show your player profile."));
+        PlayerCmd player = root.sub(new PlayerCmd("player", Messages.get(CommandText.DESC_SHOW_YOUR_PLAYER_PROFILE)));
         player.addAliases("p");
         player.handler(c -> showPlayer(c, c.uuid(), c.name()));
-        PlayerCmd playerName = new PlayerCmd("Show another player's profile.");
-        RequiredArg<String> playerArg = playerName.withRequiredArg("name", "Player name", ArgTypes.STRING);
+        PlayerCmd playerName = new PlayerCmd(Messages.get(CommandText.DESC_SHOW_ANOTHER_PLAYERS_PROFILE));
+        RequiredArg<String> playerArg = playerName.withRequiredArg("name", Messages.get(CommandText.ARG_PLAYER_NAME), ArgTypes.STRING);
         playerName.handler(c -> {
             Targets.Target t = target(c, c.arg(playerArg));
             if (t != null) {
@@ -100,7 +101,7 @@ final class InfoCommands extends Section {
         });
         player.variant(playerName);
 
-        root.sub(new PlayerCmd("online", "List members who are online.")).handler(c -> {
+        root.sub(new PlayerCmd("online", Messages.get(CommandText.DESC_LIST_MEMBERS_WHO_ARE_ONLINE))).handler(c -> {
             Faction f = requireFaction(c);
             if (f == null) {
                 return;
@@ -111,28 +112,28 @@ final class InfoCommands extends Section {
                     on.add(m);
                 }
             }
-            c.info(on.size() + " of " + f.memberCount() + " members of " + f.tag() + " are online");
+            c.info(Messages.get(CommandText.MEMBERS_ONLINE, "online", on.size(), "members", f.memberCount(), "tag", f.tag()));
             for (Member m : on) {
                 c.send(Message.join(Msg.muted(" " + rankOf(f, m).prefix() + " "), Msg.colored(m.name(), Relation.OWN.color())));
             }
         });
 
-        PlayerCmd log = root.sub(new PlayerCmd("log", "Show your faction audit log."));
+        PlayerCmd log = root.sub(new PlayerCmd("log", Messages.get(CommandText.DESC_SHOW_YOUR_FACTION_AUDIT_LOG)));
         log.handler(c -> showLog(c, 1));
-        PlayerCmd logPage = new PlayerCmd("Show a page of the audit log.");
-        RequiredArg<Integer> logArg = logPage.withRequiredArg("page", "Page number", ArgTypes.INTEGER);
+        PlayerCmd logPage = new PlayerCmd(Messages.get(CommandText.DESC_SHOW_A_PAGE_OF_THE_AUDIT));
+        RequiredArg<Integer> logArg = logPage.withRequiredArg("page", Messages.get(CommandText.ARG_PAGE_NUMBER), ArgTypes.INTEGER);
         logPage.handler(c -> showLog(c, clampPage(c.arg(logArg))));
         log.variant(logPage);
 
-        PlayerCmd stats = root.sub(new PlayerCmd("stats", "Show your faction statistics."));
+        PlayerCmd stats = root.sub(new PlayerCmd("stats", Messages.get(CommandText.DESC_SHOW_YOUR_FACTION_STATISTICS)));
         stats.handler(c -> {
             Faction f = requireFaction(c);
             if (f != null) {
                 showStats(c, f);
             }
         });
-        PlayerCmd statsTag = new PlayerCmd("Show another faction's statistics.");
-        RequiredArg<String> statsArg = statsTag.withRequiredArg("tag", "Faction tag", ArgTypes.STRING);
+        PlayerCmd statsTag = new PlayerCmd(Messages.get(CommandText.DESC_SHOW_ANOTHER_FACTIONS_STATISTICS));
+        RequiredArg<String> statsArg = statsTag.withRequiredArg("tag", Messages.get(CommandText.ARG_FACTION_TAG), ArgTypes.STRING);
         statsTag.handler(c -> {
             Faction f = factionByTag(c, c.arg(statsArg));
             if (f != null) {
@@ -153,40 +154,40 @@ final class InfoCommands extends Section {
         c.send(Message.join(Msg.colored("____[ ", Msg.GOLD), Msg.colored(f.label(), relColor).bold(true),
                 Msg.colored(" ]____", Msg.GOLD)));
         if (f.type() != FactionType.NORMAL) {
-            c.send(Msg.muted(f.type() == FactionType.SAFEZONE ? " A safe zone run by the server." : " A war zone run by the server."));
+            c.send(Msg.muted(f.type() == FactionType.SAFEZONE ? " " + Messages.get(CommandText.A_SAFE_ZONE_RUN_BY_THE) : " " + Messages.get(CommandText.A_WAR_ZONE_RUN_BY_THE)));
             return;
         }
         if (!f.description().isBlank()) {
-            c.send(line("Description", Msg.colored(f.description(), Msg.TEXT)));
+            c.send(line(Messages.get(CommandText.LABEL_DESCRIPTION), Msg.colored(f.description(), Msg.TEXT)));
         }
-        c.send(line("Age", Msg.colored(age(Time.now() - f.createdAt()), Msg.TEXT)));
+        c.send(line(Messages.get(CommandText.LABEL_AGE), Msg.colored(age(Time.now() - f.createdAt()), Msg.TEXT)));
         boolean open = f.setting("open", false);
-        c.send(line("Open", Msg.colored(open ? "Yes, anyone can join" : "No, only invited players can join", Msg.TEXT)));
-        c.send(line("Land / Power / Maxpower", Msg.colored(claims().claimCount(f) + " / " + Msg.number(power().factionPower(f))
+        c.send(line(Messages.get(CommandText.LABEL_OPEN), Msg.colored(open ? Messages.get(CommandText.YES_ANYONE_CAN_JOIN) : Messages.get(CommandText.NO_ONLY_INVITED_PLAYERS_CAN_JOIN), Msg.TEXT)));
+        c.send(line(Messages.get(CommandText.LABEL_LAND_POWER_MAXPOWER), Msg.colored(claims().claimCount(f) + " / " + Msg.number(power().factionPower(f))
                 + " / " + Msg.number(power().factionMaxPower(f)), Msg.TEXT)));
         if (claims().raidable(f)) {
-            c.send(Msg.colored("Raidable now", Msg.BAD).bold(true));
+            c.send(Msg.colored(Messages.get(CommandText.RAIDABLE_NOW), Msg.BAD).bold(true));
         }
         EconomyService eco = ctx.serviceOrNull(EconomyService.class);
         if (eco != null && eco.enabled()) {
-            c.send(line("Bank", Msg.colored(eco.format(f.bank()), Msg.TEXT)));
+            c.send(line(Messages.get(CommandText.LABEL_BANK), Msg.colored(eco.format(f.bank()), Msg.TEXT)));
         }
         NationService nations = ctx.serviceOrNull(NationService.class);
         Nation nation = nations == null ? null : nations.nationOf(f);
         if (nation != null) {
-            c.send(Message.join(Msg.muted("Member of the nation "), Msg.colored(nation.label(), Msg.GOLD)));
+            c.send(Message.join(Msg.muted(Messages.get(CommandText.MEMBER_OF_THE_NATION) + " "), Msg.colored(nation.label(), Msg.GOLD)));
         }
-        relationLine(c, f, Relation.TRUCE, "In truce with");
-        relationLine(c, f, Relation.ALLY, "Allies");
-        relationLine(c, f, Relation.ENEMY, "Enemies");
+        relationLine(c, f, Relation.TRUCE, Messages.get(CommandText.LABEL_TRUCE));
+        relationLine(c, f, Relation.ALLY, Messages.get(CommandText.LABEL_ALLIES));
+        relationLine(c, f, Relation.ENEMY, Messages.get(CommandText.LABEL_ENEMIES));
 
         List<Member> on = new ArrayList<>();
         List<Member> off = new ArrayList<>();
         for (Member m : Faction.sortedByRank(f.members())) {
             (Players.isOnline(m.uuid()) ? on : off).add(m);
         }
-        c.send(roster(c, f, "Members online (" + on.size() + ")", on, relColor));
-        c.send(roster(c, f, "Members offline (" + off.size() + ")", off, Msg.MUTED));
+        c.send(roster(c, f, Messages.get(CommandText.ROSTER_ONLINE, "count", on.size()), on, relColor));
+        c.send(roster(c, f, Messages.get(CommandText.ROSTER_OFFLINE, "count", off.size()), off, Msg.MUTED));
     }
 
     /** A muted label followed by its value, the classic who layout without a colon. */
@@ -236,7 +237,7 @@ final class InfoCommands extends Section {
             first = false;
         }
         if (first) {
-            out = Message.join(out, Msg.muted("none"));
+            out = Message.join(out, Msg.muted(Messages.get(CommandText.NONE)));
         }
         return out;
     }
@@ -253,16 +254,24 @@ final class InfoCommands extends Section {
         long hours = (minutes % 1440) / 60;
         long mins = minutes % 60;
         if (days > 0) {
-            return hours > 0 ? unit(days, "day") + ", " + unit(hours, "hour") : unit(days, "day");
+            return hours > 0 ? days(days) + ", " + hours(hours) : days(days);
         }
         if (hours > 0) {
-            return mins > 0 ? unit(hours, "hour") + ", " + unit(mins, "minute") : unit(hours, "hour");
+            return mins > 0 ? hours(hours) + ", " + minutes(mins) : hours(hours);
         }
-        return mins > 0 ? unit(mins, "minute") : "less than a minute";
+        return mins > 0 ? minutes(mins) : Messages.get(CommandText.LESS_THAN_A_MINUTE);
     }
 
-    private static String unit(long n, String word) {
-        return n + " " + word + (n == 1 ? "" : "s");
+    private static String days(long n) {
+        return Messages.get(n == 1 ? CommandText.AGE_DAY : CommandText.AGE_DAYS, "n", n);
+    }
+
+    private static String hours(long n) {
+        return Messages.get(n == 1 ? CommandText.AGE_HOUR : CommandText.AGE_HOURS, "n", n);
+    }
+
+    private static String minutes(long n) {
+        return Messages.get(n == 1 ? CommandText.AGE_MINUTE : CommandText.AGE_MINUTES, "n", n);
     }
 
     private void showList(Call c, int page) {
@@ -273,7 +282,7 @@ final class InfoCommands extends Section {
             }
         }
         if (all.isEmpty()) {
-            c.info("There are no factions yet. Start one with /f create.");
+            c.info(Messages.get(CommandText.THERE_ARE_NO_FACTIONS_YET_START));
             return;
         }
         Map<UUID, Integer> online = new HashMap<>();
@@ -290,13 +299,12 @@ final class InfoCommands extends Section {
                 .thenComparing(Comparator.comparingDouble((Faction f) -> power().factionPower(f)).reversed()));
         int pages = (all.size() + LIST_PAGE - 1) / LIST_PAGE;
         int p = Math.min(page, pages);
-        c.info("Factions, page " + p + " of " + pages);
+        c.info(Messages.get(CommandText.FACTIONS_PAGE, "page", p, "pages", pages));
         for (int i = (p - 1) * LIST_PAGE; i < Math.min(all.size(), p * LIST_PAGE); i++) {
             Faction f = all.get(i);
             Relation rel = relations().playerToFaction(c.uuid(), f);
             c.send(Message.join(Msg.muted(" " + (i + 1) + ". "), Msg.colored(f.tag(), rel.color()).bold(true),
-                    Msg.muted("  " + online.get(f.id()) + " of " + f.memberCount() + " online, power "
-                            + Msg.number(power().factionPower(f)) + ", " + claims().claimCount(f) + " claims")));
+                    Msg.muted("  " + Messages.get(CommandText.LIST_ROW, "online", online.get(f.id()), "members", f.memberCount(), "power", Msg.number(power().factionPower(f)), "claims", claims().claimCount(f)))));
         }
     }
 
@@ -306,14 +314,13 @@ final class InfoCommands extends Section {
         Relation rel = relations().betweenPlayers(c.uuid(), uuid);
         c.send(Message.join(Msg.prefix(), Msg.colored(name, rel.color()).bold(true)));
         if (f == null) {
-            c.send(Msg.muted(" Not in a faction."));
+            c.send(Msg.muted(" " + Messages.get(CommandText.PLAYER_NOT_IN_FACTION)));
         } else {
             Rank r = f.rankOf(uuid);
-            c.send(Msg.colored(" " + (r == null ? f.rankName(Rank.MEMBER) : f.rankName(r)) + " of " + f.tag(), Msg.TEXT));
+            c.send(Msg.colored(" " + Messages.get(CommandText.PLAYER_RANK_OF, "rank", r == null ? f.rankName(Rank.MEMBER) : f.rankName(r), "tag", f.tag()), Msg.TEXT));
         }
-        c.send(Msg.colored(" Power " + Msg.number(power().powerOf(uuid)) + " of " + Msg.number(power().maxPowerOf(uuid))
-                + ", " + pd.kills() + " kills and " + pd.deaths() + " deaths.", Msg.TEXT));
-        c.send(Msg.muted(Players.isOnline(uuid) ? " Online now." : " Last seen " + Time.ago(pd.lastSeen()) + "."));
+        c.send(Msg.colored(" " + Messages.get(CommandText.PLAYER_POWER, "power", Msg.number(power().powerOf(uuid)), "max", Msg.number(power().maxPowerOf(uuid)), "kills", pd.kills(), "deaths", pd.deaths()), Msg.TEXT));
+        c.send(Msg.muted(Players.isOnline(uuid) ? " " + Messages.get(CommandText.ONLINE_NOW) : " " + Messages.get(CommandText.LAST_SEEN, "ago", Time.ago(pd.lastSeen()))));
     }
 
     private void showLog(Call c, int page) {
@@ -323,15 +330,15 @@ final class InfoCommands extends Section {
         }
         List<AuditEntry> entries = f.audit();
         if (entries.isEmpty()) {
-            c.info("Nothing has been logged yet.");
+            c.info(Messages.get(CommandText.NOTHING_HAS_BEEN_LOGGED_YET));
             return;
         }
         int pages = (entries.size() + LOG_PAGE - 1) / LOG_PAGE;
         int p = Math.min(page, pages);
-        c.info("Audit log of " + f.tag() + ", page " + p + " of " + pages);
+        c.info(Messages.get(CommandText.AUDIT_PAGE, "tag", f.tag(), "page", p, "pages", pages));
         for (int i = (p - 1) * LOG_PAGE; i < Math.min(entries.size(), p * LOG_PAGE); i++) {
             AuditEntry e = entries.get(i);
-            String who = e.whoName() == null || e.whoName().isBlank() ? "Server" : e.whoName();
+            String who = e.whoName() == null || e.whoName().isBlank() ? Messages.get(CommandText.AUDIT_SERVER) : e.whoName();
             c.send(Message.join(Msg.muted(" " + Time.ago(e.at()) + "  "), Msg.colored(who + " ", Msg.INFO),
                     Msg.colored(e.text() == null ? "" : e.text(), Msg.TEXT)));
         }
@@ -344,15 +351,14 @@ final class InfoCommands extends Section {
             kills += m.kills();
             deaths += m.deaths();
         }
-        c.send(Message.join(Msg.prefix(), Msg.colored(f.tag(), f.color()).bold(true), Msg.colored("  statistics", Msg.TEXT)));
-        c.send(Msg.colored(" " + kills + " kills and " + deaths + " deaths by current members.", Msg.TEXT));
+        c.send(Message.join(Msg.prefix(), Msg.colored(f.tag(), f.color()).bold(true), Msg.colored("  " + Messages.get(CommandText.STATS_TITLE), Msg.TEXT)));
+        c.send(Msg.colored(" " + Messages.get(CommandText.STATS_KILLS, "kills", kills, "deaths", deaths), Msg.TEXT));
         ProgressService progress = ctx.serviceOrNull(ProgressService.class);
         if (progress == null) {
-            c.send(Msg.colored(" " + f.points() + " points, founded " + Time.date(f.createdAt()) + ".", Msg.TEXT));
+            c.send(Msg.colored(" " + Messages.get(CommandText.STATS_POINTS, "points", f.points(), "date", Time.date(f.createdAt())), Msg.TEXT));
         } else {
-            c.send(Msg.colored(" Level " + progress.level(f) + " with " + progress.points(f) + " points, worth "
-                    + Msg.number(progress.value(f)) + " and " + ProgressCommands.standing(progress.rank(f)) + ".", Msg.TEXT));
-            c.send(Msg.colored(" Founded " + Time.date(f.createdAt()) + ".", Msg.TEXT));
+            c.send(Msg.colored(" " + Messages.get(CommandText.STATS_LEVEL, "level", progress.level(f), "points", progress.points(f), "value", Msg.number(progress.value(f)), "standing", ProgressCommands.standing(progress.rank(f))), Msg.TEXT));
+            c.send(Msg.colored(" " + Messages.get(CommandText.STATS_FOUNDED, "date", Time.date(f.createdAt())), Msg.TEXT));
         }
         SiegeService sieges = ctx.serviceOrNull(SiegeService.class);
         if (sieges != null) {
@@ -367,8 +373,10 @@ final class InfoCommands extends Section {
                 }
             }
             int active = sieges.activeFor(f).size();
-            c.send(Msg.colored(" " + sieges.raidPoints(f) + " raid points, " + won + " sieges won and " + lost + " lost recently"
-                    + (active > 0 ? ", " + active + " running now." : "."), Msg.TEXT));
+            String raids = active > 0
+                    ? Messages.get(CommandText.STATS_RAIDS_RUNNING, "points", sieges.raidPoints(f), "won", won, "lost", lost, "running", active)
+                    : Messages.get(CommandText.STATS_RAIDS, "points", sieges.raidPoints(f), "won", won, "lost", lost);
+            c.send(Msg.colored(" " + raids, Msg.TEXT));
         }
         Map<String, Long> stats = new TreeMap<>(f.stats());
         for (Map.Entry<String, Long> e : stats.entrySet()) {

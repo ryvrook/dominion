@@ -16,6 +16,7 @@ import dev.ryvrook.dominion.service.FactionService;
 import dev.ryvrook.dominion.service.RelationService;
 import dev.ryvrook.dominion.service.RulesService;
 import dev.ryvrook.dominion.service.SiegeService;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.util.Keys;
 import dev.ryvrook.dominion.util.Time;
 
@@ -56,13 +57,13 @@ public final class RulesServiceImpl implements RulesService {
         }
         if (owner.type() == FactionType.SAFEZONE) {
             if (action == FactionAction.BUILD || action == FactionAction.CONTAINER || action == FactionAction.DAMAGE_ENTITY) {
-                return Result.fail("You cannot " + verb(action) + " in the SafeZone " + owner.name() + ".");
+                return Result.fail(Messages.get(CombatText.DENY_SAFEZONE, "action", verb(action), "zone", owner.name()));
             }
             return Result.pass();
         }
         if (owner.type() == FactionType.WARZONE) {
             if (action == FactionAction.BUILD || action == FactionAction.CONTAINER) {
-                return Result.fail("You cannot " + verb(action) + " in the WarZone " + owner.name() + ".");
+                return Result.fail(Messages.get(CombatText.DENY_WARZONE, "action", verb(action), "zone", owner.name()));
             }
             return Result.pass();
         }
@@ -70,7 +71,7 @@ public final class RulesServiceImpl implements RulesService {
         if (mine != null && mine.id().equals(owner.id())) {
             Rank rank = owner.rankOf(player);
             if (rank == null) {
-                return Result.fail("You are not on the roster of " + owner.tag() + " yet.");
+                return Result.fail(Messages.get(CombatText.NOT_ON_ROSTER, "tag", owner.tag()));
             }
             Member m = owner.member(player);
             if (rank != Rank.LEADER && m != null && m.onHold(Time.now()) && HOLD_LIMITED.contains(action)) {
@@ -83,9 +84,9 @@ public final class RulesServiceImpl implements RulesService {
                 return Result.pass();
             }
             if (zoned != null) {
-                return Result.fail("Your rank cannot " + verb(action) + " in the zone " + zone.name() + ".");
+                return Result.fail(Messages.get(CombatText.DENY_RANK_ZONE, "action", verb(action), "zone", zone.name()));
             }
-            return Result.fail("Your rank in " + owner.tag() + " cannot " + verb(action) + " here.");
+            return Result.fail(Messages.get(CombatText.DENY_RANK, "tag", owner.tag(), "action", verb(action)));
         }
         Relation relation = relation(player, owner);
         if (relation == Relation.ENEMY) {
@@ -98,26 +99,26 @@ public final class RulesServiceImpl implements RulesService {
                     return Result.pass();
                 }
             }
-            return Result.fail(owner.tag() + " is your enemy and you cannot " + verb(action) + " in its land.");
+            return Result.fail(Messages.get(CombatText.DENY_ENEMY, "tag", owner.tag(), "action", verb(action)));
         }
         Zone zone = zoneAt(owner, world, chunkIndex);
         Boolean zoned = zone == null ? null : zone.relationCan(relation, action);
         if (zoned != null) {
             return zoned ? Result.pass()
-                    : Result.fail(owner.tag() + " does not let you " + verb(action) + " in its zone " + zone.name() + ".");
+                    : Result.fail(Messages.get(CombatText.DENY_ZONE, "tag", owner.tag(), "action", verb(action), "zone", zone.name()));
         }
         if (relation == Relation.ALLY && action == FactionAction.BUILD
                 && !owner.setting("allyBuild", ctx.settings().bool("relation.allyBuildDefault"))) {
-            return Result.fail(owner.tag() + " does not let allies build in its land.");
+            return Result.fail(Messages.get(CombatText.DENY_ALLY_BUILD, "tag", owner.tag()));
         }
         if (relation == Relation.TRUCE && action == FactionAction.INTERACT
                 && !owner.setting("truceInteract", ctx.settings().bool("relation.truceInteractDefault"))) {
-            return Result.fail(owner.tag() + " does not let truces use things in its land.");
+            return Result.fail(Messages.get(CombatText.DENY_TRUCE_USE, "tag", owner.tag()));
         }
         if (owner.relationCan(relation, action)) {
             return Result.pass();
         }
-        return Result.fail(owner.tag() + " does not let you " + verb(action) + " in its land.");
+        return Result.fail(Messages.get(CombatText.DENY_LAND, "tag", owner.tag(), "action", verb(action)));
     }
 
     /**
@@ -143,10 +144,10 @@ public final class RulesServiceImpl implements RulesService {
 
     private static String verb(FactionAction action) {
         return switch (action) {
-            case BUILD -> "build";
-            case CONTAINER -> "open containers";
-            case INTERACT -> "use that";
-            case DAMAGE_ENTITY -> "hurt creatures";
+            case BUILD -> Messages.get(CombatText.VERB_BUILD);
+            case CONTAINER -> Messages.get(CombatText.VERB_CONTAINER);
+            case INTERACT -> Messages.get(CombatText.VERB_INTERACT);
+            case DAMAGE_ENTITY -> Messages.get(CombatText.VERB_DAMAGE_ENTITY);
             default -> action.description().toLowerCase(Locale.ROOT);
         };
     }

@@ -11,6 +11,7 @@ import dev.ryvrook.dominion.service.PowerService;
 import dev.ryvrook.dominion.service.RelationService;
 import dev.ryvrook.dominion.service.RulesService;
 import dev.ryvrook.dominion.service.UiService;
+import dev.ryvrook.dominion.text.Messages;
 
 /** Shared plumbing for each group of /f sub commands. Services are looked up on every call. */
 abstract class Section {
@@ -40,7 +41,7 @@ abstract class Section {
     protected Faction requireFaction(Call call) {
         Faction f = factions().factionOf(call.uuid());
         if (f == null) {
-            call.bad("You are not in a faction. Use /f create or /f join first.");
+            call.bad(Messages.get(CommandText.YOU_ARE_NOT_IN_A_FACTION));
         }
         return f;
     }
@@ -49,7 +50,7 @@ abstract class Section {
     protected Targets.Target target(Call call, String name) {
         Targets.Target t = targets.resolve(call.uuid(), name);
         if (t == null) {
-            call.bad("No player named " + name + " could be found.");
+            call.bad(Messages.get(CommandText.NO_PLAYER_NAMED, "name", name));
         }
         return t;
     }
@@ -58,7 +59,7 @@ abstract class Section {
     protected Faction factionByTag(Call call, String tag) {
         Faction f = factions().byTag(tag);
         if (f == null) {
-            call.bad("No faction uses the tag " + tag + ".");
+            call.bad(Messages.get(CommandText.NO_FACTION_WITH_TAG, "tag", tag));
         }
         return f;
     }
@@ -67,12 +68,13 @@ abstract class Section {
     protected <T> T feature(Call call, Class<T> type) {
         T s = ctx.serviceOrNull(type);
         if (s == null) {
-            call.bad(NOT_INSTALLED);
+            call.bad(Messages.get(NOT_INSTALLED));
         }
         return s;
     }
 
-    static final String NOT_INSTALLED = "That feature is not installed.";
+    /** The id of the sentence for a feature whose module is not installed. */
+    static final String NOT_INSTALLED = CommandText.NOT_INSTALLED;
 
     protected static int clampPage(int page) {
         return Math.max(1, page);

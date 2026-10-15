@@ -1,6 +1,7 @@
 package dev.ryvrook.dominion.command;
 
 import dev.ryvrook.dominion.api.Result;
+import dev.ryvrook.dominion.text.Messages;
 
 import java.util.Map;
 import java.util.UUID;
@@ -23,7 +24,7 @@ public final class Confirmations {
     public Result confirm(UUID player) {
         Pending p = pending.remove(player);
         if (p == null || p.expiresAt() < System.currentTimeMillis()) {
-            return Result.fail("You have nothing waiting to be confirmed.");
+            return Result.fail(Messages.get(CommandText.YOU_HAVE_NOTHING_WAITING_TO_BE));
         }
         return p.action().get();
     }

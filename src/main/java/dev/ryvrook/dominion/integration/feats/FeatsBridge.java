@@ -3,11 +3,13 @@ package dev.ryvrook.dominion.integration.feats;
 import com.hypixel.hytale.server.core.Message;
 import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.integration.Host;
+import dev.ryvrook.dominion.integration.IntegrationText;
 import dev.ryvrook.dominion.integration.Link;
 import dev.ryvrook.dominion.integration.StatSink;
 import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.service.ChatService;
 import dev.ryvrook.dominion.service.FactionService;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.feats.api.FeatUnlockedEvent;
 import dev.ryvrook.feats.api.FeatsApi;
@@ -103,7 +105,7 @@ public final class FeatsBridge implements Link, StatSink {
             }
             String name = e.playerName() == null || e.playerName().isBlank() ? ctx.player(e.uuid()).name() : e.playerName();
             chat.sendToFaction(f, Message.join(Msg.prefix(), Msg.colored(name, Msg.GOLD),
-                    Msg.colored(" earned the feat ", Msg.TEXT), Msg.colored(e.featName(), Msg.GOLD),
+                    Msg.colored(Messages.get(IntegrationText.FEAT_EARNED), Msg.TEXT), Msg.colored(e.featName(), Msg.GOLD),
                     Msg.colored(".", Msg.TEXT)), false);
         } catch (RuntimeException | LinkageError ignored) {
             // an announcement is never worth an error in the Feats unlock path

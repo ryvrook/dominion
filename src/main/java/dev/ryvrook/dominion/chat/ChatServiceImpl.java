@@ -18,6 +18,8 @@ import dev.ryvrook.dominion.service.FactionService;
 import dev.ryvrook.dominion.service.NationService;
 import dev.ryvrook.dominion.model.Nation;
 import dev.ryvrook.dominion.service.RelationService;
+import dev.ryvrook.dominion.text.CommonText;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Players;
 
@@ -74,7 +76,7 @@ public final class ChatServiceImpl implements ChatService {
             route(event, sender);
         } catch (RuntimeException e) {
             event.setCancelled(true);
-            Msg.send(sender, Msg.bad("Your message could not be delivered. Please try again."));
+            Msg.send(sender, Msg.bad(Messages.get(ChatText.NOT_DELIVERED)));
             throw e;
         }
     }
@@ -228,17 +230,17 @@ public final class ChatServiceImpl implements ChatService {
         List<UUID> recipients;
         switch (channel) {
             case ALLY -> {
-                label = "Ally";
+                label = Messages.get(ChatText.LABEL_ALLY);
                 color = Relation.ALLY.color();
                 recipients = allyAudience(faction);
             }
             case OFFICER -> {
-                label = "Officer";
+                label = Messages.get(ChatText.LABEL_OFFICER);
                 color = Msg.GOLD;
                 recipients = officers(faction);
             }
             default -> {
-                label = "Faction";
+                label = Messages.get(ChatText.LABEL_FACTION);
                 color = Relation.OWN.color();
                 recipients = memberIds(faction);
             }
@@ -268,7 +270,7 @@ public final class ChatServiceImpl implements ChatService {
         }
         Rank rank = faction.rankOf(sender.getUuid());
         String rankPrefix = rank == null ? "" : rank.prefix();
-        String label = "Nation " + n.tag() + " ";
+        String label = Messages.get(ChatText.LABEL_NATION, "tag", n.tag()) + " ";
         for (UUID id : nationAudience(n)) {
             PlayerRef target = Players.online(id);
             if (target == null) {
@@ -391,28 +393,28 @@ public final class ChatServiceImpl implements ChatService {
     @Override
     public Result setChannel(UUID player, PlayerData.Channel channel) {
         if (channel == null) {
-            return Result.fail("Channels are public, faction, ally, nation and officer.");
+            return Result.fail(Messages.get(ChatText.CHANNELS));
         }
         Faction faction = factions().factionOf(player);
         if (channel != PlayerData.Channel.PUBLIC && faction == null) {
-            return Result.fail("You need a faction to use " + describe(channel) + ".");
+            return Result.fail(Messages.get(ChatText.CHANNEL_NEEDS_FACTION, "channel", describe(channel)));
         }
         if (channel == PlayerData.Channel.OFFICER) {
             Rank r = faction.rankOf(player);
             if (r == null || !r.atLeast(Rank.OFFICER)) {
-                return Result.fail("Only officers and the leader can use officer chat.");
+                return Result.fail(Messages.get(ChatText.OFFICER_CHAT_ONLY));
             }
         }
         if (channel == PlayerData.Channel.NATION) {
             if (ctx.serviceOrNull(NationService.class) == null) {
-                return Result.fail("Nations are not installed on this server.");
+                return Result.fail(Messages.get(ChatText.NATIONS_OFF));
             }
             if (nationOf(faction) == null) {
-                return Result.fail("Your faction is not in a nation.");
+                return Result.fail(Messages.get(ChatText.NOT_IN_NATION));
             }
         }
         ctx.player(player).setChannel(channel);
-        return Result.pass("You are now talking in " + describe(channel) + ".");
+        return Result.pass(Messages.get(ChatText.CHANNEL_SET, "channel", describe(channel)));
     }
 
     @Override
@@ -442,11 +444,11 @@ public final class ChatServiceImpl implements ChatService {
 
     static String describe(PlayerData.Channel channel) {
         return switch (channel) {
-            case PUBLIC -> "public chat";
-            case FACTION -> "faction chat";
-            case ALLY -> "ally chat";
-            case NATION -> "nation chat";
-            case OFFICER -> "officer chat";
+            case PUBLIC -> Messages.get(ChatText.CHANNEL_PUBLIC);
+            case FACTION -> Messages.get(ChatText.CHANNEL_FACTION);
+            case ALLY -> Messages.get(ChatText.CHANNEL_ALLY);
+            case NATION -> Messages.get(ChatText.CHANNEL_NATION);
+            case OFFICER -> Messages.get(ChatText.CHANNEL_OFFICER);
         };
     }
 
@@ -500,25 +502,25 @@ public final class ChatServiceImpl implements ChatService {
         FactionService fs = factions();
         Faction faction = fs.factionOf(actor);
         if (faction == null) {
-            return Result.fail("You are not in a faction.");
+            return Result.fail(Messages.get(CommonText.NOT_IN_FACTION));
         }
         if (!fs.can(actor, FactionAction.ANNOUNCE)) {
-            return Result.fail("You do not have permission to post announcements.");
+            return Result.fail(Messages.get(ChatText.ANNOUNCE_NO_PERMISSION));
         }
         String clean = text == null ? "" : text.trim();
         if (clean.isEmpty()) {
-            return Result.fail("The announcement is empty.");
+            return Result.fail(Messages.get(ChatText.ANNOUNCEMENT_EMPTY));
         }
         Result stored = fs.setMotd(actor, clean);
         if (stored.failed()) {
             return stored;
         }
         Member author = faction.member(actor);
-        String by = author == null ? "An officer" : author.name();
-        fs.audit(faction, actor, author == null ? "" : author.name(), "announce", "Posted an announcement");
-        sendToFaction(faction, Message.join(Msg.prefix(), Msg.colored(faction.tag() + " announcement from " + by, faction.color()).bold(true)), false);
+        String by = author == null ? Messages.get(ChatText.AN_OFFICER) : author.name();
+        fs.audit(faction, actor, author == null ? "" : author.name(), "announce", Messages.get(ChatText.AUDIT_ANNOUNCEMENT));
+        sendToFaction(faction, Message.join(Msg.prefix(), Msg.colored(Messages.get(ChatText.ANNOUNCEMENT_FROM, "tag", faction.tag(), "author", by), faction.color()).bold(true)), false);
         sendToFaction(faction, Msg.colored(clean, Msg.TEXT), false);
-        return Result.pass("Your announcement was posted and is now the message of the day.");
+        return Result.pass(Messages.get(ChatText.ANNOUNCEMENT_POSTED));
     }
 
     @Override
@@ -549,7 +551,7 @@ public final class ChatServiceImpl implements ChatService {
                 if (faction == null || online == null || faction.motd().isBlank()) {
                     return;
                 }
-                online.sendMessage(Message.join(Msg.prefix(), Msg.colored(faction.tag() + " message of the day", faction.color()).bold(true)));
+                online.sendMessage(Message.join(Msg.prefix(), Msg.colored(Messages.get(ChatText.MOTD_TITLE, "tag", faction.tag()), faction.color()).bold(true)));
                 online.sendMessage(Msg.colored(faction.motd(), Msg.TEXT));
             } catch (Exception e) {
                 ctx.logger().at(Level.WARNING).withCause(e).log("Dominion could not send the message of the day");

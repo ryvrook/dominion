@@ -12,6 +12,8 @@ import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.FactionAction;
 import dev.ryvrook.dominion.model.Rank;
 import dev.ryvrook.dominion.model.Relation;
+import dev.ryvrook.dominion.text.CommonText;
+import dev.ryvrook.dominion.text.Messages;
 
 import java.util.Locale;
 
@@ -35,14 +37,14 @@ public final class PermissionsPage extends DominionPage {
         Body.on(events, "#Reset", "reset", "");
         Faction f = factions().factionOf(uuid());
         if (f == null) {
-            c.set("#Subtitle.Text", "You are not in a faction.");
+            c.set("#Subtitle.Text", Messages.get(CommonText.NOT_IN_FACTION));
             return;
         }
         boolean canEdit = factions().can(uuid(), FactionAction.PERMS);
         c.set("#Reset.Visible", canEdit);
         c.set("#Subtitle.Text", f.label() + (canEdit
-                ? "    Click a cell to switch it. The leader can always do everything."
-                : "    You can look but only ranks with the permissions right can change these."));
+                ? "    " + Messages.get(UiText.PERMS_CAN_EDIT)
+                : "    " + Messages.get(UiText.PERMS_READ_ONLY)));
         c.clear("#Head");
         c.append("#Head", HEAD);
         rankHeads(c, f);
@@ -103,7 +105,7 @@ public final class PermissionsPage extends DominionPage {
             case "toggle" -> {
                 Faction f = factions().factionOf(uuid());
                 if (f == null) {
-                    reply(Result.fail("You are not in a faction."));
+                    reply(Result.fail(Messages.get(CommonText.NOT_IN_FACTION)));
                     return true;
                 }
                 String[] parts = e.value().split(":");

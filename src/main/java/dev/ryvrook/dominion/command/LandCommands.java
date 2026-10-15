@@ -9,6 +9,7 @@ import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.PlayerData;
 import dev.ryvrook.dominion.model.Relation;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Players;
 import org.joml.Vector3d;
@@ -35,20 +36,24 @@ final class LandCommands extends Section {
         registerPower(root);
         registerNear(root);
 
-        root.sub(new PlayerCmd("coords", "Share your position with your faction.")).handler(c -> {
+        root.sub(new PlayerCmd("coords", Messages.get(CommandText.DESC_SHARE_YOUR_POSITION_WITH_YOUR_FACTION))).handler(c -> {
             Faction f = requireFaction(c);
             if (f == null) {
                 return;
             }
             Vector3d pos = Players.position(c.player());
             if (pos == null) {
-                c.bad("Your position is not known yet.");
+                c.bad(Messages.get(dev.ryvrook.dominion.text.CommonText.POSITION_UNKNOWN));
                 return;
             }
-            String world = c.world() == null ? "" : " in " + c.world().getName();
+            int x = (int) Math.floor(pos.x);
+            int y = (int) Math.floor(pos.y);
+            int z = (int) Math.floor(pos.z);
+            String at = c.world() == null
+                    ? Messages.get(CommandText.COORDS_AT, "x", x, "y", y, "z", z)
+                    : Messages.get(CommandText.COORDS_AT_IN, "x", x, "y", y, "z", z, "world", c.world().getName());
             Message msg = Message.join(Msg.prefix(), Msg.colored(c.name(), Relation.OWN.color()),
-                    Msg.colored(" is at " + (int) Math.floor(pos.x) + ", " + (int) Math.floor(pos.y) + ", "
-                            + (int) Math.floor(pos.z) + world, Msg.TEXT));
+                    Msg.colored(" " + at, Msg.TEXT));
             chat().sendToFaction(f, msg, false);
         });
     }
@@ -63,37 +68,37 @@ final class LandCommands extends Section {
 
     private boolean located(Call c) {
         if (world(c) == null || chunk(c) == Long.MIN_VALUE) {
-            c.bad("Your position is not known yet. Try again in a moment.");
+            c.bad(Messages.get(CommandText.YOUR_POSITION_IS_NOT_KNOWN_YET));
             return false;
         }
         return true;
     }
 
     private void registerClaim(PlayerCmd root) {
-        PlayerCmd claim = root.sub(new PlayerCmd("claim", "Claim the chunk you stand in."));
+        PlayerCmd claim = root.sub(new PlayerCmd("claim", Messages.get(CommandText.DESC_CLAIM_THE_CHUNK_YOU_STAND_IN)));
         claim.handler(c -> {
             if (located(c)) {
                 c.reply(claims().claim(c.uuid(), world(c), chunk(c)));
             }
         });
 
-        claim.sub(new PlayerCmd("auto", "Claim chunks automatically as you walk.")).handler(c -> {
+        claim.sub(new PlayerCmd("auto", Messages.get(CommandText.DESC_CLAIM_CHUNKS_AUTOMATICALLY_AS_YOU_WALK))).handler(c -> {
             PlayerData pd = ctx.player(c.uuid());
             boolean on = !pd.autoClaim();
             pd.setAutoClaim(on);
-            c.good(on ? "Auto claim is on. Walk into wilderness to claim it." : "Auto claim is off.");
+            c.good(on ? Messages.get(CommandText.AUTO_CLAIM_IS_ON_WALK_INTO) : Messages.get(CommandText.AUTO_CLAIM_IS_OFF));
         });
 
-        PlayerCmd radius = claim.sub(new PlayerCmd("radius", "Claim a square around you."));
-        RequiredArg<Integer> radiusArg = radius.withRequiredArg("radius", "Radius in chunks", ArgTypes.INTEGER);
+        PlayerCmd radius = claim.sub(new PlayerCmd("radius", Messages.get(CommandText.DESC_CLAIM_A_SQUARE_AROUND_YOU)));
+        RequiredArg<Integer> radiusArg = radius.withRequiredArg("radius", Messages.get(CommandText.ARG_RADIUS_IN_CHUNKS), ArgTypes.INTEGER);
         radius.handler(c -> {
             if (located(c)) {
                 c.reply(claims().claimRadius(c.uuid(), world(c), chunk(c), Math.max(0, c.arg(radiusArg))));
             }
         });
 
-        PlayerCmd line = claim.sub(new PlayerCmd("line", "Claim a line of chunks in the direction you face."));
-        RequiredArg<Integer> lengthArg = line.withRequiredArg("length", "Number of chunks", ArgTypes.INTEGER);
+        PlayerCmd line = claim.sub(new PlayerCmd("line", Messages.get(CommandText.DESC_CLAIM_A_LINE_OF_CHUNKS_IN)));
+        RequiredArg<Integer> lengthArg = line.withRequiredArg("length", Messages.get(CommandText.ARG_NUMBER_OF_CHUNKS), ArgTypes.INTEGER);
         line.handler(c -> {
             if (!located(c)) {
                 return;
@@ -117,45 +122,44 @@ final class LandCommands extends Section {
     }
 
     private void registerUnclaim(PlayerCmd root) {
-        PlayerCmd unclaim = root.sub(new PlayerCmd("unclaim", "Release the chunk you stand in."));
+        PlayerCmd unclaim = root.sub(new PlayerCmd("unclaim", Messages.get(CommandText.DESC_RELEASE_THE_CHUNK_YOU_STAND_IN)));
         unclaim.handler(c -> {
             if (located(c)) {
                 c.reply(claims().unclaim(c.uuid(), world(c), chunk(c)));
             }
         });
 
-        PlayerCmd radius = unclaim.sub(new PlayerCmd("radius", "Release a square around you."));
-        RequiredArg<Integer> radiusArg = radius.withRequiredArg("radius", "Radius in chunks", ArgTypes.INTEGER);
+        PlayerCmd radius = unclaim.sub(new PlayerCmd("radius", Messages.get(CommandText.DESC_RELEASE_A_SQUARE_AROUND_YOU)));
+        RequiredArg<Integer> radiusArg = radius.withRequiredArg("radius", Messages.get(CommandText.ARG_RADIUS_IN_CHUNKS), ArgTypes.INTEGER);
         radius.handler(c -> {
             if (located(c)) {
                 c.reply(claims().unclaimRadius(c.uuid(), world(c), chunk(c), Math.max(0, c.arg(radiusArg))));
             }
         });
 
-        unclaim.sub(new PlayerCmd("all", "Release every chunk your faction owns.")).handler(c -> {
+        unclaim.sub(new PlayerCmd("all", Messages.get(CommandText.DESC_RELEASE_EVERY_CHUNK_YOUR_FACTION_OWNS))).handler(c -> {
             Faction f = requireFaction(c);
             if (f == null) {
                 return;
             }
             UUID actor = c.uuid();
             confirmations.put(actor, "unclaim all", () -> claims().unclaimAll(actor, true));
-            c.send(Msg.warn("This releases all " + claims().claimCount(f) + " chunks of " + f.tag()
-                    + ". Type /f confirm within 30 seconds to go ahead."));
+            c.send(Msg.warn(Messages.get(CommandText.UNCLAIM_ALL_CONFIRM, "count", claims().claimCount(f), "tag", f.tag())));
         });
     }
 
     private void registerMap(PlayerCmd root) {
-        PlayerCmd map = root.sub(new PlayerCmd("map", "Show the land around you."));
+        PlayerCmd map = root.sub(new PlayerCmd("map", Messages.get(CommandText.DESC_SHOW_THE_LAND_AROUND_YOU)));
         map.handler(c -> printMap(c, 1));
-        PlayerCmd sized = new PlayerCmd("Show a larger map. Size 1 to 3.");
-        RequiredArg<Integer> page = sized.withRequiredArg("size", "Map size from 1 to 3", ArgTypes.INTEGER);
+        PlayerCmd sized = new PlayerCmd(Messages.get(CommandText.DESC_MAP_SIZED));
+        RequiredArg<Integer> page = sized.withRequiredArg("size", Messages.get(CommandText.ARG_MAP_SIZE_FROM_1_TO_3), ArgTypes.INTEGER);
         sized.handler(c -> printMap(c, Math.min(3, clampPage(c.arg(page)))));
         map.variant(sized);
 
         // Web map privacy. The snapshot never writes a hidden player's position.
-        map.sub(new PlayerCmd("hide", "Hide yourself from the web map.")).handler(c ->
+        map.sub(new PlayerCmd("hide", Messages.get(CommandText.DESC_HIDE_YOURSELF_FROM_THE_WEB_MAP))).handler(c ->
                 c.good(PlayerToggles.webMap(ctx.player(c.uuid()), true)));
-        map.sub(new PlayerCmd("show", "Show yourself on the web map again.")).handler(c ->
+        map.sub(new PlayerCmd("show", Messages.get(CommandText.DESC_SHOW_YOURSELF_ON_THE_WEB_MAP))).handler(c ->
                 c.good(PlayerToggles.webMap(ctx.player(c.uuid()), false)));
     }
 
@@ -164,7 +168,7 @@ final class LandCommands extends Section {
         int height = 9 + (size - 1) * 4;
         List<Message> rows = claims().chatMap(c.uuid(), width, height);
         if (rows == null || rows.isEmpty()) {
-            c.bad("The map is not available here.");
+            c.bad(Messages.get(CommandText.THE_MAP_IS_NOT_AVAILABLE_HERE));
             return;
         }
         for (Message row : rows) {
@@ -173,10 +177,10 @@ final class LandCommands extends Section {
     }
 
     private void registerPower(PlayerCmd root) {
-        PlayerCmd power = root.sub(new PlayerCmd("power", "Show your power."));
+        PlayerCmd power = root.sub(new PlayerCmd("power", Messages.get(CommandText.DESC_SHOW_YOUR_POWER)));
         power.handler(c -> showPower(c, c.uuid(), c.name()));
-        PlayerCmd other = new PlayerCmd("Show another player's power.");
-        RequiredArg<String> who = other.withRequiredArg("player", "Player name", ArgTypes.STRING);
+        PlayerCmd other = new PlayerCmd(Messages.get(CommandText.DESC_SHOW_ANOTHER_PLAYERS_POWER));
+        RequiredArg<String> who = other.withRequiredArg("player", Messages.get(CommandText.ARG_PLAYER_NAME), ArgTypes.STRING);
         other.handler(c -> {
             Targets.Target t = target(c, c.arg(who));
             if (t != null) {
@@ -189,20 +193,18 @@ final class LandCommands extends Section {
     private void showPower(Call c, UUID who, String name) {
         double p = power().powerOf(who);
         double max = power().maxPowerOf(who);
-        c.info(name + " has " + Msg.number(p) + " of " + Msg.number(max) + " power.");
+        c.info(Messages.get(CommandText.POWER_PLAYER, "name", name, "power", Msg.number(p), "max", Msg.number(max)));
         Faction f = factions().factionOf(who);
         if (f != null) {
-            c.send(Msg.muted(f.tag() + " has " + Msg.number(power().factionPower(f)) + " of "
-                    + Msg.number(power().factionMaxPower(f)) + " power and holds " + claims().claimCount(f)
-                    + " of " + claims().maxClaims(f) + " claims."));
+            c.send(Msg.muted(Messages.get(CommandText.POWER_FACTION, "tag", f.tag(), "power", Msg.number(power().factionPower(f)), "max", Msg.number(power().factionMaxPower(f)), "claims", claims().claimCount(f), "maxClaims", claims().maxClaims(f))));
         }
     }
 
     private void registerNear(PlayerCmd root) {
-        PlayerCmd near = root.sub(new PlayerCmd("near", "List players near you."));
+        PlayerCmd near = root.sub(new PlayerCmd("near", Messages.get(CommandText.DESC_LIST_PLAYERS_NEAR_YOU)));
         near.handler(c -> showNear(c, NEAR_DEFAULT));
-        PlayerCmd ranged = new PlayerCmd("List players within a radius.");
-        RequiredArg<Integer> radius = ranged.withRequiredArg("radius", "Radius in blocks", ArgTypes.INTEGER);
+        PlayerCmd ranged = new PlayerCmd(Messages.get(CommandText.DESC_LIST_PLAYERS_WITHIN_A_RADIUS));
+        RequiredArg<Integer> radius = ranged.withRequiredArg("radius", Messages.get(CommandText.ARG_RADIUS_IN_BLOCKS), ArgTypes.INTEGER);
         ranged.handler(c -> showNear(c, Math.min(NEAR_MAX, Math.max(1, c.arg(radius)))));
         near.variant(ranged);
     }
@@ -210,7 +212,7 @@ final class LandCommands extends Section {
     private void showNear(Call c, int radius) {
         Vector3d me = Players.position(c.player());
         if (me == null || c.world() == null) {
-            c.bad("Your position is not known yet.");
+            c.bad(Messages.get(dev.ryvrook.dominion.text.CommonText.POSITION_UNKNOWN));
             return;
         }
         record Seen(PlayerRef ref, double distance) {}
@@ -229,17 +231,17 @@ final class LandCommands extends Section {
             }
         }
         if (seen.isEmpty()) {
-            c.info("Nobody is within " + radius + " blocks.");
+            c.info(Messages.get(CommandText.NEAR_NOBODY, "radius", radius));
             return;
         }
         seen.sort(Comparator.comparingDouble(Seen::distance));
-        c.info(seen.size() + " players within " + radius + " blocks");
+        c.info(Messages.get(CommandText.NEAR_HEADER, "count", seen.size(), "radius", radius));
         for (Seen s : seen) {
             Relation r = relations().betweenPlayers(c.uuid(), s.ref().getUuid());
             Faction f = factions().factionOf(s.ref().getUuid());
             String tag = f == null ? "" : f.tag() + " ";
             c.send(Message.join(Msg.muted(" - "), Msg.colored(tag + s.ref().getUsername(), r.color()),
-                    Msg.muted("  " + (int) s.distance() + " blocks")));
+                    Msg.muted("  " + Messages.get(CommandText.NEAR_DISTANCE, "distance", (int) s.distance()))));
         }
     }
 }

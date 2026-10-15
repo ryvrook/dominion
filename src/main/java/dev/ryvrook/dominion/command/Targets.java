@@ -6,6 +6,7 @@ import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.Member;
 import dev.ryvrook.dominion.model.PlayerData;
 import dev.ryvrook.dominion.service.FactionService;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.util.Players;
 
 import java.util.ArrayList;
@@ -89,7 +90,7 @@ public final class Targets {
     /** Display name for a UUID using loaded data or the faction roster. */
     public String nameOf(UUID uuid) {
         if (uuid == null) {
-            return "nobody";
+            return Messages.get(CommandText.NOBODY);
         }
         PlayerRef online = Players.online(uuid);
         if (online != null) {

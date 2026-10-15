@@ -9,6 +9,7 @@ import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.Listing;
 import dev.ryvrook.dominion.service.EconomyService;
 import dev.ryvrook.dominion.service.MarketService;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Time;
 
@@ -33,7 +34,7 @@ final class MarketCommands extends Section {
     private MarketService market(Call c) {
         MarketService m = feature(c, MarketService.class);
         if (m != null && !m.enabled()) {
-            c.bad("The market is turned off on this server.");
+            c.bad(Messages.get(CommandText.THE_MARKET_IS_TURNED_OFF_ON));
             return null;
         }
         return m;
@@ -41,7 +42,7 @@ final class MarketCommands extends Section {
 
     @Override
     void register(PlayerCmd root) {
-        PlayerCmd market = root.sub(new PlayerCmd("market", "Open the market."));
+        PlayerCmd market = root.sub(new PlayerCmd("market", Messages.get(CommandText.DESC_OPEN_THE_MARKET)));
         market.addAliases("m");
         market.handler(c -> {
             if (market(c) != null) {
@@ -49,12 +50,12 @@ final class MarketCommands extends Section {
             }
         });
 
-        PlayerCmd sell = market.sub(new PlayerCmd("sell", "List the stack in your hand."));
-        RequiredArg<Double> sellPrice = sell.withRequiredArg("price", "Price", ArgTypes.DOUBLE);
+        PlayerCmd sell = market.sub(new PlayerCmd("sell", Messages.get(CommandText.DESC_LIST_THE_STACK_IN_YOUR_HAND)));
+        RequiredArg<Double> sellPrice = sell.withRequiredArg("price", Messages.get(CommandText.ARG_PRICE), ArgTypes.DOUBLE);
         sell.handler(c -> sell(c, c.arg(sellPrice), 0));
-        PlayerCmd sellSome = new PlayerCmd("List part of the stack in your hand.");
-        RequiredArg<Double> sellSomePrice = sellSome.withRequiredArg("price", "Price", ArgTypes.DOUBLE);
-        RequiredArg<Integer> sellSomeAmount = sellSome.withRequiredArg("amount", "How many items", ArgTypes.INTEGER);
+        PlayerCmd sellSome = new PlayerCmd(Messages.get(CommandText.DESC_LIST_PART_OF_THE_STACK_IN));
+        RequiredArg<Double> sellSomePrice = sellSome.withRequiredArg("price", Messages.get(CommandText.ARG_PRICE), ArgTypes.DOUBLE);
+        RequiredArg<Integer> sellSomeAmount = sellSome.withRequiredArg("amount", Messages.get(CommandText.ARG_HOW_MANY_ITEMS), ArgTypes.INTEGER);
         sellSome.handler(c -> {
             if (count(c, c.arg(sellSomeAmount))) {
                 sell(c, c.arg(sellSomePrice), c.arg(sellSomeAmount));
@@ -62,12 +63,12 @@ final class MarketCommands extends Section {
         });
         sell.variant(sellSome);
 
-        PlayerCmd buy = market.sub(new PlayerCmd("buy", "Buy a listing."));
-        RequiredArg<String> buyId = buy.withRequiredArg("id", "Listing id", ArgTypes.STRING);
+        PlayerCmd buy = market.sub(new PlayerCmd("buy", Messages.get(CommandText.DESC_BUY_A_LISTING)));
+        RequiredArg<String> buyId = buy.withRequiredArg("id", Messages.get(CommandText.ARG_LISTING_ID), ArgTypes.STRING);
         buy.handler(c -> buy(c, c.arg(buyId), 0));
-        PlayerCmd buySome = new PlayerCmd("Buy part of a listing.");
-        RequiredArg<String> buySomeId = buySome.withRequiredArg("id", "Listing id", ArgTypes.STRING);
-        RequiredArg<Integer> buySomeAmount = buySome.withRequiredArg("amount", "How many items", ArgTypes.INTEGER);
+        PlayerCmd buySome = new PlayerCmd(Messages.get(CommandText.DESC_BUY_PART_OF_A_LISTING));
+        RequiredArg<String> buySomeId = buySome.withRequiredArg("id", Messages.get(CommandText.ARG_LISTING_ID), ArgTypes.STRING);
+        RequiredArg<Integer> buySomeAmount = buySome.withRequiredArg("amount", Messages.get(CommandText.ARG_HOW_MANY_ITEMS), ArgTypes.INTEGER);
         buySome.handler(c -> {
             if (count(c, c.arg(buySomeAmount))) {
                 buy(c, c.arg(buySomeId), c.arg(buySomeAmount));
@@ -75,8 +76,8 @@ final class MarketCommands extends Section {
         });
         buy.variant(buySome);
 
-        PlayerCmd cancel = market.sub(new PlayerCmd("cancel", "Take down one of your listings, orders or auctions."));
-        RequiredArg<String> cancelId = cancel.withRequiredArg("id", "Listing id", ArgTypes.STRING);
+        PlayerCmd cancel = market.sub(new PlayerCmd("cancel", Messages.get(CommandText.DESC_TAKE_DOWN_ONE_OF_YOUR_LISTINGS)));
+        RequiredArg<String> cancelId = cancel.withRequiredArg("id", Messages.get(CommandText.ARG_LISTING_ID), ArgTypes.STRING);
         cancel.handler(c -> {
             MarketService m = market(c);
             Listing l = m == null ? null : resolve(c, m, c.arg(cancelId), m.mine(c.uuid()), "listing");
@@ -85,10 +86,10 @@ final class MarketCommands extends Section {
             }
         });
 
-        PlayerCmd order = market.sub(new PlayerCmd("order", "Place a buy order."));
-        RequiredArg<String> orderItem = order.withRequiredArg("itemId", "Item id", ArgTypes.STRING);
-        RequiredArg<Double> orderPrice = order.withRequiredArg("price", "Price per item", ArgTypes.DOUBLE);
-        RequiredArg<Integer> orderAmount = order.withRequiredArg("amount", "How many items", ArgTypes.INTEGER);
+        PlayerCmd order = market.sub(new PlayerCmd("order", Messages.get(CommandText.DESC_PLACE_A_BUY_ORDER)));
+        RequiredArg<String> orderItem = order.withRequiredArg("itemId", Messages.get(CommandText.ARG_ITEM_ID), ArgTypes.STRING);
+        RequiredArg<Double> orderPrice = order.withRequiredArg("price", Messages.get(CommandText.ARG_PRICE_PER_ITEM), ArgTypes.DOUBLE);
+        RequiredArg<Integer> orderAmount = order.withRequiredArg("amount", Messages.get(CommandText.ARG_HOW_MANY_ITEMS), ArgTypes.INTEGER);
         order.handler(c -> {
             MarketService m = market(c);
             if (m != null && price(c, c.arg(orderPrice)) && count(c, c.arg(orderAmount))) {
@@ -96,13 +97,13 @@ final class MarketCommands extends Section {
             }
         });
 
-        PlayerCmd fulfil = market.sub(new PlayerCmd("fulfil", "Sell into a buy order."));
+        PlayerCmd fulfil = market.sub(new PlayerCmd("fulfil", Messages.get(CommandText.DESC_SELL_INTO_A_BUY_ORDER)));
         fulfil.addAliases("fulfill");
-        RequiredArg<String> fulfilId = fulfil.withRequiredArg("id", "Order id", ArgTypes.STRING);
+        RequiredArg<String> fulfilId = fulfil.withRequiredArg("id", Messages.get(CommandText.ARG_ORDER_ID), ArgTypes.STRING);
         fulfil.handler(c -> fulfil(c, c.arg(fulfilId), 0));
-        PlayerCmd fulfilSome = new PlayerCmd("Sell part of a buy order.");
-        RequiredArg<String> fulfilSomeId = fulfilSome.withRequiredArg("id", "Order id", ArgTypes.STRING);
-        RequiredArg<Integer> fulfilSomeAmount = fulfilSome.withRequiredArg("amount", "How many items", ArgTypes.INTEGER);
+        PlayerCmd fulfilSome = new PlayerCmd(Messages.get(CommandText.DESC_SELL_PART_OF_A_BUY_ORDER));
+        RequiredArg<String> fulfilSomeId = fulfilSome.withRequiredArg("id", Messages.get(CommandText.ARG_ORDER_ID), ArgTypes.STRING);
+        RequiredArg<Integer> fulfilSomeAmount = fulfilSome.withRequiredArg("amount", Messages.get(CommandText.ARG_HOW_MANY_ITEMS), ArgTypes.INTEGER);
         fulfilSome.handler(c -> {
             if (count(c, c.arg(fulfilSomeAmount))) {
                 fulfil(c, c.arg(fulfilSomeId), c.arg(fulfilSomeAmount));
@@ -110,23 +111,23 @@ final class MarketCommands extends Section {
         });
         fulfil.variant(fulfilSome);
 
-        market.sub(new PlayerCmd("mine", "List your open listings, orders and auctions.")).handler(c -> {
+        market.sub(new PlayerCmd("mine", Messages.get(CommandText.DESC_LIST_YOUR_OPEN_LISTINGS_ORDERS_AND))).handler(c -> {
             MarketService m = market(c);
             if (m == null) {
                 return;
             }
             List<Listing> mine = m.mine(c.uuid());
             if (mine.isEmpty()) {
-                c.info("You have nothing on the market.");
+                c.info(Messages.get(CommandText.YOU_HAVE_NOTHING_ON_THE_MARKET));
                 return;
             }
-            c.info("Your market entries");
+            c.info(Messages.get(CommandText.YOUR_MARKET_ENTRIES));
             for (Listing l : mine) {
                 line(c, l);
             }
         });
 
-        market.sub(new PlayerCmd("mailbox", "Show what is waiting for you.")).handler(c -> {
+        market.sub(new PlayerCmd("mailbox", Messages.get(CommandText.DESC_SHOW_WHAT_IS_WAITING_FOR_YOU))).handler(c -> {
             MarketService m = market(c);
             if (m == null) {
                 return;
@@ -134,10 +135,10 @@ final class MarketCommands extends Section {
             List<ItemStack> items = m.mailbox(c.uuid());
             double coins = m.mailboxCoins(c.uuid());
             if (items.isEmpty() && coins <= 0) {
-                c.info("Your mailbox is empty.");
+                c.info(Messages.get(CommandText.YOUR_MAILBOX_IS_EMPTY));
                 return;
             }
-            c.info("Your mailbox");
+            c.info(Messages.get(CommandText.YOUR_MAILBOX));
             if (coins > 0) {
                 c.send(Msg.colored(" " + money(coins), Msg.GOLD));
             }
@@ -150,10 +151,10 @@ final class MarketCommands extends Section {
             for (Map.Entry<String, Integer> e : totals.entrySet()) {
                 c.send(Msg.colored(" " + e.getValue() + " " + e.getKey(), Msg.TEXT));
             }
-            c.send(Msg.muted(" Use /f market collect to take everything."));
+            c.send(Msg.muted(" " + Messages.get(CommandText.USE_F_MARKET_COLLECT_TO_TAKE)));
         });
 
-        market.sub(new PlayerCmd("collect", "Take everything from your mailbox.")).handler(c -> {
+        market.sub(new PlayerCmd("collect", Messages.get(CommandText.DESC_TAKE_EVERYTHING_FROM_YOUR_MAILBOX))).handler(c -> {
             MarketService m = market(c);
             if (m != null) {
                 c.reply(m.collect(c.uuid()));
@@ -165,31 +166,31 @@ final class MarketCommands extends Section {
     }
 
     private void registerAuction(PlayerCmd root) {
-        PlayerCmd auction = root.sub(new PlayerCmd("auction", "Auction the stack in your hand or bid on one."));
+        PlayerCmd auction = root.sub(new PlayerCmd("auction", Messages.get(CommandText.DESC_AUCTION)));
         auction.handler(c -> {
             if (market(c) != null) {
-                c.info("Use /f auction sell with a starting bid, or /f auction bid with an id and an amount.");
+                c.info(Messages.get(CommandText.USE_F_AUCTION_SELL_WITH_A));
             }
         });
 
-        PlayerCmd sell = auction.sub(new PlayerCmd("sell", "Auction the stack in your hand."));
-        RequiredArg<Double> start1 = sell.withRequiredArg("start", "Starting bid", ArgTypes.DOUBLE);
+        PlayerCmd sell = auction.sub(new PlayerCmd("sell", Messages.get(CommandText.DESC_AUCTION_SELL)));
+        RequiredArg<Double> start1 = sell.withRequiredArg("start", Messages.get(CommandText.ARG_STARTING_BID), ArgTypes.DOUBLE);
         sell.handler(c -> auction(c, c.arg(start1), 0.0, DEFAULT_AUCTION_HOURS));
-        PlayerCmd sellBuyout = new PlayerCmd("Auction with a buyout price.");
-        RequiredArg<Double> start2 = sellBuyout.withRequiredArg("start", "Starting bid", ArgTypes.DOUBLE);
-        RequiredArg<Double> buyout2 = sellBuyout.withRequiredArg("buyout", "Buyout price, 0 for none", ArgTypes.DOUBLE);
+        PlayerCmd sellBuyout = new PlayerCmd(Messages.get(CommandText.DESC_AUCTION_WITH_A_BUYOUT_PRICE));
+        RequiredArg<Double> start2 = sellBuyout.withRequiredArg("start", Messages.get(CommandText.ARG_STARTING_BID), ArgTypes.DOUBLE);
+        RequiredArg<Double> buyout2 = sellBuyout.withRequiredArg("buyout", Messages.get(CommandText.ARG_BUYOUT_PRICE_0_FOR_NONE), ArgTypes.DOUBLE);
         sellBuyout.handler(c -> auction(c, c.arg(start2), c.arg(buyout2), DEFAULT_AUCTION_HOURS));
         sell.variant(sellBuyout);
-        PlayerCmd sellHours = new PlayerCmd("Auction with a buyout price and a length.");
-        RequiredArg<Double> start3 = sellHours.withRequiredArg("start", "Starting bid", ArgTypes.DOUBLE);
-        RequiredArg<Double> buyout3 = sellHours.withRequiredArg("buyout", "Buyout price, 0 for none", ArgTypes.DOUBLE);
-        RequiredArg<Integer> hours3 = sellHours.withRequiredArg("hours", "Length in hours", ArgTypes.INTEGER);
+        PlayerCmd sellHours = new PlayerCmd(Messages.get(CommandText.DESC_AUCTION_WITH_A_BUYOUT_PRICE_AND));
+        RequiredArg<Double> start3 = sellHours.withRequiredArg("start", Messages.get(CommandText.ARG_STARTING_BID), ArgTypes.DOUBLE);
+        RequiredArg<Double> buyout3 = sellHours.withRequiredArg("buyout", Messages.get(CommandText.ARG_BUYOUT_PRICE_0_FOR_NONE), ArgTypes.DOUBLE);
+        RequiredArg<Integer> hours3 = sellHours.withRequiredArg("hours", Messages.get(CommandText.ARG_LENGTH_IN_HOURS), ArgTypes.INTEGER);
         sellHours.handler(c -> auction(c, c.arg(start3), c.arg(buyout3), c.arg(hours3)));
         sell.variant(sellHours);
 
-        PlayerCmd bid = auction.sub(new PlayerCmd("bid", "Bid on an auction."));
-        RequiredArg<String> bidId = bid.withRequiredArg("id", "Auction id", ArgTypes.STRING);
-        RequiredArg<Double> bidAmount = bid.withRequiredArg("amount", "Your bid", ArgTypes.DOUBLE);
+        PlayerCmd bid = auction.sub(new PlayerCmd("bid", Messages.get(CommandText.DESC_BID_ON_AN_AUCTION)));
+        RequiredArg<String> bidId = bid.withRequiredArg("id", Messages.get(CommandText.ARG_AUCTION_ID), ArgTypes.STRING);
+        RequiredArg<Double> bidAmount = bid.withRequiredArg("amount", Messages.get(CommandText.ARG_YOUR_BID), ArgTypes.DOUBLE);
         bid.handler(c -> {
             MarketService m = market(c);
             if (m == null || !price(c, c.arg(bidAmount))) {
@@ -203,7 +204,7 @@ final class MarketCommands extends Section {
     }
 
     private void registerStorefront(PlayerCmd root) {
-        PlayerCmd storefront = root.sub(new PlayerCmd("storefront", "Show your faction's pinned listings."));
+        PlayerCmd storefront = root.sub(new PlayerCmd("storefront", Messages.get(CommandText.DESC_SHOW_YOUR_FACTIONS_PINNED_LISTINGS)));
         storefront.handler(c -> {
             MarketService m = market(c);
             Faction f = m == null ? null : requireFaction(c);
@@ -212,18 +213,18 @@ final class MarketCommands extends Section {
             }
             List<Listing> pinned = m.storefront(f);
             if (pinned.isEmpty()) {
-                c.info(f.tag() + " has nothing pinned. Pin a listing with /f storefront pin and its id.");
+                c.info(Messages.get(CommandText.STOREFRONT_EMPTY, "tag", f.tag()));
                 return;
             }
-            c.info("Storefront of " + f.tag());
+            c.info(Messages.get(CommandText.STOREFRONT_OF, "tag", f.tag()));
             for (Listing l : pinned) {
                 line(c, l);
             }
         });
         for (boolean pin : new boolean[] {true, false}) {
             PlayerCmd cmd = storefront.sub(new PlayerCmd(pin ? "pin" : "unpin",
-                    pin ? "Pin a listing to the faction storefront." : "Remove a listing from the storefront."));
-            RequiredArg<String> id = cmd.withRequiredArg("id", "Listing id", ArgTypes.STRING);
+                    pin ? Messages.get(CommandText.DESC_PIN_A_LISTING_TO_THE_FACTION) : Messages.get(CommandText.DESC_REMOVE_A_LISTING_FROM_THE_STOREFRONT)));
+            RequiredArg<String> id = cmd.withRequiredArg("id", Messages.get(CommandText.ARG_LISTING_ID), ArgTypes.STRING);
             cmd.handler(c -> {
                 MarketService m = market(c);
                 Faction f = m == null ? null : requireFaction(c);
@@ -274,11 +275,11 @@ final class MarketCommands extends Section {
         }
         double b = buyout == null ? 0 : buyout;
         if (b < 0 || Double.isNaN(b) || Double.isInfinite(b)) {
-            c.bad("The buyout cannot be negative. Use 0 for no buyout.");
+            c.bad(Messages.get(CommandText.THE_BUYOUT_CANNOT_BE_NEGATIVE_USE));
             return;
         }
         if (b > 0 && b <= start) {
-            c.bad("The buyout must be higher than the starting bid.");
+            c.bad(Messages.get(CommandText.THE_BUYOUT_MUST_BE_HIGHER_THAN));
             return;
         }
         // The market checks the length itself and names the lengths it allows.
@@ -316,17 +317,22 @@ final class MarketCommands extends Section {
     private String label(Listing l) {
         String what = l.quantity() + " " + l.itemId();
         return switch (l.kind()) {
-            case SALE -> what + " for " + money(l.price()) + " from " + l.sellerName();
-            case ORDER -> "Wanted " + what + " at " + money(l.price()) + " each by " + l.sellerName();
-            case AUCTION -> what + " at " + money(l.price()) + (l.topBidderName() == null ? " with no bids" : " bid by " + l.topBidderName())
-                    + (l.buyout() > 0 ? ", buyout " + money(l.buyout()) : "");
+            case SALE -> Messages.get(CommandText.LISTING_SALE, "what", what, "price", money(l.price()), "seller", l.sellerName());
+            case ORDER -> Messages.get(CommandText.LISTING_ORDER, "what", what, "price", money(l.price()), "buyer", l.sellerName());
+            case AUCTION -> Messages.get(CommandText.LISTING_AUCTION, "what", what, "price", money(l.price()))
+                    + " " + (l.topBidderName() == null ? Messages.get(CommandText.AUCTION_NO_BIDS) : Messages.get(CommandText.AUCTION_BID_BY, "name", l.topBidderName()))
+                    + (l.buyout() > 0 ? ", " + Messages.get(CommandText.AUCTION_BUYOUT, "price", money(l.buyout())) : "");
         };
     }
 
     private void line(Call c, Listing l) {
-        String kind = l.kind().name().toLowerCase(Locale.ROOT);
+        String kind = switch (l.kind()) {
+            case SALE -> Messages.get(CommandText.KIND_SALE);
+            case ORDER -> Messages.get(CommandText.KIND_ORDER);
+            case AUCTION -> Messages.get(CommandText.KIND_AUCTION);
+        };
         c.send(Message.join(Msg.colored(" " + IdPrefix.shortId(l.id()), Msg.GOLD), Msg.muted("  " + kind + "  "),
-                Msg.colored(label(l), Msg.TEXT), Msg.muted(", ends in " + Time.remaining(l.expiresAt() - Time.now()))));
+                Msg.colored(label(l), Msg.TEXT), Msg.muted(", " + Messages.get(CommandText.ENDS_IN, "time", Time.remaining(l.expiresAt() - Time.now())))));
     }
 
     private String money(double amount) {
@@ -336,7 +342,7 @@ final class MarketCommands extends Section {
 
     private static boolean price(Call c, Double amount) {
         if (amount == null || amount <= 0 || amount.isNaN() || amount.isInfinite()) {
-            c.bad("The price must be more than zero.");
+            c.bad(Messages.get(CommandText.THE_PRICE_MUST_BE_MORE_THAN));
             return false;
         }
         return true;
@@ -344,7 +350,7 @@ final class MarketCommands extends Section {
 
     private static boolean count(Call c, Integer amount) {
         if (amount == null || amount <= 0) {
-            c.bad("The amount must be at least 1.");
+            c.bad(Messages.get(CommandText.THE_AMOUNT_MUST_BE_AT_LEAST));
             return false;
         }
         return true;

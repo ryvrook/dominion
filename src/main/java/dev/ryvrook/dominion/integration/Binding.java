@@ -1,5 +1,7 @@
 package dev.ryvrook.dominion.integration;
 
+import dev.ryvrook.dominion.text.Messages;
+
 import java.util.function.Function;
 
 /**
@@ -118,23 +120,24 @@ final class Binding {
     /** The admin status line. */
     String statusLine() {
         String name = choice.sibling().pluginName();
-        String key = choice.sibling().settingKey() + " is " + choice.mode().id();
+        String setting = choice.sibling().settingKey();
+        String mode = choice.mode().id();
         return switch (choice.outcome()) {
-            case OFF -> name + " is off, " + key;
-            case MISSING -> name + " is missing, " + key;
-            case TOO_OLD -> name + " " + choice.found().version() + " is older than " + choice.sibling().minimum()
-                    + " and left alone, " + key;
+            case OFF -> Messages.get(IntegrationText.STATUS_OFF, "plugin", name, "setting", setting, "mode", mode);
+            case MISSING -> Messages.get(IntegrationText.STATUS_MISSING, "plugin", name, "setting", setting, "mode", mode);
+            case TOO_OLD -> Messages.get(IntegrationText.STATUS_TOO_OLD, "plugin", name, "version", choice.found().version(),
+                    "minimum", choice.sibling().minimum(), "setting", setting, "mode", mode);
             case BIND -> {
                 Link l = link;
                 String v = l != null && l.version() != null ? l.version() : choice.found().version();
                 if (bound()) {
-                    yield name + " " + v + " is bound, " + key;
+                    yield Messages.get(IntegrationText.STATUS_BOUND, "plugin", name, "version", v, "setting", setting, "mode", mode);
                 }
                 if (changed) {
-                    yield name + " changed since start, run " + RELOAD;
+                    yield Messages.get(IntegrationText.STATUS_CHANGED, "plugin", name, "command", RELOAD);
                 }
-                yield failure != null ? name + " " + v + " failed to link, see the log"
-                        : name + " " + v + " is installed and Dominion waits for it to start";
+                yield failure != null ? Messages.get(IntegrationText.STATUS_FAILED, "plugin", name, "version", v)
+                        : Messages.get(IntegrationText.STATUS_WAITING, "plugin", name, "version", v);
             }
         };
     }

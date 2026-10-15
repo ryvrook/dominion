@@ -22,6 +22,7 @@ import dev.ryvrook.dominion.service.RelationService;
 import dev.ryvrook.dominion.service.RulesService;
 import dev.ryvrook.dominion.service.ShieldService;
 import dev.ryvrook.dominion.service.SiegeService;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Players;
 import dev.ryvrook.dominion.util.Time;
@@ -100,11 +101,11 @@ public final class DominionHud extends CustomUIHud {
 
     /** Label and value rows, as id suffix and label text. */
     private static final String[][] STAT_ROWS = {
-            {"Power", "Power"},
-            {"FactionPower", "Faction power"},
-            {"Land", "Land"},
-            {"Online", "Online"},
-            {"Nation", "Nation"},
+            {"Power", UiText.HUD_POWER},
+            {"FactionPower", UiText.HUD_FACTION_POWER},
+            {"Land", UiText.HUD_LAND},
+            {"Online", UiText.HUD_ONLINE},
+            {"Nation", UiText.HUD_NATION},
     };
 
     /** Rough character budgets that fit the 250 pixel sidebar at each font size. */
@@ -133,7 +134,7 @@ public final class DominionHud extends CustomUIHud {
         for (String[] r : STAT_ROWS) {
             rows.append("  Group #Dom").append(r[0]).append("Row { Visible: false; Anchor: (Height: 20); ")
                     .append("Padding: (Horizontal: 8); Background: #000000(0.35); LayoutMode: Left;\n")
-                    .append("    Label { FlexWeight: 1; Text: \"").append(r[1]).append("\"; ").append(ROW_LABEL).append(" }\n")
+                    .append("    Label { FlexWeight: 1; Text: \"").append(Messages.get(r[1]).replace('"', '\'')).append("\"; ").append(ROW_LABEL).append(" }\n")
                     .append("    Label #Dom").append(r[0]).append(" { Anchor: (Width: 140); ").append(ROW_VALUE).append(" }\n")
                     .append("  }\n\n");
         }
@@ -193,10 +194,10 @@ public final class DominionHud extends CustomUIHud {
 
     private void fillTitle(UICommandBuilder c, Faction f) {
         if (f == null) {
-            c.set("#DomTitle.Text", "No faction");
+            c.set("#DomTitle.Text", Messages.get(UiText.HUD_NO_FACTION));
             c.set("#DomTitle.Style.TextColor", Msg.MUTED);
             c.set("#DomRank.Text", "");
-            c.set("#DomHint.Text", "Use /f to join or create one");
+            c.set("#DomHint.Text", Messages.get(UiText.HUD_JOIN_HINT));
             c.set("#DomHintRow.Visible", true);
             return;
         }
@@ -224,7 +225,7 @@ public final class DominionHud extends CustomUIHud {
         }
         c.set("#DomFactionPower.Text", Msg.number(ps.factionPower(f)) + " / " + Msg.number(ps.factionMaxPower(f)));
         ClaimService cs = ctx.service(ClaimService.class);
-        c.set("#DomLand.Text", cs.claimCount(f) + " / " + cs.maxClaims(f) + " chunks");
+        c.set("#DomLand.Text", Messages.get(UiText.HUD_LAND_VALUE, "claims", cs.claimCount(f), "max", cs.maxClaims(f)));
         int online = 0;
         for (Member m : f.members()) {
             if (Players.isOnline(m.uuid())) {
@@ -244,26 +245,27 @@ public final class DominionHud extends CustomUIHud {
         String name;
         String flags = "";
         if (here == null) {
-            name = "Wilderness";
+            name = Messages.get(UiText.HUD_WILDERNESS);
             color = WILD_TEXT;
             c.setObject("#DomHereBar.Background", patch(WILD_BAR));
         } else {
             name = here.label();
             if (here.type() == FactionType.SAFEZONE) {
                 color = SAFE;
-                flags = "safe";
+                flags = Messages.get(UiText.HUD_FLAG_SAFE);
             } else if (here.type() == FactionType.WARZONE) {
                 color = WAR;
-                flags = "war";
+                flags = Messages.get(UiText.HUD_FLAG_WAR);
             } else {
                 Relation rel = ctx.service(RelationService.class).playerToFaction(player.getUuid(), here);
                 color = rel == null ? Msg.TEXT : rel.color();
                 if (cs.raidable(here)) {
-                    flags = "raidable";
+                    flags = Messages.get(UiText.HUD_FLAG_RAIDABLE);
                 }
                 ClaimEntry entry = cs.claimAt(world, chunk);
                 if (entry != null && f != null && cs.breached(world, chunk, f.id())) {
-                    flags = flags.isEmpty() ? "breached" : flags + "  breached";
+                    String breached = Messages.get(UiText.HUD_FLAG_BREACHED);
+                    flags = flags.isEmpty() ? breached : flags + "  " + breached;
                 }
             }
             c.setObject("#DomHereBar.Background", patch(color));
@@ -290,16 +292,16 @@ public final class DominionHud extends CustomUIHud {
         if (grace) {
             // One grace line only. The countdown joins the status row and the grace row stays hidden.
             long left = shieldService != null && shieldService.graceActive() ? shieldService.graceEndsAt() - Time.now() : -1;
-            text = left > 0 ? "Grace ends in " + Time.remaining(left) + ", no raiding" : "Grace period, no raiding";
+            text = left > 0 ? Messages.get(UiText.HUD_GRACE_ENDS, "time", Time.remaining(left)) : Messages.get(UiText.HUD_GRACE);
             color = "#7aa7e6";
         } else if (rules != null && rules.eotwActive()) {
-            text = "End of the world, all land raidable";
+            text = Messages.get(UiText.HUD_EOTW);
             color = "#ff6b6b";
         } else if (f != null && !f.isSystem() && cs.raidable(f)) {
-            text = "Your faction is raidable";
+            text = Messages.get(UiText.HUD_RAIDABLE);
             color = "#ff6b6b";
         } else if (f != null) {
-            text = "Your land is protected";
+            text = Messages.get(UiText.HUD_PROTECTED);
             color = "#5fd37a";
         } else {
             text = "";
@@ -355,11 +357,12 @@ public final class DominionHud extends CustomUIHud {
                 }
                 boolean attacking = f.id().equals(s.attacker());
                 Faction foe = ctx.service(FactionService.class).byId(attacking ? s.defender() : s.attacker());
-                String foeTag = foe == null ? "a former faction" : foe.tag();
-                String stage = s.phase() == Siege.Phase.BREACHED ? "breach" : "capture";
-                String more = active.size() > 1 ? " +" + (active.size() - 1) + " more" : "";
-                String tail = ", " + stage + " " + Time.remaining(s.phaseEndsAt() - now) + more;
-                String head = (attacking ? "Sieging " : "Sieged by ") + foeTag;
+                String foeTag = foe == null ? Messages.get(UiText.HUD_FORMER_FACTION) : foe.tag();
+                String stage = Messages.get(s.phase() == Siege.Phase.BREACHED ? UiText.HUD_STAGE_BREACH : UiText.HUD_STAGE_CAPTURE,
+                        "time", Time.remaining(s.phaseEndsAt() - now));
+                String more = active.size() > 1 ? " " + Messages.get(UiText.HUD_MORE_SIEGES, "count", active.size() - 1) : "";
+                String tail = ", " + stage + more;
+                String head = Messages.get(attacking ? UiText.HUD_SIEGING : UiText.HUD_SIEGED_BY, "tag", foeTag);
                 // The countdown and count matter most, so the foe tag is shortened first.
                 if (head.length() + tail.length() > SMALL_CHARS) {
                     head = fit(head, Math.max(12, SMALL_CHARS - tail.length()));
@@ -374,10 +377,10 @@ public final class DominionHud extends CustomUIHud {
         // The shield only covers the core around the home and drops while the faction is raidable.
         boolean shieldUp = shields != null && f != null && !f.isSystem() && f.home() != null && shields.windowActive(f)
                 && !ctx.service(ClaimService.class).raidable(f);
-        c.set("#DomShield.Text", shieldUp ? "Your core shield is up" : "");
+        c.set("#DomShield.Text", shieldUp ? Messages.get(UiText.HUD_SHIELD_UP) : "");
         c.set("#DomShieldRow.Visible", shieldUp);
         boolean grace = shields != null && shields.graceActive() && !graceOnStatus;
-        c.set("#DomGrace.Text", grace ? fit("Grace ends in " + Time.remaining(shields.graceEndsAt() - now), SMALL_CHARS) : "");
+        c.set("#DomGrace.Text", grace ? fit(Messages.get(UiText.HUD_GRACE_ENDS_SHORT, "time", Time.remaining(shields.graceEndsAt() - now)), SMALL_CHARS) : "");
         c.set("#DomGraceRow.Visible", grace);
     }
 }

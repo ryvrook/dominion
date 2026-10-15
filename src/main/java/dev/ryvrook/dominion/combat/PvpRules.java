@@ -3,6 +3,7 @@ package dev.ryvrook.dominion.combat;
 import dev.ryvrook.dominion.api.Result;
 import dev.ryvrook.dominion.model.FactionType;
 import dev.ryvrook.dominion.model.Relation;
+import dev.ryvrook.dominion.text.Messages;
 
 import java.util.UUID;
 
@@ -32,27 +33,27 @@ final class PvpRules {
             return Result.pass();
         }
         if (attackerZone == FactionType.SAFEZONE) {
-            return Result.fail("You cannot fight from inside the SafeZone.");
+            return Result.fail(Messages.get(CombatText.PVP_FROM_SAFEZONE));
         }
         if (victimZone == FactionType.SAFEZONE) {
-            return Result.fail("You cannot fight in the SafeZone.");
+            return Result.fail(Messages.get(CombatText.PVP_IN_SAFEZONE));
         }
         boolean sameFaction = attackerFaction != null && attackerFaction.equals(victimFaction);
         if (victimZone == FactionType.WARZONE) {
             // WarZones always allow fighting, except between members of the same faction.
-            return sameFaction ? Result.fail("You cannot hurt your own faction in a WarZone.") : Result.pass();
+            return sameFaction ? Result.fail(Messages.get(CombatText.PVP_OWN_IN_WARZONE)) : Result.pass();
         }
         if (attackerFaction == null || victimFaction == null) {
-            return t.pvpFactionless() ? Result.pass() : Result.fail("Fighting players without a faction is turned off.");
+            return t.pvpFactionless() ? Result.pass() : Result.fail(Messages.get(CombatText.PVP_FACTIONLESS_OFF));
         }
         if (sameFaction) {
-            return friendlyFire ? Result.pass() : Result.fail("Friendly fire is off in your faction.");
+            return friendlyFire ? Result.pass() : Result.fail(Messages.get(CombatText.FRIENDLY_FIRE_OFF));
         }
         Relation r = relation == null ? Relation.NEUTRAL : relation;
         return switch (r) {
-            case ALLY -> t.allyFire() ? Result.pass() : Result.fail("You cannot hurt your allies.");
-            case TRUCE -> t.truceFire() ? Result.pass() : Result.fail("You cannot hurt factions you have a truce with.");
-            case NEUTRAL -> t.pvpNeutral() ? Result.pass() : Result.fail("Fighting neutral factions is turned off.");
+            case ALLY -> t.allyFire() ? Result.pass() : Result.fail(Messages.get(CombatText.PVP_ALLY));
+            case TRUCE -> t.truceFire() ? Result.pass() : Result.fail(Messages.get(CombatText.PVP_TRUCE));
+            case NEUTRAL -> t.pvpNeutral() ? Result.pass() : Result.fail(Messages.get(CombatText.PVP_NEUTRAL_OFF));
             case ENEMY, OWN -> Result.pass();
         };
     }

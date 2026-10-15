@@ -2,6 +2,7 @@ package dev.ryvrook.dominion.combat;
 
 import dev.ryvrook.dominion.config.Settings;
 import dev.ryvrook.dominion.service.CombatTagService;
+import dev.ryvrook.dominion.text.Messages;
 
 import java.util.Locale;
 import java.util.UUID;
@@ -60,20 +61,19 @@ final class CombatTags implements CombatTagService {
     public String status() {
         if (external == null || !external.present()) {
             if (external instanceof CombatLogBridge b && b.pluginLoaded()) {
-                return "Dominion found CombatLog " + versionText(b.version())
-                        + " but could not read its API, using its own combat tag";
+                return Messages.get(CombatText.STATUS_UNREADABLE, "version", versionText(b.version()));
             }
-            return "Dominion found no CombatLog, using its own combat tag";
+            return Messages.get(CombatText.STATUS_ABSENT);
         }
         String version = versionText(external.version());
         if (off()) {
-            return "Dominion found CombatLog " + version + " but " + KEY + " is off, using its own combat tag";
+            return Messages.get(CombatText.STATUS_OFF, "version", version, "key", KEY);
         }
-        return "Dominion uses CombatLog " + version + " for combat tags";
+        return Messages.get(CombatText.STATUS_USED, "version", version);
     }
 
     private static String versionText(String version) {
-        return version == null || version.isBlank() ? "of an unknown version" : version;
+        return version == null || version.isBlank() ? Messages.get(CombatText.UNKNOWN_VERSION) : version;
     }
 
     private static boolean safeTagged(CombatTagSource source, UUID player) {

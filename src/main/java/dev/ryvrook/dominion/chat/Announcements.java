@@ -9,9 +9,11 @@ import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.Relation;
 import dev.ryvrook.dominion.service.FactionService;
 import dev.ryvrook.dominion.service.RelationService;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Level;
 
 /** Server wide chat lines for faction events, such as a faction taking a new tag or name. */
@@ -52,8 +54,7 @@ final class Announcements {
             }
             Relation rel = faction == null || relations == null ? Relation.NEUTRAL : relations.playerToFaction(p.getUuid(), faction);
             String color = (rel == null ? Relation.NEUTRAL : rel).color();
-            Msg.send(p, Message.join(Msg.prefix(), Msg.colored("The faction ", Msg.TEXT), Msg.colored(before, color).bold(true),
-                    Msg.colored(" is now ", Msg.TEXT), Msg.colored(after, color).bold(true), Msg.colored(".", Msg.TEXT)));
+            Msg.send(p, Message.join(Msg.prefix(), coloured(before, after, color)));
         }
     }
 
@@ -64,6 +65,29 @@ final class Announcements {
 
     /** The plain announcement as players read it. */
     static String line(String before, String after) {
-        return "The faction " + before + " is now " + after + ".";
+        return Messages.get(ChatText.RENAMED, "before", before, "after", after);
+    }
+
+    /** The announcement with the two labels in bold relation colour and the rest in text colour, in the order the wording puts them. */
+    private static Message coloured(String before, String after, String color) {
+        String text = Messages.raw(ChatText.RENAMED);
+        List<Message> parts = new ArrayList<>();
+        int i = 0;
+        while (i < text.length()) {
+            int b = text.indexOf("{before}", i);
+            int a = text.indexOf("{after}", i);
+            int next = b < 0 ? a : a < 0 ? b : Math.min(a, b);
+            if (next < 0) {
+                parts.add(Msg.colored(text.substring(i), Msg.TEXT));
+                break;
+            }
+            if (next > i) {
+                parts.add(Msg.colored(text.substring(i, next), Msg.TEXT));
+            }
+            boolean isBefore = next == b;
+            parts.add(Msg.colored(isBefore ? before : after, color).bold(true));
+            i = next + (isBefore ? "{before}" : "{after}").length();
+        }
+        return Message.join(parts.toArray(new Message[0]));
     }
 }

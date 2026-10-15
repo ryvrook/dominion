@@ -14,6 +14,8 @@ import dev.ryvrook.dominion.service.EventsService;
 import dev.ryvrook.dominion.service.FactionService;
 import dev.ryvrook.dominion.service.PowerService;
 import dev.ryvrook.dominion.service.ProgressService;
+import dev.ryvrook.dominion.text.CommonText;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Time;
 
@@ -35,13 +37,13 @@ public final class ProgressServiceImpl implements ProgressService {
     private static final Map<String, Integer> MAX_LEVELS = Map.of(
             "members", 4, "regen", 3, "maxpower", 3, "warps", 4, "vault", 4, "shield", 2, "immunity", 3);
     private static final Map<String, String> UPGRADE_EFFECTS = Map.of(
-            "members", "Members plus 5 per level",
-            "regen", "Power regenerates 25 percent faster for every member per level",
-            "maxpower", "Maximum power plus 2 per member per level",
-            "warps", "Warps plus 2 per level",
-            "vault", "Vault plus 1 page per level",
-            "shield", "The shield covers one more ring of chunks around the home per level",
-            "immunity", "One more hour of siege immunity after a defence per level");
+            "members", ProgressText.EFFECT_MEMBERS,
+            "regen", ProgressText.EFFECT_REGEN,
+            "maxpower", ProgressText.EFFECT_MAXPOWER,
+            "warps", ProgressText.EFFECT_WARPS,
+            "vault", ProgressText.EFFECT_VAULT,
+            "shield", ProgressText.EFFECT_SHIELD,
+            "immunity", ProgressText.EFFECT_IMMUNITY);
 
     private final DominionContext ctx;
     private final Strikes strikes;
@@ -207,9 +209,10 @@ public final class ProgressServiceImpl implements ProgressService {
     public String upgradeDescription(String key, int level) {
         String effect = key == null ? null : UPGRADE_EFFECTS.get(key);
         if (effect == null) {
-            return "Unknown upgrade.";
+            return Messages.get(ProgressText.UNKNOWN_UPGRADE);
         }
-        return effect + ", level " + level + " of " + upgradeMaxLevel(key);
+        return Messages.get(ProgressText.UPGRADE_DESCRIPTION, "effect", Messages.get(effect), "level", level,
+                "max", upgradeMaxLevel(key));
     }
 
     @Override
@@ -217,40 +220,40 @@ public final class ProgressServiceImpl implements ProgressService {
         FactionService factions = ctx.service(FactionService.class);
         Faction f = factions.factionOf(actor);
         if (f == null) {
-            return Result.fail("You are not in a faction.");
+            return Result.fail(Messages.get(CommonText.NOT_IN_FACTION));
         }
         if (f.isSystem()) {
-            return Result.fail("Server zones cannot buy upgrades.");
+            return Result.fail(Messages.get(ProgressText.ZONES_CANNOT_UPGRADE));
         }
         String k = key == null ? "" : key.toLowerCase(Locale.ROOT);
         if (!MAX_LEVELS.containsKey(k)) {
-            return Result.fail("There is no upgrade called " + key + ". Choose one of " + String.join(", ", UPGRADE_KEYS) + ".");
+            return Result.fail(Messages.get(ProgressText.NO_SUCH_UPGRADE, "key", key, "choices", String.join(", ", UPGRADE_KEYS)));
         }
         if (!factions.can(actor, FactionAction.SETTINGS)) {
-            return Result.fail("Your rank cannot buy upgrades.");
+            return Result.fail(Messages.get(ProgressText.RANK_CANNOT_UPGRADE));
         }
         int level = f.upgrade(k);
         int max = upgradeMaxLevel(k);
         if (level >= max) {
-            return Result.fail("This upgrade is already at its highest level.");
+            return Result.fail(Messages.get(ProgressText.UPGRADE_MAXED));
         }
         double cost = upgradeCost(f, k);
-        String label = k + " upgrade level " + (level + 1);
+        String label = Messages.get(ProgressText.UPGRADE_LABEL, "upgrade", k, "level", level + 1);
         String paid;
         if (ctx.settings().bool("upgrades.useCoins")) {
             EconomyService eco = ctx.serviceOrNull(EconomyService.class);
             if (eco == null || !eco.enabled()) {
-                return Result.fail("The economy is turned off so upgrades cannot be bought with coins.");
+                return Result.fail(Messages.get(ProgressText.UPGRADE_NO_ECONOMY));
             }
             // The upgrade lock, not the faction monitor, guards the purchase. The economy takes the
             // ledger lock and then the faction monitor, so holding the monitor here could deadlock.
             synchronized (upgradeLock) {
                 if (f.upgrade(k) != level) {
-                    return Result.fail("The upgrade changed while you were buying it. Try again.");
+                    return Result.fail(Messages.get(ProgressText.UPGRADE_CHANGED));
                 }
                 Result charge = eco.bankCharge(f, cost, label);
                 if (charge.failed()) {
-                    return Result.fail("The faction bank needs " + eco.format(cost) + " for this upgrade.");
+                    return Result.fail(Messages.get(ProgressText.UPGRADE_BANK_SHORT, "cost", eco.format(cost)));
                 }
                 f.setUpgrade(k, level + 1);
             }
@@ -261,23 +264,24 @@ public final class ProgressServiceImpl implements ProgressService {
                 // Points change under the faction monitor elsewhere, so the check and the spend hold it too.
                 synchronized (f) {
                     if (f.upgrade(k) != level) {
-                        return Result.fail("The upgrade changed while you were buying it. Try again.");
+                        return Result.fail(Messages.get(ProgressText.UPGRADE_CHANGED));
                     }
                     if (f.points() < pointsCost) {
-                        return Result.fail("Your faction needs " + Msg.number(pointsCost) + " points for this upgrade and has "
-                                + Msg.number(f.points()) + ".");
+                        return Result.fail(Messages.get(ProgressText.UPGRADE_POINTS_SHORT, "cost", Msg.number(pointsCost),
+                                "points", Msg.number(f.points())));
                     }
                     f.setPoints(f.points() - pointsCost);
                     f.setUpgrade(k, level + 1);
                 }
             }
-            paid = Msg.number(pointsCost) + " points";
+            paid = Messages.get(ProgressText.POINTS, "points", Msg.number(pointsCost));
         }
         String who = nameOf(actor);
-        factions.audit(f, actor, who, "upgrade", who + " bought the " + label + " for " + paid + ".");
+        factions.audit(f, actor, who, "upgrade", Messages.get(ProgressText.UPGRADE_AUDIT, "player", who, "upgrade", label,
+                "paid", paid));
         ctx.bus().publish(new DominionEvent.UpgradeBought(f.id(), k, level + 1));
         invalidate();
-        return Result.pass("Your faction bought the " + label + " for " + paid + ".");
+        return Result.pass(Messages.get(ProgressText.UPGRADE_BOUGHT, "upgrade", label, "paid", paid));
     }
 
     // ---- missions ------------------------------------------------------------
@@ -372,8 +376,8 @@ public final class ProgressServiceImpl implements ProgressService {
                 if (eco.wholeUnits()) {
                     coins = Math.floor(coins);
                 }
-                if (coins > 0 && eco.bankCredit(f, coins, "Mission " + m.name()).success()) {
-                    reward = eco.format(coins) + " for the bank";
+                if (coins > 0 && eco.bankCredit(f, coins, Messages.get(ProgressText.MISSION_BANK_REASON, "mission", m.name())).success()) {
+                    reward = eco.format(coins);
                 }
             }
         }
@@ -381,15 +385,20 @@ public final class ProgressServiceImpl implements ProgressService {
             synchronized (f) {
                 f.setPoints(f.points() + points);
             }
-            reward = reward.isEmpty() ? Msg.number(points) + " points"
-                    : reward + " and " + Msg.number(points) + " points";
+            reward = reward.isEmpty() ? Messages.get(ProgressText.POINTS, "points", Msg.number(points))
+                    : Messages.get(ProgressText.REWARD_COINS_AND_POINTS, "coins", reward, "points", Msg.number(points));
+        } else if (!reward.isEmpty()) {
+            reward = Messages.get(ProgressText.REWARD_COINS, "coins", reward);
         }
-        String text = "Your faction completed the " + (m.weekly() ? "weekly" : "daily") + " mission " + m.name()
-                + (reward.isEmpty() ? "." : " and earned " + reward + ".");
+        String text = reward.isEmpty()
+                ? Messages.get(m.weekly() ? ProgressText.WEEKLY_DONE : ProgressText.DAILY_DONE, "mission", m.name())
+                : Messages.get(m.weekly() ? ProgressText.WEEKLY_DONE_REWARD : ProgressText.DAILY_DONE_REWARD,
+                "mission", m.name(), "reward", reward);
         FactionService factions = ctx.serviceOrNull(FactionService.class);
         if (factions != null) {
-            factions.audit(f, player, nameOf(player), "mission", "The faction completed the mission " + m.name()
-                    + (reward.isEmpty() ? "." : " and earned " + reward + "."));
+            factions.audit(f, player, nameOf(player), "mission", reward.isEmpty()
+                    ? Messages.get(ProgressText.MISSION_AUDIT, "mission", m.name())
+                    : Messages.get(ProgressText.MISSION_AUDIT_REWARD, "mission", m.name(), "reward", reward));
         }
         ctx.bus().publish(new DominionEvent.MissionCompleted(f.id(), m.id()));
         ChatService chat = ctx.serviceOrNull(ChatService.class);
@@ -449,41 +458,41 @@ public final class ProgressServiceImpl implements ProgressService {
     @Override
     public Result strike(UUID admin, String adminName, Faction faction, int points, String reason) {
         if (faction == null) {
-            return Result.fail("That faction does not exist.");
+            return Result.fail(Messages.get(CommonText.NO_SUCH_FACTION));
         }
         if (points <= 0) {
-            return Result.fail("A strike must be worth at least one point.");
+            return Result.fail(Messages.get(ProgressText.STRIKE_TOO_SMALL));
         }
         if (reason == null || reason.isBlank()) {
-            return Result.fail("Give a reason for the strike.");
+            return Result.fail(Messages.get(ProgressText.STRIKE_NO_REASON));
         }
-        String who = adminName == null || adminName.isBlank() ? "An admin" : adminName;
+        String who = adminName == null || adminName.isBlank() ? Messages.get(ProgressText.AN_ADMIN) : adminName;
         String why = reason.trim();
         int number = strikes.add(faction.id(), new Strikes.Strike(points, why, admin, who, Time.now()));
-        audit(faction, admin, who, who + " gave the faction a strike worth " + points + (points == 1 ? " point" : " points")
-                + " because " + why);
+        audit(faction, admin, who, Messages.get(points == 1 ? ProgressText.STRIKE_AUDIT_ONE : ProgressText.STRIKE_AUDIT_MANY,
+                "admin", who, "points", points, "reason", why));
         invalidate();
         ctx.bus().publish(new DominionEvent.FactionChanged(faction.id()));
-        return Result.pass(faction.tag() + " received strike number " + number + " worth " + points
-                + (points == 1 ? " point" : " points") + ". Its value is now " + Msg.number(value(faction)) + ".");
+        return Result.pass(Messages.get(points == 1 ? ProgressText.STRIKE_GIVEN_ONE : ProgressText.STRIKE_GIVEN_MANY,
+                "faction", faction.tag(), "number", number, "points", points, "value", Msg.number(value(faction))));
     }
 
     /** Index is one based, matching the numbered list shown to admins. */
     @Override
     public Result unstrike(UUID admin, Faction faction, int index) {
         if (faction == null) {
-            return Result.fail("That faction does not exist.");
+            return Result.fail(Messages.get(CommonText.NO_SUCH_FACTION));
         }
         Strikes.Strike removed = strikes.remove(faction.id(), index - 1);
         if (removed == null) {
-            return Result.fail(faction.tag() + " has no strike number " + index + ".");
+            return Result.fail(Messages.get(ProgressText.NO_STRIKE_NUMBER, "faction", faction.tag(), "index", index));
         }
-        String who = admin == null ? "An admin" : nameOf(admin);
-        audit(faction, admin, who, who + " removed the strike given for " + removed.reason());
+        String who = admin == null ? Messages.get(ProgressText.AN_ADMIN) : nameOf(admin);
+        audit(faction, admin, who, Messages.get(ProgressText.UNSTRIKE_AUDIT, "admin", who, "reason", removed.reason()));
         invalidate();
         ctx.bus().publish(new DominionEvent.FactionChanged(faction.id()));
-        return Result.pass("Removed strike number " + index + " from " + faction.tag() + ". Its value is now "
-                + Msg.number(value(faction)) + ".");
+        return Result.pass(Messages.get(ProgressText.UNSTRUCK, "index", index, "faction", faction.tag(),
+                "value", Msg.number(value(faction))));
     }
 
     private void audit(Faction f, UUID who, String whoName, String text) {
@@ -539,9 +548,9 @@ public final class ProgressServiceImpl implements ProgressService {
 
     private String nameOf(UUID player) {
         if (player == null) {
-            return "Console";
+            return Messages.get(ProgressText.CONSOLE);
         }
         String n = ctx.player(player).name();
-        return n == null || n.isBlank() ? "Someone" : n;
+        return n == null || n.isBlank() ? Messages.get(ProgressText.SOMEONE) : n;
     }
 }
