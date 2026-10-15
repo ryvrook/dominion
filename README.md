@@ -218,6 +218,41 @@ A few keys worth knowing
 | `export.enabled` | `true` | Write the web map snapshot file |
 | `misc.singleplayerAutoPreset` | `true` | Apply the singleplayer preset automatically |
 
+## Integrations
+
+Dominion works on its own and works better next to the other Ryvrook mods. Each link is optional. When a mod is
+missing Dominion behaves exactly as before, logs one line that it runs without it and never fails. The manifest lists
+TrackerAPI, Feats and Atlas as optional dependencies, so the server loads them first when they are installed.
+
+| Mod | What it adds | Setting |
+| --- | --- | --- |
+| [TrackerAPI](https://www.curseforge.com/hytale/mods/trackerapi) 1.0.0 or newer | Dominion publishes ten per player counters under `dominion:`, with leaderboards for claims, enemy kills, sieges won, missions and bank deposits | `integrations.tracker` |
+| Feats 1.5.0 or newer | The same counters are mirrored into Feats, and every feat a player unlocks is posted to their faction chat | `integrations.feats`, `integrations.featsAnnounce` |
+| Atlas 1.6.0 or newer | A live Sieges layer with the phase and end time of every siege, and `/f map hide` hides the player in Atlas as well | `integrations.atlas` |
+| Chronicle Stats | Reads factions, members, kills and deaths from the map snapshot. Nothing to set up | none |
+
+The three link settings take `auto` (link when the mod is installed and new enough, the default), `always` (link to
+any installed version and warn at start when the mod is missing) or `never` (ignore the mod). They are read when the
+server starts. `integrations.featsAnnounce` is `true` by default and can be changed at any time.
+`/fa integrations` lists each mod as bound, missing or off, and the start log has one line per mod, for example
+`Dominion is bound to TrackerAPI 1.0.3`.
+
+The counters are `dominion:claims`, `dominion:unclaims`, `dominion:enemy_kills` (a kill of a member of a faction at
+war with yours), `dominion:enemy_land_deaths` (deaths on the land of a faction at war with yours),
+`dominion:sieges_won`, `dominion:sieges_lost` (every member of both factions when a siege ends), `dominion:missions`
+(every member when the faction completes a mission), `dominion:bank_deposited` (whole coins),
+`dominion:factions_founded` and `dominion:invites`. TrackerAPI and Feats only take counters for players who are
+online, which is everyone involved except for siege and mission credit to offline members.
+
+Feats has no file for server defined feats yet, so the counters show in its stats and wait there for feats that read
+them. Atlas draws claims, homes, warps, hills, outposts and envoys from the map snapshot whether or not it is linked,
+so the link only adds what the snapshot cannot carry. After a `/plugin reload` of Feats or Atlas, run
+`/plugin reload Ryvrook:Dominion` too, Dominion logs a reminder. TrackerAPI 1.0.3 reloads Dominion by itself.
+
+Dominion also uses [CombatLog](https://www.curseforge.com/hytale/mods/combatlog) when it is installed, see CombatLog
+integration above. Money from Coinage reaches Dominion through VaultUnlocked with `eco.provider` set to
+`vaultunlocked`.
+
 ## Web map export
 
 Dominion writes `export/snapshot.json` in its data folder every few seconds while something
