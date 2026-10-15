@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- `/f who` lists a faction that declared war one sided and the factions of a shared nation under Enemies and Allies.
+- Rename announcements name a faction with the same label as everywhere else, so a tag that repeats the name shows once.
+- A faction tag saved into a nameplate is taken off at the next join even after the player left the faction or it was renamed.
+- Open sidebars move as soon as `hud.side` or `hud.top` changes.
+- Renewing an invite that is still open no longer adds to the invites counter.
+
 ## 0.3.0 - 2026-10-15
 
 Dominion Factions 0.3.0 is the first release shaped by a client session. Faction names show once, the sidebar,
@@ -28,6 +37,8 @@ Simple Claims paints them, and Dominion links to TrackerAPI, Feats and Atlas whe
 - `/fa integrations` lists each mod as bound, missing or off, and the start log has one line per mod.
 - New bus events PlayerDied, BankDeposited, MemberInvited and AuditLogged for other mods to read.
 - 26 new tests for the switch, the event to counter mapping against the real faction and land services, the siege popup and the snapshot fields Chronicle Stats reads.
+
+### Chat and commands
 - `/f who` prints the classic layout. A `____[ Tag Name ]____` header in your relation colour, then description, age, open or invite only, Land / Power / Maxpower, raidable, bank, nation, truces, allies and enemies as coloured lists, and the online and offline members with `**` for the leader, `*` for officers and custom rank names.
 - `/f who <player>` finds the faction of any known player when no faction uses that tag.
 - `/f top [page]` pages the value leaderboard with a `____[ Faction Top (Value) 1/4 ]____` header, rows such as `1. Tag (3/12) 48,500`, your own standing when it is off the page and a hint for the next page. New setting `top.pageSize`, default 10, from 5 to 25.
