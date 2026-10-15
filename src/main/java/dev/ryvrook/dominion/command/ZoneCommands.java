@@ -8,6 +8,7 @@ import dev.ryvrook.dominion.model.ClaimEntry;
 import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.Rank;
 import dev.ryvrook.dominion.model.Zone;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 
 import java.util.HashMap;
@@ -24,16 +25,16 @@ final class ZoneCommands extends Section {
 
     @Override
     void register(PlayerCmd root) {
-        PlayerCmd zone = root.sub(new PlayerCmd("zone", "List the zones inside your land."));
+        PlayerCmd zone = root.sub(new PlayerCmd("zone", Messages.get(CommandText.DESC_LIST_THE_ZONES_INSIDE_YOUR_LAND)));
         zone.handler(this::list);
-        zone.sub(new PlayerCmd("list", "List the zones inside your land.")).handler(this::list);
+        zone.sub(new PlayerCmd("list", Messages.get(CommandText.DESC_LIST_THE_ZONES_INSIDE_YOUR_LAND))).handler(this::list);
 
-        PlayerCmd create = zone.sub(new PlayerCmd("create", "Create a zone with its own permissions."));
-        RequiredArg<String> createName = create.withRequiredArg("name", "Zone name", ArgTypes.GREEDY_STRING);
+        PlayerCmd create = zone.sub(new PlayerCmd("create", Messages.get(CommandText.DESC_CREATE_A_ZONE_WITH_ITS_OWN)));
+        RequiredArg<String> createName = create.withRequiredArg("name", Messages.get(CommandText.ARG_ZONE_NAME), ArgTypes.GREEDY_STRING);
         create.handler(c -> c.reply(factions().zoneCreate(c.uuid(), c.arg(createName).trim())));
 
-        PlayerCmd delete = zone.sub(new PlayerCmd("delete", "Delete a zone. Its chunks go back to the faction rules."));
-        RequiredArg<String> deleteName = delete.withRequiredArg("name", "Zone name", ArgTypes.GREEDY_STRING);
+        PlayerCmd delete = zone.sub(new PlayerCmd("delete", Messages.get(CommandText.DESC_DELETE_A_ZONE_ITS_CHUNKS_GO)));
+        RequiredArg<String> deleteName = delete.withRequiredArg("name", Messages.get(CommandText.ARG_ZONE_NAME), ArgTypes.GREEDY_STRING);
         delete.handler(c -> {
             Faction f = requireFaction(c);
             if (f != null) {
@@ -41,8 +42,8 @@ final class ZoneCommands extends Section {
             }
         });
 
-        PlayerCmd assign = zone.sub(new PlayerCmd("assign", "Put the chunk you stand in into a zone."));
-        RequiredArg<String> assignName = assign.withRequiredArg("name", "Zone name", ArgTypes.GREEDY_STRING);
+        PlayerCmd assign = zone.sub(new PlayerCmd("assign", Messages.get(CommandText.DESC_PUT_THE_CHUNK_YOU_STAND_IN)));
+        RequiredArg<String> assignName = assign.withRequiredArg("name", Messages.get(CommandText.ARG_ZONE_NAME), ArgTypes.GREEDY_STRING);
         assign.handler(c -> {
             Faction f = requireFaction(c);
             if (f == null) {
@@ -50,18 +51,18 @@ final class ZoneCommands extends Section {
             }
             Zone z = find(f, c.arg(assignName));
             if (z == null) {
-                c.bad("Your faction has no zone called " + c.arg(assignName) + ". See /f zone list.");
+                c.bad(Messages.get(CommandText.NO_ZONE_CALLED, "name", c.arg(assignName)));
                 return;
             }
             c.reply(factions().zoneAssign(c.uuid(), z.id()));
         });
 
-        zone.sub(new PlayerCmd("clear", "Take the chunk you stand in out of its zone."))
+        zone.sub(new PlayerCmd("clear", Messages.get(CommandText.DESC_TAKE_THE_CHUNK_YOU_STAND_IN)))
                 .handler(c -> c.reply(factions().zoneAssign(c.uuid(), null)));
 
-        PlayerCmd rankName = root.sub(new PlayerCmd("rankname", "Rename one of the four ranks for your faction."));
-        RequiredArg<String> rankArg = rankName.withRequiredArg("rank", "Recruit, member, officer or leader", ArgTypes.STRING);
-        RequiredArg<String> nameArg = rankName.withRequiredArg("name", "New name, or reset", ArgTypes.GREEDY_STRING);
+        PlayerCmd rankName = root.sub(new PlayerCmd("rankname", Messages.get(CommandText.DESC_RENAME_ONE_OF_THE_FOUR_RANKS)));
+        RequiredArg<String> rankArg = rankName.withRequiredArg("rank", Messages.get(CommandText.ARG_RECRUIT_MEMBER_OFFICER_OR_LEADER), ArgTypes.STRING);
+        RequiredArg<String> nameArg = rankName.withRequiredArg("name", Messages.get(CommandText.ARG_NEW_NAME_OR_RESET), ArgTypes.GREEDY_STRING);
         rankName.handler(c -> {
             Faction f = requireFaction(c);
             if (f == null) {
@@ -69,7 +70,7 @@ final class ZoneCommands extends Section {
             }
             Rank r = parseRank(f, c.arg(rankArg));
             if (r == null) {
-                c.bad("Ranks are recruit, member, officer and leader.");
+                c.bad(Messages.get(CommandText.RANKS_ARE_RECRUIT_MEMBER_OFFICER_AND));
                 return;
             }
             String name = c.arg(nameArg).trim();
@@ -88,17 +89,17 @@ final class ZoneCommands extends Section {
         }
         List<Zone> zones = f.zones();
         if (zones.isEmpty()) {
-            c.info("Your faction has no zones. Create one with /f zone create and a name.");
+            c.info(Messages.get(CommandText.YOUR_FACTION_HAS_NO_ZONES_CREATE));
             return;
         }
         Map<String, Integer> counts = chunkCounts(ctx, f);
-        c.info("Zones of " + f.tag());
+        c.info(Messages.get(CommandText.ZONES_OF, "tag", f.tag()));
         for (Zone z : zones) {
             int n = counts.getOrDefault(z.id(), 0);
             c.send(Message.join(Msg.colored(" " + z.name(), Msg.GOLD),
-                    Msg.muted("  " + n + (n == 1 ? " chunk" : " chunks"))));
+                    Msg.muted("  " + Messages.get(CommandText.ZONE_CHUNK, "count", n))));
         }
-        c.send(Msg.muted(" Stand in a chunk and use /f zone assign with a name. Edit zone permissions under Zones on the settings tab of /f. That needs the permissions right."));
+        c.send(Msg.muted(" " + Messages.get(CommandText.STAND_IN_A_CHUNK_AND_USE)));
     }
 
     /** A zone by name or id, ignoring case. */

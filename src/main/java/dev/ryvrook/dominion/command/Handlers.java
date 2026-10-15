@@ -1,6 +1,7 @@
 package dev.ryvrook.dominion.command;
 
 import dev.ryvrook.dominion.DominionPlugin;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 
 import java.util.function.Consumer;
@@ -12,16 +13,16 @@ final class Handlers {
 
     static void run(Consumer<Call> handler, Call call) {
         if (handler == null) {
-            call.send(Msg.info("Use /f help to see what you can do."));
+            call.send(Msg.info(Messages.get(CommandText.USE_F_HELP_TO_SEE_WHAT)));
             return;
         }
         try {
             handler.accept(call);
         } catch (IllegalStateException e) {
-            call.send(Msg.bad("That feature is not available on this server right now."));
+            call.send(Msg.bad(Messages.get(CommandText.THAT_FEATURE_IS_NOT_AVAILABLE_ON)));
             log(e);
         } catch (Exception e) {
-            call.send(Msg.bad("Something went wrong running that command."));
+            call.send(Msg.bad(Messages.get(CommandText.SOMETHING_WENT_WRONG_RUNNING_THAT_COMMAND)));
             log(e);
         }
     }

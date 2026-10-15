@@ -6,6 +6,7 @@ import com.hypixel.hytale.server.core.command.system.arguments.types.ArgTypes;
 import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.Relation;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Time;
 
@@ -21,25 +22,25 @@ final class DiplomacyCommands extends Section {
 
     @Override
     void register(PlayerCmd root) {
-        relation(root, "ally", "Ask a faction to become allies.", Relation.ALLY);
-        relation(root, "truce", "Ask a faction for a truce.", Relation.TRUCE);
-        relation(root, "neutral", "Set a faction to neutral.", Relation.NEUTRAL);
-        relation(root, "enemy", "Declare a faction your enemy.", Relation.ENEMY);
+        relation(root, "ally", Messages.get(CommandText.DESC_ASK_A_FACTION_TO_BECOME_ALLIES), Relation.ALLY);
+        relation(root, "truce", Messages.get(CommandText.DESC_ASK_A_FACTION_FOR_A_TRUCE), Relation.TRUCE);
+        relation(root, "neutral", Messages.get(CommandText.DESC_SET_A_FACTION_TO_NEUTRAL), Relation.NEUTRAL);
+        relation(root, "enemy", Messages.get(CommandText.DESC_DECLARE_A_FACTION_YOUR_ENEMY), Relation.ENEMY);
 
-        PlayerCmd accept = root.sub(new PlayerCmd("accept", "Accept a relation request."));
-        RequiredArg<String> acceptTag = accept.withRequiredArg("tag", "Faction tag", ArgTypes.STRING);
+        PlayerCmd accept = root.sub(new PlayerCmd("accept", Messages.get(CommandText.DESC_ACCEPT_A_RELATION_REQUEST)));
+        RequiredArg<String> acceptTag = accept.withRequiredArg("tag", Messages.get(CommandText.ARG_FACTION_TAG), ArgTypes.STRING);
         accept.handler(c -> c.reply(relations().accept(c.uuid(), c.arg(acceptTag))));
 
-        PlayerCmd decline = root.sub(new PlayerCmd("decline", "Decline a relation request."));
-        RequiredArg<String> declineTag = decline.withRequiredArg("tag", "Faction tag", ArgTypes.STRING);
+        PlayerCmd decline = root.sub(new PlayerCmd("decline", Messages.get(CommandText.DESC_DECLINE_A_RELATION_REQUEST)));
+        RequiredArg<String> declineTag = decline.withRequiredArg("tag", Messages.get(CommandText.ARG_FACTION_TAG), ArgTypes.STRING);
         decline.handler(c -> c.reply(relations().decline(c.uuid(), c.arg(declineTag))));
 
-        root.sub(new PlayerCmd("relations", "List your allies, truces and enemies.")).handler(this::list);
+        root.sub(new PlayerCmd("relations", Messages.get(CommandText.DESC_LIST_YOUR_ALLIES_TRUCES_AND_ENEMIES))).handler(this::list);
     }
 
     private void relation(PlayerCmd root, String name, String description, Relation relation) {
         PlayerCmd cmd = root.sub(new PlayerCmd(name, description));
-        RequiredArg<String> tag = cmd.withRequiredArg("tag", "Faction tag", ArgTypes.STRING);
+        RequiredArg<String> tag = cmd.withRequiredArg("tag", Messages.get(CommandText.ARG_FACTION_TAG), ArgTypes.STRING);
         cmd.handler(c -> c.reply(relations().request(c.uuid(), c.arg(tag), relation)));
     }
 
@@ -49,9 +50,9 @@ final class DiplomacyCommands extends Section {
             return;
         }
         Map<UUID, Relation> rel = f.relations();
-        c.send(Msg.info("Relations of " + f.tag()));
+        c.send(Msg.info(Messages.get(CommandText.RELATIONS_OF, "tag", f.tag())));
         if (rel.isEmpty()) {
-            c.send(Msg.muted(" Everyone is neutral to you."));
+            c.send(Msg.muted(" " + Messages.get(CommandText.EVERYONE_IS_NEUTRAL_TO_YOU)));
         }
         for (Relation r : new Relation[] {Relation.ALLY, Relation.TRUCE, Relation.ENEMY}) {
             StringBuilder tags = new StringBuilder();
@@ -86,9 +87,8 @@ final class DiplomacyCommands extends Section {
             }
             boolean incoming = req.from() == null || !(f.id().equals(req.from()) || f.isMember(req.from()));
             String text = incoming
-                    ? other.tag() + " wants " + req.type().displayName().toLowerCase() + ". Use /f accept " + other.tag()
-                    : "You asked " + other.tag() + " for " + req.type().displayName().toLowerCase()
-                    + ", expires in " + Time.remaining(req.expiresAt() - now);
+                    ? Messages.get(CommandText.RELATION_REQUEST_INCOMING, "tag", other.tag(), "relation", req.type().displayName().toLowerCase())
+                    : Messages.get(CommandText.RELATION_REQUEST_OUTGOING, "tag", other.tag(), "relation", req.type().displayName().toLowerCase(), "time", Time.remaining(req.expiresAt() - now));
             c.send(Msg.colored(" " + text, incoming ? Msg.WARN : Msg.MUTED));
         }
     }

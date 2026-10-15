@@ -1,6 +1,7 @@
 package dev.ryvrook.dominion.command;
 
 import dev.ryvrook.dominion.model.PlayerData;
+import dev.ryvrook.dominion.text.Messages;
 
 import java.util.List;
 import java.util.UUID;
@@ -26,8 +27,8 @@ public final class PlayerToggles {
                 // a listener failure must never break the toggle
             }
         }
-        return hidden ? "You are hidden from the web map. Your position is never shared there, even when the server shares player positions."
-                : "You are visible on the web map again. Your position shows there only while the server shares player positions.";
+        return hidden ? Messages.get(CommandText.YOU_ARE_HIDDEN_FROM_THE_WEB)
+                : Messages.get(CommandText.YOU_ARE_VISIBLE_ON_THE_WEB);
     }
 
     /** Tells the listener about every web map toggle, with the player and the new hidden state. */

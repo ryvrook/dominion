@@ -1,6 +1,7 @@
 package dev.ryvrook.dominion.command;
 
 import com.hypixel.hytale.server.core.Message;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 
 import java.util.ArrayList;
@@ -32,7 +33,7 @@ public final class IdPrefix {
         String text = typed == null ? "" : typed.trim().toLowerCase(Locale.ROOT);
         String compact = text.replace("-", "");
         if (compact.length() < MIN_LENGTH) {
-            c.bad("Type at least " + MIN_LENGTH + " characters of the " + noun + " id.");
+            c.bad(Messages.get(CommandText.ID_TOO_SHORT, "min", MIN_LENGTH, "noun", noun));
             return null;
         }
         Map<UUID, T> matches = new LinkedHashMap<>();
@@ -47,13 +48,13 @@ public final class IdPrefix {
             }
         }
         if (matches.isEmpty()) {
-            c.bad("No " + noun + " has an id starting with " + typed.trim() + ".");
+            c.bad(Messages.get(CommandText.ID_NO_MATCH, "noun", noun, "typed", typed.trim()));
             return null;
         }
         if (matches.size() == 1) {
             return matches.values().iterator().next();
         }
-        c.bad(matches.size() + " " + noun + "s start with " + typed.trim() + ". Type more of the id.");
+        c.bad(Messages.get(CommandText.ID_AMBIGUOUS, "count", matches.size(), "noun", noun, "typed", typed.trim()));
         List<T> shown = new ArrayList<>(matches.values());
         for (int i = 0; i < Math.min(SHOW_AMBIGUOUS, shown.size()); i++) {
             T t = shown.get(i);

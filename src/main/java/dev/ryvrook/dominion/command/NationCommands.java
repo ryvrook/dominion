@@ -7,6 +7,7 @@ import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.Nation;
 import dev.ryvrook.dominion.service.NationService;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Time;
 
@@ -23,14 +24,14 @@ final class NationCommands extends Section {
 
     @Override
     void register(PlayerCmd root) {
-        PlayerCmd nation = root.sub(new PlayerCmd("nation", "Show your nation."));
+        PlayerCmd nation = root.sub(new PlayerCmd("nation", Messages.get(CommandText.DESC_SHOW_YOUR_NATION)));
         nation.aliases("n");
         nation.handler(this::showOwn);
 
-        PlayerCmd info = nation.sub(new PlayerCmd("info", "Show your nation or another one."));
+        PlayerCmd info = nation.sub(new PlayerCmd("info", Messages.get(CommandText.DESC_SHOW_YOUR_NATION_OR_ANOTHER_ONE)));
         info.handler(this::showOwn);
-        PlayerCmd infoTag = new PlayerCmd("Show a nation by its tag.");
-        RequiredArg<String> infoArg = infoTag.withRequiredArg("tag", "Nation tag", ArgTypes.STRING);
+        PlayerCmd infoTag = new PlayerCmd(Messages.get(CommandText.DESC_SHOW_A_NATION_BY_ITS_TAG));
+        RequiredArg<String> infoArg = infoTag.withRequiredArg("tag", Messages.get(CommandText.ARG_NATION_TAG), ArgTypes.STRING);
         infoTag.handler(c -> {
             NationService ns = feature(c, NationService.class);
             if (ns == null) {
@@ -38,24 +39,24 @@ final class NationCommands extends Section {
             }
             Nation n = ns.byTag(c.arg(infoArg));
             if (n == null) {
-                c.bad("No nation uses the tag " + c.arg(infoArg) + ".");
+                c.bad(Messages.get(CommandText.NO_NATION_WITH_TAG, "tag", c.arg(infoArg)));
                 return;
             }
             show(c, n);
         });
         info.variant(infoTag);
 
-        PlayerCmd create = nation.sub(new PlayerCmd("create", "Found a nation led by your faction."));
-        RequiredArg<String> createTag = create.withRequiredArg("tag", "Nation tag", ArgTypes.STRING);
+        PlayerCmd create = nation.sub(new PlayerCmd("create", Messages.get(CommandText.DESC_FOUND_A_NATION_LED_BY_YOUR)));
+        RequiredArg<String> createTag = create.withRequiredArg("tag", Messages.get(CommandText.ARG_NATION_TAG), ArgTypes.STRING);
         create.handler(c -> {
             NationService ns = feature(c, NationService.class);
             if (ns != null) {
                 c.reply(ns.create(c.uuid(), c.arg(createTag), null));
             }
         });
-        PlayerCmd createNamed = new PlayerCmd("Found a nation with a display name.");
-        RequiredArg<String> namedTag = createNamed.withRequiredArg("tag", "Nation tag", ArgTypes.STRING);
-        RequiredArg<String> namedName = createNamed.withRequiredArg("name", "Display name", ArgTypes.GREEDY_STRING);
+        PlayerCmd createNamed = new PlayerCmd(Messages.get(CommandText.DESC_FOUND_A_NATION_WITH_A_DISPLAY));
+        RequiredArg<String> namedTag = createNamed.withRequiredArg("tag", Messages.get(CommandText.ARG_NATION_TAG), ArgTypes.STRING);
+        RequiredArg<String> namedName = createNamed.withRequiredArg("name", Messages.get(CommandText.ARG_DISPLAY_NAME), ArgTypes.GREEDY_STRING);
         createNamed.handler(c -> {
             NationService ns = feature(c, NationService.class);
             if (ns != null) {
@@ -64,19 +65,19 @@ final class NationCommands extends Section {
         });
         create.variant(createNamed);
 
-        tagAction(nation, "invite", "Invite a faction into your nation.", "Faction tag", NationService::invite);
-        tagAction(nation, "join", "Join a nation that invited your faction.", "Nation tag", NationService::join);
-        tagAction(nation, "kick", "Remove a faction from your nation.", "Faction tag", NationService::kick);
-        tagAction(nation, "leader", "Make another member faction the nation leader.", "Faction tag", NationService::setLeaderFaction);
+        tagAction(nation, "invite", Messages.get(CommandText.DESC_INVITE_A_FACTION_INTO_YOUR_NATION), Messages.get(CommandText.ARG_FACTION_TAG), NationService::invite);
+        tagAction(nation, "join", Messages.get(CommandText.DESC_JOIN_A_NATION_THAT_INVITED_YOUR), Messages.get(CommandText.ARG_NATION_TAG), NationService::join);
+        tagAction(nation, "kick", Messages.get(CommandText.DESC_REMOVE_A_FACTION_FROM_YOUR_NATION), Messages.get(CommandText.ARG_FACTION_TAG), NationService::kick);
+        tagAction(nation, "leader", Messages.get(CommandText.DESC_MAKE_ANOTHER_MEMBER_FACTION_THE_NATION), Messages.get(CommandText.ARG_FACTION_TAG), NationService::setLeaderFaction);
 
-        nation.sub(new PlayerCmd("leave", "Take your faction out of its nation.")).handler(c -> {
+        nation.sub(new PlayerCmd("leave", Messages.get(CommandText.DESC_TAKE_YOUR_FACTION_OUT_OF_ITS))).handler(c -> {
             NationService ns = feature(c, NationService.class);
             if (ns != null) {
                 c.reply(ns.leave(c.uuid()));
             }
         });
 
-        nation.sub(new PlayerCmd("disband", "Disband the nation your faction leads.")).handler(c -> {
+        nation.sub(new PlayerCmd("disband", Messages.get(CommandText.DESC_DISBAND_THE_NATION_YOUR_FACTION_LEADS))).handler(c -> {
             NationService ns = feature(c, NationService.class);
             Faction f = ns == null ? null : requireFaction(c);
             if (f == null) {
@@ -84,16 +85,16 @@ final class NationCommands extends Section {
             }
             Nation n = ns.nationOf(f);
             if (n == null) {
-                c.bad("Your faction is not in a nation.");
+                c.bad(Messages.get(CommandText.YOUR_FACTION_IS_NOT_IN_A));
                 return;
             }
             UUID uuid = c.uuid();
             if (!f.id().equals(n.leaderFaction()) || !uuid.equals(f.leader())) {
-                c.bad("Only the leader of the leading faction can disband the nation " + n.tag() + ".");
+                c.bad(Messages.get(CommandText.NATION_DISBAND_ONLY_LEADER, "tag", n.tag()));
                 return;
             }
             confirmations.put(uuid, "nation disband", () -> ns.disband(uuid, true));
-            c.send(Msg.warn("This disbands the nation " + n.tag() + " and frees every member faction. Type /f confirm within 30 seconds to go ahead."));
+            c.send(Msg.warn(Messages.get(CommandText.NATION_DISBAND_CONFIRM, "tag", n.tag())));
         });
     }
 
@@ -121,7 +122,7 @@ final class NationCommands extends Section {
         }
         Nation n = ns.nationOf(f);
         if (n == null) {
-            c.info("Your faction is not in a nation. Found one with /f nation create and a tag, or join one that invited you.");
+            c.info(Messages.get(CommandText.YOUR_FACTION_IS_NOT_IN_A_NATION));
             List<String> invites = new ArrayList<>();
             for (Nation other : ns.all()) {
                 if (other.invites().contains(f.id())) {
@@ -129,7 +130,7 @@ final class NationCommands extends Section {
                 }
             }
             if (!invites.isEmpty()) {
-                c.send(Msg.muted(" Invited by " + String.join(", ", invites) + ". Use /f nation join and the tag."));
+                c.send(Msg.muted(" " + Messages.get(CommandText.NATION_INVITED_BY, "tags", String.join(", ", invites))));
             }
             return;
         }
@@ -142,7 +143,7 @@ final class NationCommands extends Section {
                 ? Message.join(Msg.prefix(), Msg.colored(n.tag(), color).bold(true), Msg.colored("  " + n.name(), Msg.TEXT))
                 : Message.join(Msg.prefix(), Msg.colored(n.label(), color).bold(true)));
         Faction leader = n.leaderFaction() == null ? null : factions().byId(n.leaderFaction());
-        c.send(Msg.muted(" Led by " + (leader == null ? "nobody" : leader.tag()) + ", founded " + Time.date(n.createdAt())));
+        c.send(Msg.muted(" " + Messages.get(CommandText.NATION_LED_BY, "leader", leader == null ? Messages.get(CommandText.NOBODY) : leader.tag(), "date", Time.date(n.createdAt()))));
         List<String> members = new ArrayList<>();
         for (UUID id : n.members()) {
             Faction m = factions().byId(id);
@@ -150,7 +151,7 @@ final class NationCommands extends Section {
                 members.add(m.tag());
             }
         }
-        c.send(Message.join(Msg.muted(" Members "), Msg.colored(members.isEmpty() ? "none" : String.join(", ", members), Msg.TEXT)));
+        c.send(Message.join(Msg.muted(" " + Messages.get(CommandText.NATION_MEMBERS) + " "), Msg.colored(members.isEmpty() ? Messages.get(CommandText.NONE) : String.join(", ", members), Msg.TEXT)));
         List<String> invited = new ArrayList<>();
         for (UUID id : n.invites()) {
             Faction m = factions().byId(id);
@@ -159,7 +160,7 @@ final class NationCommands extends Section {
             }
         }
         if (!invited.isEmpty()) {
-            c.send(Message.join(Msg.muted(" Invited "), Msg.colored(String.join(", ", invited), Msg.TEXT)));
+            c.send(Message.join(Msg.muted(" " + Messages.get(CommandText.NATION_INVITED) + " "), Msg.colored(String.join(", ", invited), Msg.TEXT)));
         }
     }
 }

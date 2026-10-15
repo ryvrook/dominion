@@ -3,6 +3,7 @@ package dev.ryvrook.dominion.command;
 import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.DominionModule;
 import dev.ryvrook.dominion.service.UiService;
+import dev.ryvrook.dominion.text.Messages;
 
 import java.util.List;
 
@@ -25,7 +26,7 @@ public final class CommandModule implements DominionModule {
     @Override
     public void start(DominionContext ctx) {
         Targets targets = new Targets(ctx);
-        PlayerCmd root = new PlayerCmd("f", "Factions. Opens the faction panel.");
+        PlayerCmd root = new PlayerCmd("f", Messages.get(CommandText.DESC_FACTIONS_OPENS_THE_FACTION_PANEL));
         root.addAliases("faction", "factions");
         root.handler(c -> ctx.service(UiService.class).openPanel(c.player(), "overview"));
 
