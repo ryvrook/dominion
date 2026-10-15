@@ -13,7 +13,9 @@ public final class MessageSets {
     private MessageSets() {}
 
     public static final String[] ALL = {
-            "dev.ryvrook.dominion.text.CommonText"
+            "dev.ryvrook.dominion.siege.SiegeText",
+            "dev.ryvrook.dominion.text.CommonText",
+            "dev.ryvrook.dominion.vault.VaultText"
     };
 
     static void load(HytaleLogger logger) {
