@@ -175,7 +175,7 @@ public final class UiText {
     public static final String LEAVE = Messages.define("ui.leave", "Leave");
     public static final String DISBAND = Messages.define("ui.disband", "Disband");
     public static final String NATION_CHAT_HINT = Messages.define("ui.nationChatHint", "Talk to the whole nation with /f chat nation.");
-    public static final String NATION_CHAT_HINT_PREFIX = Messages.define("ui.nationChatHintPrefix", "Talk to the whole nation with /f chat nation, or start a line with {prefix} to send just that line.");
+    public static final String NATION_CHAT_HINT_PREFIX = Messages.define("ui.nationChatHintPrefix", "Talk to the whole nation with /f chat nation, or start a line with {prefix} to send only that line.");
     public static final String NATIONS_UNAVAILABLE = Messages.define("ui.nationsUnavailable", "Nations are not available on this server.");
     public static final String NATION_TAG_FIRST = Messages.define("ui.nationTagFirst", "Type a tag for the nation first.");
     public static final String FACTION_TAG_FIRST = Messages.define("ui.factionTagFirst", "Type a faction tag first.");

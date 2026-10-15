@@ -102,7 +102,7 @@ public final class CommandText {
     public static final String HELP_REMOVE_A_FACTION = Messages.define("command.helpRemoveAFaction", "Remove a faction");
     public static final String HELP_HAND_THE_NATION_TO_ANOTHER_MEMBER = Messages.define("command.helpHandTheNationToAnotherMember", "Hand the nation to another member faction");
     public static final String HELP_DISBAND_THE_NATION = Messages.define("command.helpDisbandTheNation", "Disband the nation");
-    public static final String HELP_TALK_TO_EVERY_FACTION_IN_YOUR = Messages.define("command.helpTalkToEveryFactionInYour", "Talk to every faction in your nation. Start a line with the nation prefix, # by default, to send just that line");
+    public static final String HELP_TALK_TO_EVERY_FACTION_IN_YOUR = Messages.define("command.helpTalkToEveryFactionInYour", "Talk to every faction in your nation. Start a line with the nation prefix, # by default, to send only that line");
     public static final String HELP_ZONES_WITH_THEIR_OWN_PERMISSIONS = Messages.define("command.helpZonesWithTheirOwnPermissions", "Zones with their own permissions");
     public static final String HELP_LIST_YOUR_ZONES = Messages.define("command.helpListYourZones", "List your zones");
     public static final String HELP_CREATE_A_ZONE = Messages.define("command.helpCreateAZone", "Create a zone");
