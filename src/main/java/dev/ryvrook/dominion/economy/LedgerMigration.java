@@ -19,8 +19,8 @@ import java.util.function.Predicate;
 import java.util.logging.Level;
 
 /**
- * Moves balances from the internal ledger into VaultUnlocked while the bridge is connected and
- * eco.provider is vaultunlocked. It runs once per start when the bridge first connects and then at
+ * Moves balances from the internal ledger into VaultUnlocked or Coinage while that provider is the
+ * active one. It runs once per start when the bridge first connects and then at
  * most once a day, so balances earned while the bridge was missing move over later. Every player
  * file with a positive balance is zeroed and saved, then the amount is deposited in the external
  * wallet. When the zeroed file cannot be written nothing is deposited, so a crash can never pay the
@@ -33,19 +33,31 @@ final class LedgerMigration {
     private final DominionContext ctx;
     private final Object lock;
     private final DoubleFunction<String> format;
+    private final String target;
+    private final String file;
     private static final long DAY_MS = 24L * 60 * 60 * 1000;
 
     private final AtomicBoolean running = new AtomicBoolean();
     private volatile long lastRunAt;
 
     LedgerMigration(DominionContext ctx, Object lock, DoubleFunction<String> format) {
+        this(ctx, lock, format, "VaultUnlocked", "vaultunlocked-migrated.json");
+    }
+
+    /**
+     * @param target the provider name in log lines
+     * @param file   the summary file under the economy folder
+     */
+    LedgerMigration(DominionContext ctx, Object lock, DoubleFunction<String> format, String target, String file) {
         this.ctx = ctx;
         this.lock = lock;
         this.format = format;
+        this.target = target;
+        this.file = file;
     }
 
     private Path summary() {
-        return ctx.repo().root().resolve("economy").resolve("vaultunlocked-migrated.json");
+        return ctx.repo().root().resolve("economy").resolve(file);
     }
 
     /**
@@ -70,7 +82,7 @@ final class LedgerMigration {
                 }
             });
         } catch (RuntimeException e) {
-            ctx.logger().at(Level.WARNING).withCause(e).log("Dominion could not schedule the VaultUnlocked balance migration");
+            ctx.logger().at(Level.WARNING).withCause(e).log("Dominion could not schedule the %s balance migration", target);
             running.set(false);
         }
     }
@@ -176,8 +188,8 @@ final class LedgerMigration {
                     total += step.amount();
                 } else if (step.outcome() == Outcome.FAILED) {
                     failed++;
-                    ctx.logger().at(Level.WARNING).log("Dominion could not move %s for %s into VaultUnlocked, %s",
-                            format.apply(step.amount()), id, step.reason());
+                    ctx.logger().at(Level.WARNING).log("Dominion could not move %s for %s into %s, %s",
+                            format.apply(step.amount()), id, target, step.reason());
                 }
             } catch (RuntimeException e) {
                 failed++;
@@ -195,12 +207,12 @@ final class LedgerMigration {
         }
         if (failed == 0) {
             if (moved > 0) {
-                ctx.logger().at(Level.INFO).log("Dominion moved %d internal balances worth %s into VaultUnlocked", moved, format.apply(total));
+                ctx.logger().at(Level.INFO).log("Dominion moved %d internal balances worth %s into %s", moved, format.apply(total), target);
             }
         } else {
             ctx.logger().at(Level.WARNING).log(
-                    "Dominion moved %d internal balances worth %s into VaultUnlocked and %d failed. The failed ones stay in the internal ledger and are retried in a day or on the next start",
-                    moved, format.apply(total), failed);
+                    "Dominion moved %d internal balances worth %s into %s and %d failed. The failed ones stay in the internal ledger and are retried in a day or on the next start",
+                    moved, format.apply(total), target, failed);
         }
     }
 }

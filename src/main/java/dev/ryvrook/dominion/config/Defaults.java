@@ -101,7 +101,7 @@ public final class Defaults {
 
         // Economy
         s.define("eco.enabled", "Economy", "Economy enabled", true);
-        s.define("eco.provider", "Economy", "Provider, internal or vaultunlocked or item", "internal");
+        s.define("eco.provider", "Economy", "Provider, auto, internal, vaultunlocked, item or coinage. auto picks Coinage, then VaultUnlocked, then internal", "auto");
         s.define("eco.currencyName", "Economy", "Currency name", "Coins");
         s.define("eco.currencySymbol", "Economy", "Currency symbol", "c");
         s.define("eco.startingBalance", "Economy", "Starting player balance", 100.0);
@@ -293,7 +293,7 @@ public final class Defaults {
         s.choices("chat.tagStyle", "brackets", "plain");
         s.choices("chat.publicFormat", "relation", "passthrough");
         // Economy
-        s.choices("eco.provider", "internal", "vaultunlocked", "vault", "item", "items");
+        s.choices("eco.provider", "auto", "internal", "vaultunlocked", "vault", "item", "items", "coinage");
         s.range("eco.startingBalance", 0, ANY);
         s.range("eco.costCreate", 0, ANY);
         s.range("eco.costClaim", 0, ANY);
@@ -383,6 +383,17 @@ public final class Defaults {
         s.choices("integrations.tracker", "auto", "always", "never");
         s.choices("integrations.feats", "auto", "always", "never");
         s.choices("integrations.atlas", "auto", "always", "never");
+
+        // Coinage brief. Wallets, faction banks and the market handed to Coinage while it is linked.
+        s.define("integrations.coinage", "Integrations", "Link to Coinage for wallets, faction banks, net worth and the market. auto when installed, always warns when missing, never ignores it", "auto");
+        s.choices("integrations.coinage", "auto", "always", "never");
+        s.define("eco.coinageCurrency", "Economy", "Coinage currency id for wallets and banks, blank for the primary currency", "");
+        s.pattern("eco.coinageCurrency", "[a-z0-9_]{0,16}", "a Coinage currency id of lower case letters, digits or _, or blank");
+        s.define("eco.coinageBanks", "Economy", "Keep faction banks in Coinage shared accounts while the provider is coinage", true);
+        s.define("eco.coinageDisbandTo", "Economy", "Where a disbanded faction's Coinage bank goes, leader or server", "leader");
+        s.choices("eco.coinageDisbandTo", "leader", "server");
+        s.define("market.useCoinage", "Market", "Open Coinage's market from the panel Market tab while Coinage is linked", true);
+        s.define("shop.useCoinage", "Market", "Reserved. Faction shops stay Dominion's, since Coinage shops cannot be owned by a faction account yet", false);
 
         configKeys(s);
     }
@@ -490,7 +501,7 @@ public final class Defaults {
         s.define("hud.enabled", "Map", "Sidebar available on this server", true);
         s.define("map.enabled", "Map", "The /f map chat map and the world map claims, markers and overlay", true);
         s.define("top.enabled", "Progression", "The /f top leaderboard and top page", true);
-        s.define("integrations.enabled", "Integrations", "Links to TrackerAPI, Feats and Atlas at all, read at start", true);
+        s.define("integrations.enabled", "Integrations", "Links to TrackerAPI, Feats, Atlas and Coinage at all, read at start", true);
     }
 
     /** Command names and permission nodes. Both apply at the next start or /plugin reload. */

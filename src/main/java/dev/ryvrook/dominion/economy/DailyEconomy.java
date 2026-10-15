@@ -14,7 +14,10 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** Upkeep, dues, interest and the playtime stipend. The money moves themselves live in {@link Books}. */
+/**
+ * Upkeep, dues, interest and the playtime stipend. The money moves themselves live in {@link Books},
+ * or in {@link CoinageBanks} for a bank that lives in Coinage.
+ */
 final class DailyEconomy {
     static final String UPKEEP_UNPAID = "upkeepUnpaidDays";
     static final String LAST_DAY = "eco.lastDailyDay";
@@ -35,27 +38,39 @@ final class DailyEconomy {
         double dues = s.decimal("eco.duesPerMemberPerDay");
         double interestPercent = s.decimal("eco.bankInterestPercentPerDay");
         for (Faction f : new ArrayList<>(ctx.repo().factions())) {
-            if (f.isSystem() || !firstRunToday(f)) {
+            if (f.isSystem()) {
                 continue;
             }
+            // A bank in Coinage while Coinage is not linked waits for a later run rather than being charged twice.
+            EconomyServiceImpl.Route route = svc.route(f);
+            if (route == EconomyServiceImpl.Route.DOWN || !firstRunToday(f)) {
+                continue;
+            }
+            CoinageBanks coinage = route == EconomyServiceImpl.Route.COINAGE ? svc.coinageBanks() : null;
             if (dues > 0) {
-                collectDues(svc, f, dues);
+                collectDues(svc, coinage, f, dues);
             }
             if (upkeepPerClaim > 0) {
-                chargeUpkeep(svc, f, upkeepPerClaim);
+                chargeUpkeep(svc, coinage, f, upkeepPerClaim);
             }
             if (interestPercent > 0) {
-                payInterest(svc, f, interestPercent);
+                payInterest(svc, coinage, f, interestPercent);
             }
         }
     }
 
-    private void collectDues(EconomyServiceImpl svc, Faction f, double dues) {
+    private void collectDues(EconomyServiceImpl svc, CoinageBanks coinage, Faction f, double dues) {
         int[] missed = {0};
         List<Member> members = f.members();
         BalanceProvider provider = svc.provider();
         double total;
-        if (provider instanceof InternalLedger) {
+        if (coinage != null) {
+            List<UUID> payers = new ArrayList<>();
+            for (Member m : members) {
+                payers.add(m.uuid());
+            }
+            total = coinage.dues(f, payers, dues, missed);
+        } else if (provider instanceof InternalLedger) {
             List<UUID> payers = new ArrayList<>();
             for (Member m : members) {
                 payers.add(m.uuid());
@@ -76,14 +91,17 @@ final class DailyEconomy {
         }
     }
 
-    private void chargeUpkeep(EconomyServiceImpl svc, Faction f, double perClaim) {
+    private void chargeUpkeep(EconomyServiceImpl svc, CoinageBanks coinage, Faction f, double perClaim) {
         int claims = ctx.repo().claimCount(f.id());
         if (claims <= 0) {
             resetUnpaid(f);
             return;
         }
         double cost = Money.round(claims * perClaim);
-        Books.Upkeep u = books.upkeep(f, cost);
+        Books.Upkeep u = coinage != null ? coinage.upkeep(f, cost) : books.upkeep(f, cost);
+        if (u == null) {
+            return;
+        }
         if (u.paid()) {
             resetUnpaid(f);
             svc.bankChanged(f, null, claims == 1
@@ -128,8 +146,8 @@ final class DailyEconomy {
         }
     }
 
-    private void payInterest(EconomyServiceImpl svc, Faction f, double percent) {
-        double interest = books.interest(f, percent);
+    private void payInterest(EconomyServiceImpl svc, CoinageBanks coinage, Faction f, double percent) {
+        double interest = coinage != null ? coinage.interest(f, percent) : books.interest(f, percent);
         if (interest <= 0) {
             return;
         }
@@ -146,7 +164,7 @@ final class DailyEconomy {
         if (perMinute <= 0) {
             return;
         }
-        double step = provider.wholeUnits() ? 1.0 : 0.01;
+        double step = provider.step();
         for (PlayerData p : new ArrayList<>(ctx.repo().loadedPlayers())) {
             if (!Players.isOnline(p.uuid())) {
                 continue;

@@ -55,6 +55,7 @@ public final class Faction {
     private final Map<String, String> rankNames = new HashMap<>();
     private final Map<String, Zone> zones = new LinkedHashMap<>();
     private UUID nationId;
+    private String coinageAccount;
     private final Deque<AuditEntry> audit = new ArrayDeque<>();
     private volatile boolean dirty;
 
@@ -328,6 +329,9 @@ public final class Faction {
     public synchronized void touchZones() { touch(); }
     public synchronized UUID nationId() { return nationId; }
     public synchronized void setNationId(UUID id) { nationId = id; touch(); }
+    /** The handle of the faction's Coinage shared account once its bank moved there, else null. */
+    public synchronized String coinageAccount() { return coinageAccount; }
+    public synchronized void setCoinageAccount(String handle) { coinageAccount = handle; touch(); }
 
     public synchronized void audit(AuditEntry entry, int limit) {
         audit.addFirst(entry);
@@ -408,6 +412,7 @@ public final class Faction {
         }
         d.append("Zones", zs);
         d.append("Nation", nationId == null ? null : nationId.toString());
+        d.append("CoinageAccount", coinageAccount);
         return d;
     }
 
@@ -559,6 +564,7 @@ public final class Faction {
             }
         }
         f.nationId = uuidOrNull(d.get("Nation"));
+        f.coinageAccount = d.get("CoinageAccount") instanceof String h && !h.isBlank() ? h : null;
         f.dirty = false;
         return f;
     }

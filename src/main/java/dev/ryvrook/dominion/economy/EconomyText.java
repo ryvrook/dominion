@@ -73,4 +73,23 @@ public final class EconomyText {
     public static final String REASON_DUES = Messages.define("economy.reasonDues", "Faction dues");
     public static final String REASON_ADMIN_SET = Messages.define("economy.reasonAdminSet", "Admin set");
     public static final String REASON_MIGRATION = Messages.define("economy.reasonMigration", "Dominion balance migration");
+
+    // Coinage brief. Wallets and faction banks held in Coinage.
+    public static final String COINAGE_WHOLE = Messages.define("economy.coinageWhole", "Only whole amounts can be moved in this currency");
+    public static final String COINAGE_DECIMALS = Messages.define("economy.coinageDecimals", "Amounts can have at most {decimals} decimal in this currency");
+    public static final String COINAGE_LOCKED = Messages.define("economy.coinageLocked", "That account is locked and can only receive money");
+    public static final String COINAGE_FROZEN = Messages.define("economy.coinageFrozen", "That account is frozen");
+    public static final String COINAGE_MAX_BALANCE = Messages.define("economy.coinageMaxBalance", "That would take the account over the most it may hold");
+    public static final String COINAGE_NO_CURRENCY = Messages.define("economy.coinageNoCurrency", "The economy has no currency named {currency}");
+    public static final String COINAGE_NO_ACCOUNT = Messages.define("economy.coinageNoAccount", "The economy account could not be found");
+    public static final String COINAGE_NOT_MEMBER = Messages.define("economy.coinageNotMember", "Only members of the faction can take money from its bank");
+    public static final String COINAGE_IN_LOG = Messages.define("economy.coinageInLog", "{amount} came in through Coinage from {from} for {reason}");
+    public static final String COINAGE_OUT_LOG = Messages.define("economy.coinageOutLog", "{amount} went out through Coinage to {to} for {reason}");
+    public static final String COINAGE_SET_LOG = Messages.define("economy.coinageSetLog", "The bank was set to {amount} through Coinage");
+    public static final String COINAGE_SOMEONE = Messages.define("economy.coinageSomeone", "the economy");
+    public static final String REASON_BANK_TO_COINAGE = Messages.define("economy.reasonBankToCoinage", "Faction bank moved to Coinage");
+    public static final String REASON_BANK_FROM_COINAGE = Messages.define("economy.reasonBankFromCoinage", "Faction bank moved back to Dominion");
+    public static final String REASON_BANK_PAYMENT = Messages.define("economy.reasonBankPayment", "Faction bank payment");
+    public static final String REASON_UPKEEP = Messages.define("economy.reasonUpkeep", "Faction upkeep");
+    public static final String REASON_INTEREST = Messages.define("economy.reasonInterest", "Faction bank interest");
 }

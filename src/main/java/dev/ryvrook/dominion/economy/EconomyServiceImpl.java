@@ -24,8 +24,10 @@ import java.util.logging.Level;
 
 /**
  * Economy service. Player money lives with the provider chosen by eco.provider, which is the
- * internal ledger in PlayerData.balance, a VaultUnlocked economy or an item currency. Faction money
- * always lives in Faction.bank. Bank changes run under one ledger lock and the faction monitor, so
+ * internal ledger in PlayerData.balance, a VaultUnlocked economy, an item currency or Coinage, and
+ * auto picks Coinage, then VaultUnlocked, then the internal ledger. Faction money lives in
+ * Faction.bank, or in a Coinage shared account mirrored into Faction.bank while the provider is
+ * coinage and eco.coinageBanks is on, see {@link CoinageBanks}. Bank changes run under one ledger lock and the faction monitor, so
  * check then set is atomic. Lock order is always ledger first, then factions by id. External
  * providers are only called outside the ledger lock, so a slow provider never stalls the banks.
  */
@@ -42,6 +44,13 @@ public final class EconomyServiceImpl implements EconomyService {
     private volatile boolean unknownWarned;
     private final LedgerMigration migration;
     private final Books books;
+    private final CoinageSeam seam = new CoinageSeam(this);
+    private final CoinageBridge coinage;
+    private final CoinageBanks coinageBanks;
+    private final LedgerMigration coinageMigration;
+    private volatile boolean coinageWarned;
+    /** Player to faction for the Coinage net worth part, rebuilt every minute so the part reads memory only. */
+    private volatile Map<UUID, UUID> memberIndex = Map.of();
 
     public EconomyServiceImpl(DominionContext ctx) {
         this.ctx = ctx;
@@ -61,6 +70,15 @@ public final class EconomyServiceImpl implements EconomyService {
         this.internal = new InternalLedger(ctx, books);
         this.items = new ItemCurrency(ctx, this::format);
         this.migration = new LedgerMigration(ctx, lock, this::format);
+        this.coinage = new CoinageBridge(seam::port, () -> ctx.settings().text("eco.coinageCurrency"), this::format);
+        this.coinageBanks = new CoinageBanks(coinage, lock, this::gone, this::format,
+                line -> ctx.logger().at(Level.WARNING).log("%s", line));
+        this.coinageMigration = new LedgerMigration(ctx, lock, this::format, "Coinage", "coinage-migrated.json");
+    }
+
+    /** Where the Coinage link attaches, registered as a service under its own class. */
+    CoinageSeam seam() {
+        return seam;
     }
 
     @Override
@@ -136,8 +154,10 @@ public final class EconomyServiceImpl implements EconomyService {
             return Result.fail(Messages.get(EconomyText.RANK_NO_DEPOSIT));
         }
         BalanceProvider p = provider();
-        String failed = p == internal
-                ? books.depositInternal(actor, f, amount)
+        Route route = route(f);
+        String failed = route == Route.DOWN ? Messages.get(EconomyText.NOT_RESPONDING)
+                : route == Route.COINAGE ? coinageBanks.deposit(actor, f, amount)
+                : p == internal ? books.depositInternal(actor, f, amount)
                 : books.depositExternal(p, actor, f, amount);
         if (failed != null) {
             return Result.fail(failed);
@@ -160,8 +180,10 @@ public final class EconomyServiceImpl implements EconomyService {
         }
         BalanceProvider p = provider();
         long limit = limitCents(f, actor);
-        String failed = p == internal
-                ? books.withdrawInternal(f, actor, amount, limit)
+        Route route = route(f);
+        String failed = route == Route.DOWN ? Messages.get(EconomyText.NOT_RESPONDING)
+                : route == Route.COINAGE ? coinageBanks.withdraw(f, actor, amount, limit)
+                : p == internal ? books.withdrawInternal(f, actor, amount, limit)
                 : books.withdrawExternal(p, f, actor, amount, limit);
         if (failed != null) {
             return Result.fail(failed);
@@ -188,7 +210,10 @@ public final class EconomyServiceImpl implements EconomyService {
         if (target.id().equals(f.id())) {
             return Result.fail(Messages.get(EconomyText.PAY_OWN_FACTION));
         }
-        String failed = books.pay(f, target, actor, amount, limitCents(f, actor));
+        Route route = route(f, target);
+        String failed = route == Route.DOWN ? Messages.get(EconomyText.NOT_RESPONDING)
+                : route == Route.COINAGE ? coinageBanks.pay(f, target, actor, amount, limitCents(f, actor))
+                : books.pay(f, target, actor, amount, limitCents(f, actor));
         if (failed != null) {
             return Result.fail(failed);
         }
@@ -249,20 +274,18 @@ public final class EconomyServiceImpl implements EconomyService {
     }
 
     /**
-     * Called every minute. While eco.provider is vaultunlocked and the bridge is connected, moves
-     * internal balances above zero into VaultUnlocked at most once a day.
+     * Called every minute. While the active provider is VaultUnlocked or Coinage, moves internal
+     * balances above zero into it at most once a day. A balance is zeroed and saved before it is
+     * deposited, so no balance ever moves twice.
      */
     void migrationTick() {
         if (!enabled()) {
             return;
         }
-        String name = ctx.settings().text("eco.provider");
-        String key = name == null ? "" : name.strip().toLowerCase(Locale.ROOT);
-        if (!key.equals("vaultunlocked") && !key.equals("vault")) {
-            return;
-        }
-        VaultUnlockedBridge v = vault();
-        if (v != null) {
+        BalanceProvider p = provider();
+        if (p == coinage) {
+            coinageMigration.maybeRun(coinage);
+        } else if (p instanceof VaultUnlockedBridge v) {
             migration.maybeRun(v);
         }
     }
@@ -345,7 +368,10 @@ public final class EconomyServiceImpl implements EconomyService {
         if (check != null) {
             return check;
         }
-        String failed = books.charge(faction, a);
+        Route route = route(faction);
+        String failed = route == Route.DOWN ? Messages.get(EconomyText.NOT_RESPONDING)
+                : route == Route.COINAGE ? coinageBanks.charge(faction, a, describe(reason))
+                : books.charge(faction, a);
         if (failed != null) {
             return Result.fail(failed);
         }
@@ -363,7 +389,10 @@ public final class EconomyServiceImpl implements EconomyService {
         if (check != null) {
             return check;
         }
-        String failed = books.credit(faction, a);
+        Route route = route(faction);
+        String failed = route == Route.DOWN ? Messages.get(EconomyText.NOT_RESPONDING)
+                : route == Route.COINAGE ? coinageBanks.credit(faction, a, describe(reason))
+                : books.credit(faction, a);
         if (failed != null) {
             return Result.fail(failed);
         }
@@ -375,6 +404,19 @@ public final class EconomyServiceImpl implements EconomyService {
     public double bankDrain(Faction faction, String reason) {
         if (faction == null) {
             return 0;
+        }
+        if (CoinageBanks.moved(faction)) {
+            if (coinage.live() != null && !coinageBanksOn()) {
+                coinageBanks.moveBack(faction);
+            }
+            if (CoinageBanks.moved(faction)) {
+                boolean toServer = "server".equalsIgnoreCase(ctx.settings().text("eco.coinageDisbandTo"));
+                CoinageBanks.Drain d = coinageBanks.drain(faction, toServer, describe(reason));
+                if (d.held() != 0) {
+                    bankChanged(faction, null, Messages.get(EconomyText.EMPTIED_FOR, "amount", format(d.held()), "reason", describe(reason)));
+                }
+                return d.owed();
+            }
         }
         double held = books.drain(faction);
         if (held != 0) {
@@ -396,7 +438,10 @@ public final class EconomyServiceImpl implements EconomyService {
         if (check != null) {
             return check;
         }
-        String failed = books.move(from, to, a);
+        Route route = route(from, to);
+        String failed = route == Route.DOWN ? Messages.get(EconomyText.NOT_RESPONDING)
+                : route == Route.COINAGE ? coinageBanks.move(from, to, a, describe(reason))
+                : books.move(from, to, a);
         if (failed != null) {
             return Result.fail(failed);
         }
@@ -439,21 +484,250 @@ public final class EconomyServiceImpl implements EconomyService {
         return reason == null || reason.isBlank() ? Messages.get(EconomyText.UNNAMED_REASON) : reason.strip();
     }
 
+    // ---- faction banks in Coinage ----------------------------------------------
+
+    /** Where a faction's bank moves go. DOWN refuses them while a bank that lives in Coinage cannot be reached. */
+    enum Route { BOOKS, COINAGE, DOWN }
+
+    /** True while the provider is coinage and eco.coinageBanks is on. */
+    boolean coinageBanksOn() {
+        return ctx.settings().bool("eco.coinageBanks") && provider() == coinage;
+    }
+
+    CoinageBanks coinageBanks() {
+        return coinageBanks;
+    }
+
+    /**
+     * Where the bank of a faction lives now. A bank that moved into Coinage comes back to Dominion when Coinage
+     * banks were turned off while Coinage is linked, and is refused while Coinage is not linked, so the mirror is
+     * never spent twice.
+     */
+    Route route(Faction f) {
+        boolean on = coinageBanksOn();
+        if (CoinageBanks.moved(f)) {
+            if (coinage.live() == null) {
+                return Route.DOWN;
+            }
+            if (on) {
+                return Route.COINAGE;
+            }
+            return coinageBanks.moveBack(f) ? Route.BOOKS : Route.DOWN;
+        }
+        return on ? Route.COINAGE : Route.BOOKS;
+    }
+
+    /** The route of a move between two banks, which both have to agree on. */
+    private Route route(Faction a, Faction b) {
+        Route ra = route(a);
+        Route rb = route(b);
+        return ra == rb ? ra : Route.DOWN;
+    }
+
+    /**
+     * Called every minute. While Coinage is linked, refreshes the mirror of every faction bank that lives there,
+     * keeps the account owner and member rights in step with the faction, and moves banks back when Coinage banks
+     * were turned off. Also rebuilds the member index of the net worth part.
+     */
+    void coinageTick() {
+        if (coinage.live() == null || !enabled()) {
+            return;
+        }
+        boolean on = coinageBanksOn();
+        Map<UUID, UUID> index = new HashMap<>();
+        for (Faction f : new ArrayList<>(ctx.repo().factions())) {
+            if (f.isSystem()) {
+                continue;
+            }
+            try {
+                if (CoinageBanks.moved(f)) {
+                    if (!on) {
+                        coinageBanks.moveBack(f);
+                        continue;
+                    }
+                    coinageBanks.refresh(f);
+                    List<UUID> ids = new ArrayList<>();
+                    for (Member m : f.members()) {
+                        ids.add(m.uuid());
+                        index.put(m.uuid(), f.id());
+                    }
+                    coinageBanks.sync(f, ids, this::bankRights);
+                }
+            } catch (RuntimeException e) {
+                ctx.logger().at(Level.WARNING).withCause(e).log("Dominion could not keep the Coinage bank of %s in step", f.tag());
+            }
+        }
+        memberIndex = index;
+    }
+
+    /** The rights a member gets on the faction account in Coinage's own pages, from their rank and hold. */
+    private java.util.Set<CoinagePort.BankRight> bankRights(UUID member) {
+        java.util.EnumSet<CoinagePort.BankRight> out = java.util.EnumSet.noneOf(CoinagePort.BankRight.class);
+        Faction f = factions().factionOf(member);
+        if (f == null) {
+            return out;
+        }
+        boolean deposit = factions().can(member, FactionAction.DEPOSIT);
+        boolean withdraw = withdrawDenied(f, member) == null;
+        if (deposit || withdraw) {
+            out.add(CoinagePort.BankRight.BALANCE);
+        }
+        if (deposit) {
+            out.add(CoinagePort.BankRight.DEPOSIT);
+        }
+        if (withdraw) {
+            out.add(CoinagePort.BankRight.WITHDRAW);
+        }
+        return out;
+    }
+
+    /** The faction whose bank is this Coinage account, or null. */
+    private Faction factionOfAccount(UUID account) {
+        UUID id = coinageBanks.factionOf(account);
+        return id == null ? null : ctx.repo().faction(id);
+    }
+
+    /**
+     * Before a move a player started in Coinage's own pages. Taking money out of a faction account runs the same
+     * checks as /f withdraw, membership, rank, the new member hold and the daily allowance. Null lets it through.
+     */
+    String coinageVeto(UUID from, UUID player, long minor) {
+        Faction f = factionOfAccount(from);
+        if (f == null || player == null) {
+            return null;
+        }
+        if (!f.isMember(player)) {
+            return Messages.get(EconomyText.COINAGE_NOT_MEMBER);
+        }
+        Result denied = withdrawDenied(f, player);
+        if (denied != null) {
+            return denied.message();
+        }
+        long limit = limitCents(f, player);
+        if (limit <= 0) {
+            return null;
+        }
+        double amount = CoinageAmounts.toAmount(minor, Math.max(0, coinage.decimals()));
+        synchronized (lock) {
+            return CoinageBanks.limitDenied(f, player, amount, limit, this::format);
+        }
+    }
+
+    /**
+     * After any Coinage move. A side that is a faction account gets its mirror refreshed. A move another plugin or
+     * a player made in Coinage is written to the faction log, and a member's withdrawal counts against their daily
+     * allowance. Dominion's own moves are already logged by the service.
+     *
+     * @param set true for an admin set, where {@code toAfter} is the new balance
+     */
+    void coinageMoved(UUID from, String fromName, long fromAfter, UUID to, String toName, long toAfter, long amount,
+                      boolean set, String plugin, String reason, UUID player) {
+        int d = coinage.decimals();
+        Faction payer = factionOfAccount(from);
+        Faction payee = factionOfAccount(to);
+        if (payer == null && payee == null) {
+            return;
+        }
+        if (payer != null) {
+            coinageBanks.mirror(payer, fromAfter, d);
+        }
+        if (payee != null) {
+            coinageBanks.mirror(payee, toAfter, d);
+        }
+        if ("Dominion".equals(plugin) || d < 0) {
+            return;
+        }
+        String money = format(CoinageAmounts.toAmount(amount, d));
+        String why = describe(reason);
+        if (set && payee != null) {
+            bankChanged(payee, player, Messages.get(EconomyText.COINAGE_SET_LOG, "amount", money));
+            return;
+        }
+        if (payer != null) {
+            bankChanged(payer, player, Messages.get(EconomyText.COINAGE_OUT_LOG, "amount", money, "to", named(toName), "reason", why));
+            if (player != null && payer.isMember(player)) {
+                long limit = limitCents(payer, player);
+                if (limit > 0) {
+                    synchronized (lock) {
+                        WithdrawLimits.record(payer, player, CoinageAmounts.toAmount(amount, d));
+                    }
+                }
+            }
+        }
+        if (payee != null) {
+            bankChanged(payee, player, Messages.get(EconomyText.COINAGE_IN_LOG, "amount", money, "from", named(fromName), "reason", why));
+        }
+    }
+
+    private static String named(String name) {
+        return name == null || name.isBlank() ? Messages.get(EconomyText.COINAGE_SOMEONE) : name;
+    }
+
+    /**
+     * The faction net worth part. A member's share of their faction bank, the bank divided by the member count in
+     * minor units of the Coinage currency, for banks that live in Coinage. Reads memory only.
+     */
+    long coinageShare(UUID player, String currency) {
+        CoinagePort p = coinage.live();
+        UUID fid = player == null ? null : memberIndex.get(player);
+        if (p == null || fid == null) {
+            return 0;
+        }
+        String cur = p.currencyId(coinage.currency());
+        int d = p.decimals(coinage.currency());
+        Faction f = ctx.repo().faction(fid);
+        if (cur == null || d < 0 || !cur.equals(currency) || f == null || !CoinageBanks.moved(f)) {
+            return 0;
+        }
+        int n = f.memberCount();
+        return n <= 0 ? 0 : CoinageAmounts.floorMinor(f.bank(), d) / n;
+    }
+
     // ---- provider selection ---------------------------------------------------
+
+    /** The provider kinds eco.provider can pick. */
+    enum Kind { INTERNAL, VAULT, ITEM, COINAGE, UNKNOWN }
+
+    /**
+     * What eco.provider picks. auto takes Coinage when it is linked, else VaultUnlocked when one is found, else
+     * the internal ledger. The VaultUnlocked lookup only runs when auto gets that far. An explicit choice is
+     * returned as asked, the caller falls back when it is missing. Pure, so the order is tested on its own.
+     */
+    static Kind select(String setting, boolean coinageLinked, java.util.function.BooleanSupplier vaultFound) {
+        String key = setting == null ? "" : setting.strip().toLowerCase(Locale.ROOT);
+        return switch (key) {
+            case "item", "items" -> Kind.ITEM;
+            case "vaultunlocked", "vault" -> Kind.VAULT;
+            case "coinage" -> Kind.COINAGE;
+            case "internal" -> Kind.INTERNAL;
+            case "", "auto" -> coinageLinked ? Kind.COINAGE : vaultFound.getAsBoolean() ? Kind.VAULT : Kind.INTERNAL;
+            default -> Kind.UNKNOWN;
+        };
+    }
 
     /** The wallet provider chosen by eco.provider, read live. Falls back to the internal ledger. */
     BalanceProvider provider() {
         String name = ctx.settings().text("eco.provider");
-        String key = name == null ? "" : name.strip().toLowerCase(Locale.ROOT);
-        switch (key) {
-            case "item", "items" -> {
+        boolean auto = name == null || name.isBlank() || name.strip().equalsIgnoreCase("auto");
+        switch (select(name, coinage.live() != null, () -> vault(true) != null)) {
+            case ITEM -> {
                 return items;
             }
-            case "vaultunlocked", "vault" -> {
-                VaultUnlockedBridge v = vault();
+            case VAULT -> {
+                VaultUnlockedBridge v = vault(auto);
                 return v != null ? v : internal;
             }
-            case "", "internal" -> {
+            case COINAGE -> {
+                if (coinage.live() != null) {
+                    return coinage;
+                }
+                if (!coinageWarned) {
+                    coinageWarned = true;
+                    ctx.logger().at(Level.WARNING).log("eco.provider is coinage but Coinage is not linked, so Dominion uses its internal ledger until it is");
+                }
+                return internal;
+            }
+            case INTERNAL -> {
                 return internal;
             }
             default -> {
@@ -466,8 +740,8 @@ public final class EconomyServiceImpl implements EconomyService {
         }
     }
 
-    /** Discovers VaultUnlocked once. A miss logs one warning and is retried quietly once a minute. */
-    private VaultUnlockedBridge vault() {
+    /** Discovers VaultUnlocked once. A miss logs one warning unless quiet and is retried once a minute. */
+    private VaultUnlockedBridge vault(boolean quiet) {
         VaultUnlockedBridge v = vault;
         if (v != null) {
             return v;
@@ -489,7 +763,7 @@ public final class EconomyServiceImpl implements EconomyService {
             }
             if (vault == null) {
                 vaultRetryAt = now + 60_000L;
-                if (!vaultWarned) {
+                if (!vaultWarned && !quiet) {
                     vaultWarned = true;
                     ctx.logger().at(Level.WARNING).log(
                             "eco.provider is vaultunlocked but no VaultUnlocked economy was found, so Dominion uses its internal ledger");

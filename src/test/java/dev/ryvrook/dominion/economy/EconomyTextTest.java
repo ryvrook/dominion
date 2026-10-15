@@ -71,6 +71,23 @@ class EconomyTextTest {
                 EconomyText.REASON_BANK_WITHDRAWAL, "",
                 EconomyText.REASON_DUES, "",
                 EconomyText.REASON_ADMIN_SET, "",
-                EconomyText.REASON_MIGRATION, ""));
+                EconomyText.REASON_MIGRATION, "",
+                EconomyText.COINAGE_WHOLE, "",
+                EconomyText.COINAGE_DECIMALS, "decimals",
+                EconomyText.COINAGE_LOCKED, "",
+                EconomyText.COINAGE_FROZEN, "",
+                EconomyText.COINAGE_MAX_BALANCE, "",
+                EconomyText.COINAGE_NO_CURRENCY, "currency",
+                EconomyText.COINAGE_NO_ACCOUNT, "",
+                EconomyText.COINAGE_NOT_MEMBER, "",
+                EconomyText.COINAGE_IN_LOG, "amount from reason",
+                EconomyText.COINAGE_OUT_LOG, "amount to reason",
+                EconomyText.COINAGE_SET_LOG, "amount",
+                EconomyText.COINAGE_SOMEONE, "",
+                EconomyText.REASON_BANK_TO_COINAGE, "",
+                EconomyText.REASON_BANK_FROM_COINAGE, "",
+                EconomyText.REASON_BANK_PAYMENT, "",
+                EconomyText.REASON_UPKEEP, "",
+                EconomyText.REASON_INTEREST, ""));
     }
 }

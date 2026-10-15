@@ -19,6 +19,7 @@ public final class EconomyModule implements DominionModule {
     public void init(DominionContext ctx) {
         service = new EconomyServiceImpl(ctx);
         ctx.register(EconomyService.class, service);
+        ctx.register(CoinageSeam.class, service.seam());
     }
 
     @Override
@@ -26,6 +27,7 @@ public final class EconomyModule implements DominionModule {
         ctx.daily(service::dailyTick);
         ctx.everyMinute(service::stipendTick);
         ctx.everyMinute(service::migrationTick);
+        ctx.everyMinute(service::coinageTick);
         ctx.onPlayerReady(player -> service.onReady(player.getUuid()));
         ctx.onPlayerQuit(service::forget);
     }

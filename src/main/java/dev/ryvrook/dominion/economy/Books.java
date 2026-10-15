@@ -445,8 +445,10 @@ final class Books {
         double total = 0;
         for (UUID m : members) {
             double have = provider.balance(m);
+            double step = provider.step();
             double paid = provider.wholeUnits()
                     ? Math.min(Math.floor(have + 1e-6), Math.ceil(dues - 1e-6))
+                    : step > 0.01 ? DailyEconomy.payable(Math.min(have, dues), step)
                     : Money.round(Math.min(have, dues));
             if (paid > 0 && provider.withdraw(m, paid, Messages.get(EconomyText.REASON_DUES)).failed()) {
                 paid = 0;
