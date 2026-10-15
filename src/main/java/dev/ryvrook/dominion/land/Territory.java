@@ -14,6 +14,7 @@ import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Players;
 import dev.ryvrook.dominion.util.Teleports;
 import dev.ryvrook.dominion.util.Time;
+import dev.ryvrook.dominion.text.Messages;
 import org.joml.Vector3d;
 import com.hypixel.hytale.math.vector.Rotation3f;
 
@@ -121,7 +122,7 @@ final class Territory {
         Long told = toldAt.get(id);
         if (told == null || nowMs - told >= TELL_EVERY_MILLIS) {
             toldAt.put(id, nowMs);
-            Msg.send(p, Msg.bad("You cannot enter a safe zone while in combat."));
+            Msg.send(p, Msg.bad(Messages.get(LandText.SAFEZONE_COMBAT)));
         }
         return true;
     }
@@ -152,7 +153,7 @@ final class Territory {
         if (ui == null) {
             return;
         }
-        String title = owner == null ? "Wilderness" : owner.name();
+        String title = owner == null ? Messages.get(LandText.WILDERNESS) : owner.name();
         String subtitle = subtitle(p.getUuid(), owner, world, chunk);
         String color = land.colorFor(p.getUuid(), owner);
         Runnable show = () -> {
@@ -172,20 +173,20 @@ final class Territory {
 
     private String subtitle(UUID viewer, Faction owner, String world, long chunk) {
         if (owner == null) {
-            return "Unclaimed land";
+            return Messages.get(LandText.BANNER_UNCLAIMED);
         }
         List<String> flags = new ArrayList<>();
         if (owner.type() == FactionType.SAFEZONE) {
-            flags.add("SafeZone");
+            flags.add(Messages.get(LandText.FLAG_SAFEZONE));
         } else if (owner.type() == FactionType.WARZONE) {
-            flags.add("WarZone");
+            flags.add(Messages.get(LandText.FLAG_WARZONE));
         } else {
             if (claims.raidable(owner)) {
-                flags.add("Raidable");
+                flags.add(Messages.get(LandText.FLAG_RAIDABLE));
             }
             Faction own = land.factionOf(viewer);
             if (own != null && claims.breached(world, chunk, own.id())) {
-                flags.add("Breached");
+                flags.add(Messages.get(LandText.FLAG_BREACHED));
             }
         }
         String desc = owner.description() == null ? "" : owner.description().trim();

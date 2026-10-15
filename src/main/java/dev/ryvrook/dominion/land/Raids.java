@@ -7,6 +7,7 @@ import dev.ryvrook.dominion.model.Location;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Keys;
 import dev.ryvrook.dominion.util.Time;
+import dev.ryvrook.dominion.text.Messages;
 
 import java.util.Map;
 import java.util.UUID;
@@ -93,10 +94,10 @@ final class Raids {
      */
     Verdict check(Faction attacker, Faction defender, String world, long chunk, boolean cached) {
         if (attacker == null || defender == null) {
-            return Verdict.fail("There is no faction to raid here.");
+            return Verdict.fail(Messages.get(LandText.RAID_NO_FACTION));
         }
         if (attacker.id().equals(defender.id())) {
-            return Verdict.fail("You cannot raid your own faction.");
+            return Verdict.fail(Messages.get(LandText.RAID_OWN));
         }
         Verdict pair = cached ? cachedPair(attacker, defender) : freshPair(attacker, defender);
         if (pair.result().failed()) {
@@ -104,13 +105,13 @@ final class Raids {
         }
         if (land.settings().bool("raid.protectHomeChunkUntilLast") && isHomeChunk(defender, world, chunk)
                 && claims.claimCount(defender) > 1) {
-            return Verdict.fail("The home chunk of " + defender.tag() + " can only be taken last.");
+            return Verdict.fail(Messages.get(LandText.RAID_HOME_LAST, "faction", defender.tag()));
         }
         if (land.shielded(defender, world, chunk)) {
-            return Verdict.fail("The shield of " + defender.tag() + " protects this land right now.");
+            return Verdict.fail(Messages.get(LandText.RAID_SHIELD, "faction", defender.tag()));
         }
         if (pair.dominance() && !touchesWildOrOwn(world, chunk, attacker)) {
-            return Verdict.fail("You can only take chunks at the edge of " + defender.tag() + " land.");
+            return Verdict.fail(Messages.get(LandText.CLAIM_EDGE_ONLY, "faction", defender.tag()));
         }
         return pair;
     }
@@ -134,17 +135,17 @@ final class Raids {
     private Verdict freshPair(Faction attacker, Faction defender) {
         Settings s = land.settings();
         if (!s.bool("raid.enabled")) {
-            return Verdict.fail("Raiding is turned off on this server.");
+            return Verdict.fail(Messages.get(LandText.RAID_OFF));
         }
         if (land.graceActive()) {
-            return Verdict.fail("Raiding is paused during the grace period.");
+            return Verdict.fail(Messages.get(LandText.RAID_GRACE));
         }
         if (defender.isSystem()) {
-            return Verdict.fail("Server zones cannot be raided.");
+            return Verdict.fail(Messages.get(LandText.RAID_SERVER_ZONE));
         }
         int min = s.integer("raid.minDefendersOnline");
         if (min > 0 && land.onlineMembers(defender) < min) {
-            return Verdict.fail(defender.tag() + " needs " + min + " members online before it can be raided.");
+            return Verdict.fail(Messages.get(LandText.RAID_MIN_ONLINE, "faction", defender.tag(), "min", min));
         }
         if (modes(defender)) {
             return new Verdict(Result.pass(), false);
@@ -153,7 +154,7 @@ final class Raids {
             Result r = dominance(attacker, defender);
             return new Verdict(r, r.success());
         }
-        return Verdict.fail(defender.tag() + " is not raidable right now.");
+        return Verdict.fail(Messages.get(LandText.RAID_NOT_RAIDABLE, "faction", defender.tag()));
     }
 
     private Result dominance(Faction attacker, Faction defender) {
@@ -162,17 +163,15 @@ final class Raids {
         double ap = land.power(attacker);
         double dp = land.power(defender);
         if (!dominates(ap, dp, margin)) {
-            return Result.fail("Your faction needs " + Msg.number(margin) + " percent more power than "
-                    + defender.tag() + " to take its land.");
+            return Result.fail(Messages.get(LandText.RAID_MARGIN, "margin", Msg.number(margin), "faction", defender.tag()));
         }
         if (!(land.ratio(attacker) > land.ratio(defender))) {
-            return Result.fail("Your power ratio must be higher than the ratio of " + defender.tag() + " to take its land.");
+            return Result.fail(Messages.get(LandText.RAID_RATIO, "faction", defender.tag()));
         }
         Long last = dominanceUsed.get(new PairKey(attacker.id(), defender.id()));
         long cooldown = s.integer("raid.dominanceCooldownMinutes") * 60_000L;
         if (last != null && Time.now() - last < cooldown) {
-            return Result.fail("You can take land from " + defender.tag() + " again in "
-                    + Time.remaining(last + cooldown - Time.now()) + ".");
+            return Result.fail(Messages.get(LandText.RAID_COOLDOWN, "faction", defender.tag(), "time", Time.remaining(last + cooldown - Time.now())));
         }
         return Result.pass();
     }

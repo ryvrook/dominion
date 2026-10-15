@@ -18,6 +18,8 @@ import dev.ryvrook.dominion.storage.Repository;
 import dev.ryvrook.dominion.util.Keys;
 import dev.ryvrook.dominion.util.Players;
 import dev.ryvrook.dominion.util.Time;
+import dev.ryvrook.dominion.text.CommonText;
+import dev.ryvrook.dominion.text.Messages;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -131,57 +133,56 @@ public final class ClaimServiceImpl implements ClaimService {
 
     private Result claimChecked(UUID actor, String world, long chunk) {
         if (world == null) {
-            return Result.fail("Your position is not known yet.");
+            return Result.fail(Messages.get(CommonText.POSITION_UNKNOWN));
         }
         Faction f = land.factionOf(actor);
         if (f == null) {
-            return Result.fail("You need to be in a faction to claim land.");
+            return Result.fail(Messages.get(LandText.CLAIM_NEED_FACTION));
         }
         if (!land.can(actor, FactionAction.CLAIM, f)) {
-            return Result.fail("Your rank cannot claim land.");
+            return Result.fail(Messages.get(LandText.CLAIM_RANK));
         }
         if (settings().bool("combat.blockClaimsWhileTagged") && land.tagged(actor)) {
-            return Result.fail("You cannot claim land while in combat.");
+            return Result.fail(Messages.get(LandText.CLAIM_IN_COMBAT));
         }
         if (!worldAllowed(world)) {
-            return Result.fail("Land cannot be claimed in this world.");
+            return Result.fail(Messages.get(LandText.CLAIM_WORLD_BLOCKED));
         }
         if (spawn.near(world, chunk, actor)) {
-            return Result.fail("This land is too close to spawn to claim.");
+            return Result.fail(Messages.get(LandText.CLAIM_NEAR_SPAWN));
         }
         Faction current = ownerAt(world, chunk);
         if (current != null && current.isSystem()) {
-            return Result.fail("This land belongs to the server.");
+            return Result.fail(Messages.get(LandText.CLAIM_SERVER_LAND));
         }
         if (current != null && current.id().equals(f.id())) {
-            return Result.fail("Your faction already owns this land.");
+            return Result.fail(Messages.get(LandText.CLAIM_ALREADY_OWN));
         }
         if (settings().bool("land.mustBeConnected") && !touches(world, chunk, f.id())
                 && repo().claimsOf(world, f.id()).length > 0) {
-            return Result.fail("New claims must touch land your faction already owns.");
+            return Result.fail(Messages.get(LandText.CLAIM_NOT_CONNECTED));
         }
         Faction blocker = bufferBlocker(world, chunk, f, current);
         if (blocker != null) {
-            return Result.fail("This land is too close to " + blocker.tag() + ".");
+            return Result.fail(Messages.get(LandText.CLAIM_BUFFER, "faction", blocker.tag()));
         }
         int count = claimCount(f);
         int max = maxClaims(f);
         if (count >= max) {
-            return Result.fail("Your faction has no claim power left. It holds " + count + " of " + max + " claims.");
+            return Result.fail(Messages.get(LandText.CLAIM_NO_POWER, "count", count, "max", max));
         }
         EconomyService eco = land.economy();
         double cost = eco == null || f.isSystem() ? 0 : claimCost(count);
         if (cost > 0 && f.bank() + 1e-6 < cost) {
-            return Result.fail("This claim costs " + eco.format(cost) + " and the faction bank only holds "
-                    + eco.format(f.bank()) + ".");
+            return Result.fail(Messages.get(LandText.CLAIM_TOO_EXPENSIVE, "cost", eco.format(cost), "bank", eco.format(f.bank())));
         }
         Raids.Verdict verdict = null;
         if (current != null) {
             if (land.between(f, current) != Relation.ENEMY) {
-                return Result.fail(current.tag() + " owns this land. Only enemy land can be taken.");
+                return Result.fail(Messages.get(LandText.CLAIM_NOT_ENEMY, "faction", current.tag()));
             }
             if (!onEdgeOf(world, chunk, current.id())) {
-                return Result.fail("You can only take chunks at the edge of " + current.tag() + " land.");
+                return Result.fail(Messages.get(LandText.CLAIM_EDGE_ONLY, "faction", current.tag()));
             }
             verdict = raids.check(f, current, world, chunk, false);
             if (verdict.result().failed()) {
@@ -189,7 +190,7 @@ public final class ClaimServiceImpl implements ClaimService {
             }
         }
         if (cost > 0) {
-            Result paid = eco.bankCharge(f, cost, "a land claim by " + land.nameOf(actor));
+            Result paid = eco.bankCharge(f, cost, Messages.get(LandText.BANK_CLAIM_REASON, "name", land.nameOf(actor)));
             if (paid.failed()) {
                 return Result.fail(paid.message() + ".");
             }
@@ -200,29 +201,29 @@ public final class ClaimServiceImpl implements ClaimService {
         }
         String where = Keys.describe(chunk);
         changed(world, chunk, current, f, actor, newLand(f, world, chunk));
-        land.audit(f, actor, current == null ? "Claimed chunk " + where + " in " + world
-                : "Took chunk " + where + " in " + world + " from " + current.tag());
+        land.audit(f, actor, current == null ? Messages.get(LandText.AUDIT_CLAIMED, "chunk", where, "world", world)
+                : Messages.get(LandText.AUDIT_TOOK, "chunk", where, "world", world, "faction", current.tag()));
         if (newLand(f, world, chunk)) {
             land.progress(actor, "claim");
         }
-        String paidText = cost > 0 ? " The faction bank paid " + eco.format(cost) + "." : "";
+        String paidText = cost > 0 ? " " + Messages.get(LandText.BANK_PAID, "amount", eco.format(cost)) : "";
         if (current != null) {
             noteReleased(current, world, chunk);
-            land.audit(current, actor, f.tag() + " took chunk " + where + " in " + world);
+            land.audit(current, actor, Messages.get(LandText.AUDIT_TAKEN_BY, "faction", f.tag(), "chunk", where, "world", world));
             clearHomeIfIn(current, world, chunk);
-            return Result.pass("Took chunk " + where + " from " + current.tag() + "." + paidText);
+            return Result.pass(Messages.get(LandText.TOOK, "chunk", where, "faction", current.tag()) + paidText);
         }
-        return Result.pass("Claimed chunk " + where + " for " + f.tag() + "." + paidText);
+        return Result.pass(Messages.get(LandText.CLAIMED, "chunk", where, "faction", f.tag()) + paidText);
     }
 
     @Override
     public Result claimRadius(UUID actor, String world, long centerIndex, int radius) {
         int max = settings().integer("land.maxRadiusClaim");
         if (radius < 0) {
-            return Result.fail("The radius cannot be negative.");
+            return Result.fail(Messages.get(LandText.RADIUS_NEGATIVE));
         }
         if (radius > max) {
-            return Result.fail("The largest radius you can claim is " + max + ".");
+            return Result.fail(Messages.get(LandText.CLAIM_RADIUS_MAX, "max", max));
         }
         return claimMany(actor, world, square(centerIndex, radius));
     }
@@ -231,15 +232,15 @@ public final class ClaimServiceImpl implements ClaimService {
     public Result claimLine(UUID actor, String world, long startIndex, int dx, int dz, int length) {
         int max = settings().integer("land.maxLineClaim");
         if (length < 1) {
-            return Result.fail("A line needs at least one chunk.");
+            return Result.fail(Messages.get(LandText.LINE_EMPTY));
         }
         if (length > max) {
-            return Result.fail("The longest line you can claim is " + max + " chunks.");
+            return Result.fail(Messages.get(LandText.LINE_MAX, "max", max));
         }
         int sx = Integer.signum(dx);
         int sz = Integer.signum(dz);
         if (sx == 0 && sz == 0) {
-            return Result.fail("Pick a direction for the line.");
+            return Result.fail(Messages.get(LandText.LINE_DIRECTION));
         }
         int x = Keys.chunkX(startIndex);
         int z = Keys.chunkZ(startIndex);
@@ -263,7 +264,7 @@ public final class ClaimServiceImpl implements ClaimService {
             }
             int total = pending.size();
             if (total == 0) {
-                return Result.fail("Your faction already owns all of that land.");
+                return Result.fail(Messages.get(LandText.AREA_ALREADY_OWN));
             }
             int claimed = 0;
             String reason = null;
@@ -283,9 +284,9 @@ public final class ClaimServiceImpl implements ClaimService {
                 }
             }
             if (claimed == 0) {
-                return Result.fail(reason == null ? "No land could be claimed." : reason);
+                return Result.fail(reason == null ? Messages.get(LandText.AREA_NONE_CLAIMED) : reason);
             }
-            String msg = "Claimed " + claimed + " of " + total + " chunks.";
+            String msg = Messages.get(LandText.AREA_CLAIMED, "claimed", claimed, "total", total);
             return Result.pass(reason == null ? msg : msg + " " + reason);
         }
     }
@@ -302,10 +303,10 @@ public final class ClaimServiceImpl implements ClaimService {
             }
             Faction owner = ownerAt(world, chunkIndex);
             if (owner == null || !owner.id().equals(f.id())) {
-                return Result.fail("Your faction does not own this land.");
+                return Result.fail(Messages.get(LandText.UNCLAIM_NOT_OWN));
             }
             double refund = release(actor, f, world, chunkIndex);
-            return Result.pass("Released chunk " + Keys.describe(chunkIndex) + "." + refundText(refund));
+            return Result.pass(Messages.get(LandText.RELEASED, "chunk", Keys.describe(chunkIndex)) + refundText(refund));
         }
     }
 
@@ -313,10 +314,10 @@ public final class ClaimServiceImpl implements ClaimService {
     public Result unclaimRadius(UUID actor, String world, long centerIndex, int radius) {
         int max = settings().integer("land.maxRadiusClaim");
         if (radius < 0) {
-            return Result.fail("The radius cannot be negative.");
+            return Result.fail(Messages.get(LandText.RADIUS_NEGATIVE));
         }
         if (radius > max) {
-            return Result.fail("The largest radius you can unclaim is " + max + ".");
+            return Result.fail(Messages.get(LandText.UNCLAIM_RADIUS_MAX, "max", max));
         }
         synchronized (lock) {
             Faction f = land.factionOf(actor);
@@ -334,9 +335,9 @@ public final class ClaimServiceImpl implements ClaimService {
                 }
             }
             if (n == 0) {
-                return Result.fail("Your faction does not own any land in that area.");
+                return Result.fail(Messages.get(LandText.UNCLAIM_AREA_NONE));
             }
-            return Result.pass("Released " + n + " chunks." + refundText(refund));
+            return Result.pass(Messages.get(LandText.RELEASED_MANY, "count", n) + refundText(refund));
         }
     }
 
@@ -345,20 +346,20 @@ public final class ClaimServiceImpl implements ClaimService {
         synchronized (lock) {
             Faction f = land.factionOf(actor);
             if (f == null) {
-                return Result.fail("You are not in a faction.");
+                return Result.fail(Messages.get(CommonText.NOT_IN_FACTION));
             }
             if (!land.can(actor, FactionAction.DISBAND, f)) {
-                return Result.fail("Your rank cannot release all of your land.");
+                return Result.fail(Messages.get(LandText.UNCLAIM_ALL_RANK));
             }
             if (settings().bool("combat.blockClaimsWhileTagged") && land.tagged(actor)) {
-                return Result.fail("You cannot unclaim land while in combat.");
+                return Result.fail(Messages.get(LandText.UNCLAIM_IN_COMBAT));
             }
             int count = claimCount(f);
             if (count == 0) {
-                return Result.fail("Your faction does not own any land.");
+                return Result.fail(Messages.get(LandText.UNCLAIM_NO_LAND));
             }
             if (!confirmed) {
-                return Result.fail("This releases all " + count + " chunks your faction owns. Confirm to continue.");
+                return Result.fail(Messages.get(LandText.UNCLAIM_ALL_CONFIRM, "count", count));
             }
             int n = 0;
             double refund = 0;
@@ -368,26 +369,26 @@ public final class ClaimServiceImpl implements ClaimService {
                     n++;
                 }
             }
-            return Result.pass("Released all " + n + " chunks." + refundText(refund));
+            return Result.pass(Messages.get(LandText.RELEASED_ALL, "count", n) + refundText(refund));
         }
     }
 
     private Result mayUnclaim(UUID actor, Faction f) {
         if (f == null) {
-            return Result.fail("You are not in a faction.");
+            return Result.fail(Messages.get(CommonText.NOT_IN_FACTION));
         }
         if (!land.can(actor, FactionAction.UNCLAIM, f)) {
-            return Result.fail("Your rank cannot unclaim land.");
+            return Result.fail(Messages.get(LandText.UNCLAIM_RANK));
         }
         if (settings().bool("combat.blockClaimsWhileTagged") && land.tagged(actor)) {
-            return Result.fail("You cannot unclaim land while in combat.");
+            return Result.fail(Messages.get(LandText.UNCLAIM_IN_COMBAT));
         }
         return null;
     }
 
     private String refundText(double refund) {
         EconomyService eco = land.economy();
-        return refund > 0 && eco != null ? " The faction bank got " + eco.format(refund) + " back." : "";
+        return refund > 0 && eco != null ? " " + Messages.get(LandText.BANK_REFUND, "amount", eco.format(refund)) : "";
     }
 
     /** Removes an owned chunk, refunds the faction bank and returns the refund paid. */
@@ -397,13 +398,13 @@ public final class ClaimServiceImpl implements ClaimService {
         noteReleased(f, world, chunk);
         clearHomeIfIn(f, world, chunk);
         changed(world, chunk, f, null, actor, counts);
-        land.audit(f, actor, "Released chunk " + Keys.describe(chunk) + " in " + world);
+        land.audit(f, actor, Messages.get(LandText.AUDIT_RELEASED, "chunk", Keys.describe(chunk), "world", world));
         EconomyService eco = land.economy();
         if (eco == null) {
             return 0;
         }
         double refund = Math.floor(claimCost(claimCount(f)) * settings().decimal("eco.refundUnclaimPercent")) / 100.0;
-        if (refund > 0 && eco.bankCredit(f, refund, "an unclaim refund for " + land.nameOf(actor)).success()) {
+        if (refund > 0 && eco.bankCredit(f, refund, Messages.get(LandText.BANK_UNCLAIM_REASON, "name", land.nameOf(actor))).success()) {
             return refund;
         }
         return 0;
@@ -425,15 +426,15 @@ public final class ClaimServiceImpl implements ClaimService {
     @Override
     public Result adminClaim(UUID actor, Faction target, String world, long chunkIndex, boolean quiet) {
         if (target == null) {
-            return Result.fail("That faction does not exist.");
+            return Result.fail(Messages.get(CommonText.NO_SUCH_FACTION));
         }
         if (world == null) {
-            return Result.fail("That world is not known.");
+            return Result.fail(Messages.get(CommonText.WORLD_UNKNOWN));
         }
         synchronized (lock) {
             Faction old = ownerAt(world, chunkIndex);
             if (old != null && old.id().equals(target.id())) {
-                return Result.fail(target.tag() + " already owns this land.");
+                return Result.fail(Messages.get(LandText.ADMIN_ALREADY_OWNS, "faction", target.tag()));
             }
             repo().putClaim(world, chunkIndex, new ClaimEntry(target.id(), Time.now(), actor, null));
             String where = Keys.describe(chunkIndex);
@@ -447,12 +448,12 @@ public final class ClaimServiceImpl implements ClaimService {
                 changed(world, chunkIndex, old, target, actor, false);
             }
             if (!quiet) {
-                land.audit(target, actor, "An admin gave chunk " + where + " in " + world + " to the faction");
+                land.audit(target, actor, Messages.get(LandText.AUDIT_ADMIN_GAVE_US, "chunk", where, "world", world));
             }
             if (old != null) {
-                land.audit(old, actor, "An admin gave chunk " + where + " in " + world + " to " + target.tag());
+                land.audit(old, actor, Messages.get(LandText.AUDIT_ADMIN_GAVE_OTHER, "chunk", where, "world", world, "faction", target.tag()));
             }
-            return Result.pass("Chunk " + where + " now belongs to " + target.tag() + ".");
+            return Result.pass(Messages.get(LandText.ADMIN_GAVE, "chunk", where, "faction", target.tag()));
         }
     }
 
@@ -461,43 +462,46 @@ public final class ClaimServiceImpl implements ClaimService {
         synchronized (lock) {
             Faction old = ownerAt(world, chunkIndex);
             if (old == null) {
-                return Result.fail("Nobody owns this land.");
+                return Result.fail(Messages.get(LandText.ADMIN_NOBODY_OWNS));
             }
             repo().removeClaim(world, chunkIndex);
             noteReleased(old, world, chunkIndex);
             clearHomeIfIn(old, world, chunkIndex);
             changed(world, chunkIndex, old, null, actor, false);
-            land.audit(old, actor, "An admin released chunk " + Keys.describe(chunkIndex) + " in " + world);
-            return Result.pass("Released chunk " + Keys.describe(chunkIndex) + " from " + old.tag() + ".");
+            land.audit(old, actor, Messages.get(LandText.AUDIT_ADMIN_RELEASED, "chunk", Keys.describe(chunkIndex), "world", world));
+            return Result.pass(Messages.get(LandText.ADMIN_RELEASED, "chunk", Keys.describe(chunkIndex), "faction", old.tag()));
         }
     }
 
     @Override
     public Result createZone(UUID actor, FactionType type, String name) {
         if (type == null || type == FactionType.NORMAL) {
-            return Result.fail("A zone must be a SafeZone or a WarZone.");
+            return Result.fail(Messages.get(LandText.ZONE_TYPE));
         }
         if (name == null || name.isBlank() || name.contains(" ")) {
-            return Result.fail("Give the zone a name with no spaces.");
+            return Result.fail(Messages.get(LandText.ZONE_NAME));
         }
         synchronized (lock) {
             if (repo().tagTaken(name)) {
-                return Result.fail("A faction or zone named " + name + " already exists.");
+                return Result.fail(Messages.get(LandText.ZONE_TAKEN, "name", name));
             }
             Faction zone = new Faction(UUID.randomUUID(), name, name, null, Time.now());
             zone.setType(type);
             zone.setColor(type == FactionType.SAFEZONE ? Land.SAFEZONE : Land.WARZONE);
             repo().addFaction(zone);
             land.publish(new DominionEvent.FactionCreated(zone.id()));
-            String label = type == FactionType.SAFEZONE ? "SafeZone" : "WarZone";
-            land.audit(zone, actor, "Created the " + label + " " + name);
+            boolean safe = type == FactionType.SAFEZONE;
+            land.audit(zone, actor, Messages.get(safe ? LandText.AUDIT_SAFEZONE_CREATED : LandText.AUDIT_WARZONE_CREATED, "name", name));
             String world = playerWorld(actor);
             long[] here = playerChunk(actor);
             if (world == null || here == null) {
-                return Result.pass("Created the " + label + " " + name + ".");
+                return Result.pass(Messages.get(safe ? LandText.SAFEZONE_CREATED : LandText.WARZONE_CREATED, "name", name));
             }
             Result r = adminClaim(actor, zone, world, here[0]);
-            return Result.pass("Created the " + label + " " + name + (r.success() ? " and claimed your chunk." : "."));
+            String done = r.success()
+                    ? (safe ? LandText.SAFEZONE_CREATED_CLAIMED : LandText.WARZONE_CREATED_CLAIMED)
+                    : (safe ? LandText.SAFEZONE_CREATED : LandText.WARZONE_CREATED);
+            return Result.pass(Messages.get(done, "name", name));
         }
     }
 
@@ -574,8 +578,7 @@ public final class ClaimServiceImpl implements ClaimService {
             noteReleased(f, world, chunk);
             clearHomeIfIn(f, world, chunk);
             changed(world, chunk, f, null, null, false);
-            land.audit(f, null, "Lost chunk " + Keys.describe(chunk) + " in " + world
-                    + " after " + days + " days with no member online");
+            land.audit(f, null, Messages.get(LandText.AUDIT_DECAYED, "chunk", Keys.describe(chunk), "world", world, "days", days));
         }
     }
 

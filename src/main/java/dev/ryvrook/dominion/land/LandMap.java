@@ -8,6 +8,8 @@ import dev.ryvrook.dominion.model.FactionType;
 import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Keys;
 import dev.ryvrook.dominion.util.Players;
+import dev.ryvrook.dominion.text.CommonText;
+import dev.ryvrook.dominion.text.Messages;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -40,7 +42,7 @@ final class LandMap {
         String world = Players.worldName(p);
         long center = Players.chunkOf(p);
         if (p == null || world == null || center == Long.MIN_VALUE) {
-            return List.of(Msg.bad("Your position is not known yet."));
+            return List.of(Msg.bad(Messages.get(CommonText.POSITION_UNKNOWN)));
         }
         int w = odd(width <= 0 ? 39 : width, 5, 61);
         int h = odd(height <= 0 ? 11 : height, 3, 21);
@@ -55,7 +57,7 @@ final class LandMap {
         rows.add(Message.join(
                 Msg.colored("____[ ", Msg.GOLD),
                 Msg.colored("(" + Keys.describe(center) + ") ", Msg.GOLD),
-                Msg.colored(here == null ? "Wilderness" : here.label(), here == null ? Msg.TEXT : land.colorFor(player, here)),
+                Msg.colored(here == null ? Messages.get(LandText.WILDERNESS) : here.label(), here == null ? Msg.TEXT : land.colorFor(player, here)),
                 Msg.colored(" ]____", Msg.GOLD)));
 
         String[] cells = new String[w];
@@ -112,9 +114,9 @@ final class LandMap {
 
     /** The fixed meanings as {label, glyph colour, label colour}, closed by the compass note. */
     static List<String[]> fixedLegend() {
-        return List.of(new String[] {"You", Land.YOU, Msg.MUTED}, new String[] {"Wilderness", WILD, Msg.MUTED},
-                new String[] {"Safe zone", Land.SAFEZONE, Msg.MUTED}, new String[] {"War zone", Land.WARZONE, Msg.MUTED},
-                new String[] {"North is up", null, Msg.MUTED});
+        return List.of(new String[] {Messages.get(LandText.LEGEND_YOU), Land.YOU, Msg.MUTED}, new String[] {Messages.get(LandText.WILDERNESS), WILD, Msg.MUTED},
+                new String[] {Messages.get(LandText.LEGEND_SAFE_ZONE), Land.SAFEZONE, Msg.MUTED}, new String[] {Messages.get(LandText.LEGEND_WAR_ZONE), Land.WARZONE, Msg.MUTED},
+                new String[] {Messages.get(LandText.LEGEND_NORTH), null, Msg.MUTED});
     }
 
     /** Packs legend entries into lines of at most about max characters, at least one entry per line. */
