@@ -1,14 +1,14 @@
 # Dominion settings
 
-Every key in `config.json`, generated from `config/Defaults.java`. There are 256 keys in 21 sections. Change them with `/fa set`, `/fa config` or the settings page, or edit the file and run `/fa reload`. A test fails when this file and the defaults disagree, so after adding a key run `DOMINION_WRITE_DOCS=1 ./gradlew test` to write it again.
+Every key in `config.json`, generated from `config/Defaults.java`. There are 257 keys in 21 sections. Change them with `/fa set`, `/fa config` or the settings page, or edit the file and run `/fa reload`. A test fails when this file and the defaults disagree, so after adding a key run `DOMINION_WRITE_DOCS=1 ./gradlew test` to write it again.
 
 ## Factions
 
 | Key | Default | Accepts | Description |
 | --- | --- | --- | --- |
-| `faction.tagMin` | `3` | 1 to 32 | Minimum tag length |
-| `faction.tagMax` | `10` | 1 to 32 | Maximum tag length |
-| `faction.nameMax` | `32` | 1 to 64 | Maximum name length |
+| `faction.tagMin` | `2` | 1 to 32 | Minimum tag length |
+| `faction.tagMax` | `16` | 1 to 32 | Maximum tag length |
+| `faction.nameMax` | `48` | 1 to 64 | Maximum name length |
 | `faction.maxMembers` | `20` | 1 to 10000 | Maximum members |
 | `faction.inviteHours` | `24` | 1 to 8760 | Invite expiry in hours |
 | `faction.newMemberHoldHours` | `24` | 0 to 8760 | New member hold in hours |
@@ -91,8 +91,8 @@ Every key in `config.json`, generated from `config/Defaults.java`. There are 256
 | `relation.truceInteractDefault` | `true` | true or false | Truces may use doors by default |
 | `nation.enabled` | `true` | true or false | Nations enabled |
 | `nation.maxFactions` | `5` | 1 to 1000 | Factions per nation |
-| `nation.tagMin` | `3` | 1 to 32 | Nation tag minimum length |
-| `nation.tagMax` | `10` | 1 to 32 | Nation tag maximum length |
+| `nation.tagMin` | `2` | 1 to 32 | Nation tag minimum length |
+| `nation.tagMax` | `16` | 1 to 32 | Nation tag maximum length |
 
 ## Combat
 
@@ -288,6 +288,7 @@ Every key in `config.json`, generated from `config/Defaults.java`. There are 256
 | `map.overlayOpacity` | `55` | 10 to 90 | Claims overlay opacity in percent |
 | `map.overlayBorder` | `2` | 0 to 4 | Claims overlay border width in pixels |
 | `map.claimMarkers` | `false` | true or false | Show an icon on every claimed chunk instead of one label per faction |
+| `map.factionLabels` | `true` | true or false | Show one faction name label on the painted land of each faction |
 | `map.compass` | `none` | one of none, events, all | Which Dominion markers the compass shows, none, events (homes, sieges, hills, outposts and envoys) or all |
 | `hud.side` | `right` | one of right, left | Sidebar screen side, right or left |
 | `hud.top` | `400` | 0 to 2000 | Sidebar distance from the top of the screen |

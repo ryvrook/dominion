@@ -22,8 +22,9 @@ class TagsAndDataTest {
         assertEquals("Steve123", Tags.base("Steve_123", s));
         assertEquals("Imported", Tags.base("___", s));
         assertEquals("Imported", Tags.base(null, s));
-        assertEquals("Ab0", Tags.base("Ab", s));
-        assertEquals("Averylongn", Tags.base("A very long name indeed", s));
+        assertEquals("Ab", Tags.base("Ab", s));
+        assertEquals("A0", Tags.base("A", s));
+        assertEquals("Averylongnameind", Tags.base("A very long name indeed", s));
         assertEquals("Imported", Tags.base("ééé", s));
     }
 
@@ -32,7 +33,7 @@ class TagsAndDataTest {
         Settings s = ImportFixtures.settings(dir);
         assertEquals("Wolves", Tags.unique("Wolves", s, t -> true));
         assertEquals("Wolves2", Tags.unique("Wolves", s, t -> !t.equals("Wolves")));
-        assertEquals("Averylong2", Tags.unique("A very long name", s, t -> !t.equals("Averylongn")));
+        assertEquals("Averylongname2", Tags.unique("A very long name", s, t -> !t.equals("Averylongname")));
         assertEquals("admin2", Tags.unique("admin", s, t -> true), "a banned tag gets a number");
         assertNull(Tags.unique("Wolves", s, t -> false));
     }

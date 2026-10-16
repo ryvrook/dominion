@@ -13,9 +13,9 @@ public final class Defaults {
 
     public static void register(Settings s) {
         // Factions
-        s.define("faction.tagMin", "Factions", "Minimum tag length", 3);
-        s.define("faction.tagMax", "Factions", "Maximum tag length", 10);
-        s.define("faction.nameMax", "Factions", "Maximum name length", 32);
+        s.define("faction.tagMin", "Factions", "Minimum tag length", 2);
+        s.define("faction.tagMax", "Factions", "Maximum tag length", 16);
+        s.define("faction.nameMax", "Factions", "Maximum name length", 48);
         s.define("faction.maxMembers", "Factions", "Maximum members", 20);
         s.define("faction.inviteHours", "Factions", "Invite expiry in hours", 24);
         s.define("faction.newMemberHoldHours", "Factions", "New member hold in hours", 24);
@@ -195,8 +195,8 @@ public final class Defaults {
         s.define("shop.factionMaxEntries", "Market", "Entries per faction shop", 24);
         s.define("nation.enabled", "Relations", "Nations enabled", true);
         s.define("nation.maxFactions", "Relations", "Factions per nation", 5);
-        s.define("nation.tagMin", "Relations", "Nation tag minimum length", 3);
-        s.define("nation.tagMax", "Relations", "Nation tag maximum length", 10);
+        s.define("nation.tagMin", "Relations", "Nation tag minimum length", 2);
+        s.define("nation.tagMax", "Relations", "Nation tag maximum length", 16);
         s.define("faction.rosterRotate", "Factions", "Rotate the longest offline member out when the roster is full", false);
         s.define("missions.placedBlockMemoryMinutes", "Progression", "Minutes a placed block stays excluded from mission credit", 60);
 
@@ -210,6 +210,7 @@ public final class Defaults {
         s.define("map.overlayOpacity", "Map", "Claims overlay opacity in percent", 55);
         s.define("map.overlayBorder", "Map", "Claims overlay border width in pixels", 2);
         s.define("map.claimMarkers", "Map", "Show an icon on every claimed chunk instead of one label per faction", false);
+        s.define("map.factionLabels", "Map", "Show one faction name label on the painted land of each faction", true);
         s.define("map.compass", "Map", "Which Dominion markers the compass shows, none, events (homes, sieges, hills, outposts and envoys) or all", "none");
 
         // Storage and misc

@@ -62,13 +62,13 @@ class FactionRulesTest {
     @Test
     void tagRules() {
         UUID p = fx.player("Pat");
-        fails(fs.create(p, "Pat", "ab", null), "at least 3");
-        fails(fs.create(p, "Pat", "abcdefghijk", null), "at most 10");
+        fails(fs.create(p, "Pat", "a", null), "at least 2");
+        fails(fs.create(p, "Pat", "abcdefghijklmnopq", null), "at most 16");
         fails(fs.create(p, "Pat", "ab-c", null), "letters and digits");
         fails(fs.create(p, "Pat", "Ünïc", null), "letters and digits");
         fails(fs.create(p, "Pat", "ADMIN", null), "not allowed");
         fails(fs.create(p, "Pat", " ", null), "choose a tag");
-        fails(fs.create(p, "Pat", "Good", "x".repeat(33)), "at most 32");
+        fails(fs.create(p, "Pat", "Good", "x".repeat(49)), "at most 48");
         ok(fs.create(p, "Pat", "abc", null));
         ok(fs.create(fx.player("Max"), "Max", "abcdefghij", "Ten Chars"));
         fails(fs.create(fx.player("Sam"), "Sam", "ABC", null), "already taken");
@@ -528,7 +528,7 @@ class FactionRulesTest {
         fails(fs.setTitle(m, m, "Me"), "Your rank does not allow you");
         ok(fs.setTitle(lead, m, " Scout "));
         assertEquals("Scout", f.member(m).title());
-        fails(fs.setTitle(lead, m, "x".repeat(25)), "at most 24");
+        fails(fs.setTitle(lead, m, "x".repeat(33)), "at most 32");
         fails(fs.setRankName(lead, Rank.MEMBER, "Officer"), "already called Officer");
         ok(fs.setRankName(lead, Rank.MEMBER, "Knight"));
         assertEquals("Knight", f.rankName(Rank.MEMBER));

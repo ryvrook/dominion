@@ -63,8 +63,8 @@ class NationRulesTest {
     @Test
     void foundingRules() {
         fails(nations.create(fx.member(a, "Off", Rank.OFFICER), "NAT", null), "Only a faction leader");
-        fails(nations.create(a.leader(), "NA", null), "at least 3");
-        fails(nations.create(a.leader(), "NATIONSTAG1", null), "at most 10");
+        fails(nations.create(a.leader(), "N", null), "at least 2");
+        fails(nations.create(a.leader(), "NATIONSTAGTOOLONG", null), "at most 16");
         fails(nations.create(a.leader(), "N-T", null), "letters and digits");
         fails(nations.create(a.leader(), "NAT", "x".repeat(33)), "at most 32");
         Nation n = founded();

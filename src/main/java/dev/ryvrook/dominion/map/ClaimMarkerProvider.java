@@ -115,6 +115,9 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
         int size = Keys.chunkSize();
         double half = size / 2.0;
         boolean perChunk = ctx.settings().bool("map.claimMarkers") || overlay == null || !overlay.active(world);
+        if (!perChunk && !ctx.settings().bool("map.factionLabels")) {
+            return;
+        }
         Layer layer = layer(worldName);
         for (Cell cell : perChunk ? layer.cells() : layer.anchors()) {
             double x = Keys.minBlock(Keys.chunkX(cell.index())) + half;
@@ -127,7 +130,8 @@ public final class ClaimMarkerProvider implements WorldMapManager.MarkerProvider
                 continue;
             }
             String id = perChunk ? MarkerIds.of("claim", worldName, cell.index()) : MarkerIds.of("faction", worldName, f.id());
-            MapMarkerBuilder b = new MapMarkerBuilder(id, CLAIM_IMAGE,
+            // The painted land already shows the claim, so the per faction label is text on a transparent image.
+            MapMarkerBuilder b = new MapMarkerBuilder(id, perChunk ? CLAIM_IMAGE : BLANK_IMAGE,
                     new Transform(x, y, z))
                     .withName(Message.raw(f.label()).color(colorOf(f)))
                     .withComponent(new TintComponent(tint(colorOf(f))))

@@ -130,7 +130,7 @@ class PlannerTest {
     void namesAreCleanedAndCut() {
         faction("a", "Bad\u0007Name " + "x".repeat(80), UUID.randomUUID());
         Planner.Decision d = Planner.resolve(plan, ledger, state).decisions().get(0);
-        assertTrue(d.name.length() <= 32);
+        assertTrue(d.name.length() <= 48);
         assertTrue(!d.name.contains("\u0007"));
         assertEquals("Player" + d.leader.toString().substring(0, 8), d.leaderName);
     }

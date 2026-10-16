@@ -244,13 +244,13 @@ class SettingsTest {
     @Test
     void minimumCannotPassMaximum() {
         Settings s = settings();
-        String why = s.trySet("faction.tagMin", 11);
-        assertNotNull(why, "the default tagMax is 10");
+        String why = s.trySet("faction.tagMin", 17);
+        assertNotNull(why, "the default tagMax is 16");
         assertTrue(why.contains("faction.tagMin") && why.contains("faction.tagMax"), why);
-        assertEquals(3, s.integer("faction.tagMin"));
-        assertNotNull(s.trySet("faction.tagMax", 2));
-        assertNull(s.trySet("faction.tagMax", 3), "equal is allowed");
-        assertNull(s.trySet("faction.tagMin", 3));
+        assertEquals(2, s.integer("faction.tagMin"));
+        assertNotNull(s.trySet("faction.tagMax", 1));
+        assertNull(s.trySet("faction.tagMax", 2), "equal is allowed");
+        assertNull(s.trySet("faction.tagMin", 2));
         assertNotNull(s.trySet("power.min", 25.0), "the default power.max is 20");
         assertNotNull(s.trySet("power.max", -6.0), "the default power.min is -5");
         assertNull(s.trySet("power.max", 50.0));
@@ -262,8 +262,8 @@ class SettingsTest {
     void outOfOrderPairsInTheFileUseDefaultsAtStart() throws Exception {
         Files.writeString(dir.resolve("config.json"), "{\"faction.tagMin\": 8, \"faction.tagMax\": 4, \"power.min\": 30.0}");
         Settings s = settings();
-        assertEquals(3, s.integer("faction.tagMin"));
-        assertEquals(10, s.integer("faction.tagMax"));
+        assertEquals(2, s.integer("faction.tagMin"));
+        assertEquals(16, s.integer("faction.tagMax"));
         assertEquals(-5.0, s.decimal("power.min"));
         List<String> problems = s.startReport().problems();
         assertEquals(2, problems.size(), String.valueOf(problems));

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.1 - 2026-10-16
+
+### Changed
+- The faction name label on the world map is text only, the square icon under it is gone, and `map.factionLabels` turns the label off.
+- `/f claim 5` claims every chunk within five of you that the rules and your power allow, the short form of `/f claim radius 5`, and `/f unclaim 5` releases the same square.
+- Looser defaults for faction and nation names. Tags may be 2 to 16 characters (was 3 to 10), names up to 48 (was 32) and custom rank titles up to 32 (was 24). Existing config.json files keep their own values.
+
 ## 0.6.0 - 2026-10-15
 
 ### For players

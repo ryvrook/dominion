@@ -14,7 +14,7 @@ Feats and Atlas are optional.
 
 ## Install
 
-Drop `DominionFactions-0.6.0.jar` into the server's `mods` folder, or `UserData/Mods` for a singleplayer
+Drop `DominionFactions-0.6.1.jar` into the server's `mods` folder, or `UserData/Mods` for a singleplayer
 world, and start the server. Dominion writes `config.json` with every setting and logs
 `Dominion started with 23 modules`. A singleplayer world gets the singleplayer preset on first run, which turns
 off raiding, sieges, shields, events and power loss.
@@ -63,8 +63,8 @@ need `dominion.admin`. `/f help <topic>` and `/fa` alone list everything.
 | `/f invite <player>`, `/f join <tag>`, `/f leave` | Membership |
 | `/f promote`, `/f demote`, `/f kick`, `/f ban <player>` | Members |
 | `/f perms`, `/f rankname` | Permission grid and rank names |
-| `/f claim`, `claim radius <r>`, `claim line <n>`, `claim auto` | Claim land |
-| `/f unclaim`, `unclaim radius <r>`, `unclaim all` | Release land |
+| `/f claim`, `claim <r>` or `claim radius <r>`, `claim line <n>`, `claim auto` | Claim land, a radius claims every chunk the rules and your power allow |
+| `/f unclaim`, `unclaim <r>` or `unclaim radius <r>`, `unclaim all` | Release land |
 | `/f map`, `/f power [player]`, `/f who [tag or player]` | Land, power and faction info |
 | `/f map hide`, `/f map show` | Hide yourself from the web map |
 | `/f ally`, `/f truce`, `/f neutral`, `/f enemy <tag>` | Relations, answered with `/f accept` or `/f decline` |
@@ -92,7 +92,7 @@ Chat channels switch with `/f chat` or a prefix on one line, `!` for faction, `@
 
 ## Settings
 
-`config.json` sits in the data folder. There are 256 keys grouped into
+`config.json` sits in the data folder. There are 257 keys grouped into
 Factions, Power, Land, Raiding, Relations, Combat, Homes, Chat, Economy, Market, Sieges, Shields, Events, Progression, Storage, Map, Integrations, Commands, Interface, Colours and Permissions. Every key is listed with its default, limits and description in
 [docs/SETTINGS.md](docs/SETTINGS.md), which is generated from `config/Defaults.java`. You rarely need the file.
 `/fa settings` has a tab per group and applies changes live. `/fa set` and `/fa get` work from the console.
@@ -201,7 +201,7 @@ cd dominion-factions
 ./gradlew installMod     # also copies the jar to your local Mods folder, -PmodsDir=<path> for elsewhere
 ```
 
-The jar lands in `build/libs/DominionFactions-0.6.0.jar`. `-Phytale_channel` and `-Phytale_version` pick
+The jar lands in `build/libs/DominionFactions-0.6.1.jar`. `-Phytale_channel` and `-Phytale_version` pick
 another server artifact. Each feature is a `DominionModule` loaded by name from `Wiring.MODULES`, and
 `DominionApi.get()` is the read API for other mods. [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) has the conventions.
 Read it before a pull request, keep changes inside one module, and say which server version you tested on.

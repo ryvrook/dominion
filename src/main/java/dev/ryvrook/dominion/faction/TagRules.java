@@ -11,7 +11,7 @@ final class TagRules {
 
     static final int DESCRIPTION_MAX = 120;
     static final int MOTD_MAX = 160;
-    static final int TITLE_MAX = 24;
+    static final int TITLE_MAX = 32;
 
     static String tag(Settings s, String tag) {
         if (tag == null || tag.isBlank()) {

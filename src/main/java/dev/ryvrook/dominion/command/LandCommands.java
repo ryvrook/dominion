@@ -94,6 +94,15 @@ final class LandCommands extends Section {
                 c.reply(claims().claimRadius(c.uuid(), world(c), chunk(c), Math.max(0, c.arg(radiusArg))));
             }
         });
+        // /f claim 5 is the short form of /f claim radius 5.
+        PlayerCmd quick = new PlayerCmd(Messages.get(CommandText.DESC_CLAIM_A_SQUARE_AROUND_YOU));
+        RequiredArg<Integer> quickArg = quick.withRequiredArg("radius", Messages.get(CommandText.ARG_RADIUS_IN_CHUNKS), ArgTypes.INTEGER);
+        quick.handler(c -> {
+            if (located(c)) {
+                c.reply(claims().claimRadius(c.uuid(), world(c), chunk(c), Math.max(0, c.arg(quickArg))));
+            }
+        });
+        claim.variant(quick);
 
         PlayerCmd line = claim.sub(new PlayerCmd("line", Messages.get(CommandText.DESC_CLAIM_A_LINE_OF_CHUNKS_IN)));
         RequiredArg<Integer> lengthArg = line.withRequiredArg("length", Messages.get(CommandText.ARG_NUMBER_OF_CHUNKS), ArgTypes.INTEGER);
@@ -134,6 +143,15 @@ final class LandCommands extends Section {
                 c.reply(claims().unclaimRadius(c.uuid(), world(c), chunk(c), Math.max(0, c.arg(radiusArg))));
             }
         });
+        // /f unclaim 5 is the short form of /f unclaim radius 5.
+        PlayerCmd quick = new PlayerCmd(Messages.get(CommandText.DESC_RELEASE_A_SQUARE_AROUND_YOU));
+        RequiredArg<Integer> quickArg = quick.withRequiredArg("radius", Messages.get(CommandText.ARG_RADIUS_IN_CHUNKS), ArgTypes.INTEGER);
+        quick.handler(c -> {
+            if (located(c)) {
+                c.reply(claims().unclaimRadius(c.uuid(), world(c), chunk(c), Math.max(0, c.arg(quickArg))));
+            }
+        });
+        unclaim.variant(quick);
 
         unclaim.sub(new PlayerCmd("all", Messages.get(CommandText.DESC_RELEASE_EVERY_CHUNK_YOUR_FACTION_OWNS))).handler(c -> {
             Faction f = requireFaction(c);
