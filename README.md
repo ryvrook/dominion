@@ -134,7 +134,19 @@ nodes on commands apply at the next start or `/plugin reload`.
 Every link is optional. A missing mod gets one log line and Dominion carries on. TrackerAPI, Feats, Atlas and
 Coinage are listed as optional dependencies so they load first. Each link has a setting under `integrations.`
 with `auto` (link when installed and new enough, the default), `always` or `never`, read at start.
-`/fa integrations` shows each as bound, missing or off.
+`/fa integrations` shows each as bound, missing or off. The other four mods link to Dominion from their side and
+have their own setting.
+
+| Mod | What appears with Dominion | Setting |
+|---|---|---|
+| TrackerAPI 1.0.0+ | 25 `dominion:` counters per player with leaderboards, gather missions counted from its events | `integrations.tracker` |
+| Feats 1.5.0+ | The same counters in Feats for the Factions tab, unlocks posted in faction chat | `integrations.feats`, `integrations.featsAnnounce` |
+| Atlas 1.6.0+ | Territories from the snapshot, `/f map hide` on the web map, a live sieges layer | `integrations.atlas`, `integrations.atlasSiegeTier` |
+| Coinage 1.0.0+ | Wallets in Coinage, faction banks as shared accounts, the `faction` net worth part, Coinage's market | `integrations.coinage`, `eco.provider`, `eco.coinageBanks`, `market.useCoinage` |
+| Chronicle Stats 1.5.0+ | Faction standings and pages from the snapshot | `dominion` in Chronicle's `chronicle.json` |
+| SocialBridge 0.2.0+ | `/faction` and `/factions top` in Discord, faction event posts, faction chat threads, rank roles | `suite.dominion` and the `dominion.*` keys in SocialBridge |
+| RestAPI 0.2.0+ | `/api/dominion` routes and staff writes for keys with `dominion.write` | `siblings.dominion` in RestAPI |
+| Lullaby | Nothing, it does not touch factions | none |
 
 **TrackerAPI** 1.0.0 or newer. Dominion publishes 25 counters per player under `dominion:`. The original ten are
 `claims`, `unclaims`, `enemy_kills`, `enemy_land_deaths`, `sieges_won`, `sieges_lost`, `missions`,
@@ -149,7 +161,7 @@ another member gave the player. With TrackerAPI tracking blocks and items, the m
 chop, farm and fish missions count from its events, and Dominion's own systems take over again within 5 seconds if
 it stops.
 
-**Feats** 1.5.0 or newer. The same counters go into Feats, where 29 faction feats read them, and every feat a
+**Feats** 1.5.0 or newer. The same counters go into Feats, where the Factions tab reads them, and every feat a
 player unlocks is posted to their faction chat (`integrations.featsAnnounce`). A Feats older than 1.7.2 keeps only
 the original ten counters, so Dominion sends it only those.
 
@@ -167,8 +179,9 @@ limit is refused there too. A member's share of the bank counts toward `/networt
 cannot be owned by a faction account yet. A disbanded faction's account goes to the leader, or the server with
 `eco.coinageDisbandTo` set to `server`.
 
-**Chronicle Stats** reads factions, members, kills and deaths from the snapshot, and the counters above through
-TrackerAPI. Nothing to set up.
+**Chronicle Stats** reads factions, members, kills and deaths from the snapshot once a minute, and the counters
+above through TrackerAPI. It does not list Dominion as a dependency and needs no link, its `dominion` setting turns
+the reading off.
 
 Lullaby does not touch factions.
 
@@ -179,10 +192,12 @@ and relations under `/api/dominion` and, for keys with the `dominion.write` scop
 power and releases claims. Each staff action from the API writes one server log line naming the caller, and the
 faction log gets the same line the matching `/fa` command writes.
 
-After a `/plugin reload` of Feats, Atlas or Coinage, or when one is installed while the server runs, Dominion
-notices within 5 seconds and reloads itself 3 seconds later. TrackerAPI 1.0.3 and newer and Coinage 1.1.0 reload
-Dominion themselves, and Dominion then skips its own pass. After its own reload Dominion reloads SocialBridge,
-RestAPI and any other plugin that lists it, two seconds later, so they link to the new instance.
+TrackerAPI 1.0.3 and newer, Coinage 1.1.0, Feats 1.7.0 and Atlas 1.8.0 reload the plugins that list them two seconds
+after their own reload, so a `/plugin reload` of any of them brings Dominion back once, linked to the new
+instance. All of them take the same lock, `ryvrook.dependents.lock`, and leave alone a plugin someone else already
+reloaded. For an older sibling, or one installed while the server runs, Dominion notices within 5 seconds and
+reloads itself 3 seconds later under that lock, and skips it when the sibling's pass got there first. After its own
+reload Dominion reloads SocialBridge, RestAPI and any other plugin that lists it, once each, two seconds later.
 
 ## Web map snapshot
 

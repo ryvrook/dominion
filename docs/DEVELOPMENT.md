@@ -190,8 +190,8 @@ TrackerAPI, Feats, Atlas and Coinage are optional. Dominion compiles against the
 dependency through the plugin bridge loader, so the bridges can name the sibling types directly.
 
 - Jars. `-PtrackerApiJar=<path>`, `-PfeatsJar=<path>`, `-PatlasJar=<path>` and `-PcoinageJar=<path>` name them.
-  Without a property the build takes `../trackerapi/build/libs/TrackerAPI-1.1.0.jar`, `../feats/build/libs/Feats-1.6.0.jar`,
-  `../atlas/build/libs/Atlas-1.7.0.jar` and `../coinage/build/libs/Coinage-api-1.2.0.jar` (the api packages only), then the
+  Without a property the build takes `../trackerapi/build/libs/TrackerAPI-1.1.0.jar`, `../feats/build/libs/Feats-1.7.3.jar`,
+  `../atlas/build/libs/Atlas-1.9.0.jar` and `../coinage/build/libs/Coinage-api-1.3.0.jar` (the api packages only), then the
   same paths under `~/Projects`. The tests have the Coinage api, Atlas and TrackerAPI jars on their classpath. The
   Coinage link runs over a stand in Coinage API (`economy/FakeCoinage`), the Atlas bridge over a stand in `AtlasApi`
   with the jar's real static hooks, and the gather test builds TrackerAPI's event records.
@@ -202,8 +202,8 @@ dependency through the plugin bridge loader, so the bridges can name the sibling
   reloaded or installed late has classes in a new loader the bridge cannot follow, so once it is running Dominion
   logs one line and reloads itself through `PluginManager.reload` on a thread of its own 3 seconds later, which
   links to the new instance. TrackerAPI 1.0.3 and newer reload Dominion themselves, so that case stays quiet.
-  Coinage 1.1.0 reloads the plugins that list it too, so `SelfReload` takes the lock TrackerAPI and Coinage hold for
-  their reload pass (a `ReentrantLock` under the system property `ryvrook.dependents.lock`, waited on for up to 30
+  Coinage 1.1.0, Atlas 1.8.0 and Feats 1.7.0 reload the plugins that list them too, so `SelfReload` takes the lock
+  every reloader of the suite holds for its reload pass (a `ReentrantLock` under the system property `ryvrook.dependents.lock`, waited on for up to 30
   seconds) and only reloads when the plugin manager still holds the Dominion instance that asked. The relink thread
   gets every class it needs before it sleeps, because after a reload the old plugin loader hands out the new
   instance's classes and the JVM refuses them. A headless run on 2026-10-15 reloaded Feats, Coinage, Atlas, TrackerAPI
@@ -213,8 +213,8 @@ dependency through the plugin bridge loader, so the bridges can name the sibling
 - Bridges. `integration.tracker.TrackerBridge`, `integration.feats.FeatsBridge`, `integration.atlas.AtlasBridge` and
   `integration.coinage.CoinageLink` are the only classes that name sibling types. Every call into a sibling is guarded, and stop sets a stopped flag
   before removing hooks. TrackerAPI and Coinage have `removeHooks`. Atlas got it late in 1.6.0, so the bridge looks it up by reflection.
-  Feats publishes `FeatsApi` in its own setup with no enable hook, so the Feats bridge links on install or on a later
-  poll. Feats 1.5.1 answers false from `addStat` on an API object left from before a Feats reload, so on false the
+  Feats 1.7.0 and newer have `FeatsApi.onEnable`, `onDisable` and `removeHooks`, and the Feats bridge binds through
+  them, guarded by `LinkageError` so an older Feats falls back to linking on install or on a later poll. Feats 1.5.1 answers false from `addStat` on an API object left from before a Feats reload, so on false the
   bridge reads `FeatsApi.get()` again and, when that is a new object, relinks and tries the add once more.
 - Counters. `StatFanout` is one bus listener. It maps each `DominionEvent` with `StatMapper` (pure, facts behind the
   `StatMapper.Facts` interface) and hands the credits to every linked `StatSink`, which is `Counters.add` for
