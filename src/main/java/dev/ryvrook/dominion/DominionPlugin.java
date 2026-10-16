@@ -15,6 +15,7 @@ import dev.ryvrook.dominion.config.Settings;
 import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.storage.JsonFiles;
 import dev.ryvrook.dominion.storage.Repository;
+import dev.ryvrook.dominion.util.Pools;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -71,6 +72,8 @@ public final class DominionPlugin extends JavaPlugin {
             t.setDaemon(true);
             return t;
         });
+        // Loaded now, since a stop never loads a class for the first time.
+        java.util.Objects.requireNonNull(Pools.class);
         JsonFiles files = new JsonFiles(getLogger());
         Settings settings = new Settings(files, getDataDirectory().resolve("config.json"));
         Messages.LoadReport words = Messages.install(files, getDataDirectory().resolve("messages.json"), getLogger());
@@ -182,6 +185,9 @@ public final class DominionPlugin extends JavaPlugin {
         }
         getLogger().at(Level.INFO).log("Dominion found %d plugins linked to its previous instance and reloads them in two seconds",
                 dependents.size());
+        // The pass looks plugins up through the gated lookup, linked here while this loader still links new classes.
+        dev.ryvrook.dominion.util.PluginLookups.looker(getIdentifier());
+        dev.ryvrook.dominion.util.PluginLookups.plugin(getIdentifier());
         tasks.add(HytaleServer.SCHEDULED_EXECUTOR.schedule(() -> {
             if (stopping) {
                 return;
@@ -241,13 +247,12 @@ public final class DominionPlugin extends JavaPlugin {
             }
         }
         if (io != null) {
-            io.shutdown();
-            try {
-                if (!io.awaitTermination(15, TimeUnit.SECONDS)) {
-                    getLogger().at(Level.WARNING).log("Dominion IO tasks were still running at shutdown");
-                }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+            // The IO thread gets 1 s to finish, then an interrupt and 0.5 s more. A task still running then is stuck
+            // and is left behind rather than holding up the server stop. Every file is written to a temp file and
+            // moved, and saveAll below writes the records again under the same per file locks.
+            if (!Pools.stop(io, Pools.GRACE_MILLIS, Pools.INTERRUPT_MILLIS)) {
+                getLogger().at(Level.WARNING).log("Dominion IO task was still running %d ms into the stop and was left behind",
+                        Pools.GRACE_MILLIS + Pools.INTERRUPT_MILLIS);
             }
         }
         if (ctx != null) {

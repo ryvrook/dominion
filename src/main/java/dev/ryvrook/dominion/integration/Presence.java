@@ -31,8 +31,15 @@ public final class Presence {
         Found find(Sibling sibling);
     }
 
-    /** The engine lookup. Safe from any thread, a failed lookup counts as missing. */
+    /** The engine lookup for Dominion's own start. Safe from any thread, a failed lookup counts as missing. */
     public static final Lookup ENGINE = Presence::findInEngine;
+
+    /**
+     * The engine lookup for the watch timer. It never waits for the plugin manager and answers the last state while the
+     * manager holds its write lock, during a stop or a reload, see {@link dev.ryvrook.dominion.util.GatedLookup}.
+     */
+    public static final Lookup GATED = sibling ->
+            dev.ryvrook.dominion.util.PluginLookups.ENGINE.now(sibling, () -> findInEngine(sibling), Found.MISSING);
 
     private static Found findInEngine(Sibling sibling) {
         try {

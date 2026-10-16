@@ -373,6 +373,15 @@ own model types or plain records such as `SiegeInfo` and `DominionEvent.ChatLine
 - A stop path never loads a sibling class for the first time. The plugin manager holds its write lock during
   shutdown and the bridge class loader needs the read lock, so a first load there hangs for 5 seconds. Every class
   shutdown touches is loaded during start, and a bridge that never bound is never touched on stop.
+- A lookup off a world thread never waits for the plugin manager. The manager holds the write side of its private
+  `lock` for a whole stop and for every reload, and `getPlugin` and `getPlugins` take the read side, so a timer that
+  asked then parked until the stop was over while the stop waited for Dominion. Every such lookup goes through
+  `util.PluginLookups`, which reads the field by reflection and hands it to `util.GatedLookup`. `now` only tries the
+  read lock and answers the last state for that key while the lock is held, `fresh` waits in 100 ms tries for the
+  reload threads and gives up once `HytaleServer.isShuttingDown()` is true, and both skip the engine during a stop.
+  Without the field every lookup goes through as before. Lookups in Dominion's own setup and start stay direct.
+  `util.Pools.stop` gives the IO thread 1 s and 0.5 s after an interrupt, then leaves a stuck task behind.
+  `StopUnderManagerLockTest` covers all of it with no engine.
 
 ## Hot paths
 

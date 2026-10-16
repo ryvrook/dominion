@@ -44,7 +44,7 @@ public final class IntegrationModule implements DominionModule {
         for (Sibling sibling : Sibling.values()) {
             Mode mode = all ? Mode.parse(ctx.settings().text(sibling.settingKey())) : Mode.NEVER;
             Choice choice = Choice.decide(sibling, mode, Presence.ENGINE.find(sibling));
-            Binding binding = new Binding(choice, Presence.ENGINE);
+            Binding binding = new Binding(choice, Presence.GATED);
             bindings.add(binding);
             ctx.logger().at(choice.warn() ? Level.WARNING : Level.INFO).log("%s", choice.startLine());
             Host host = new Host(ctx, stats, choice);
@@ -100,7 +100,10 @@ public final class IntegrationModule implements DominionModule {
         var lock = SelfReload.sharedLock();
         var skipped = SelfReload.Outcome.SKIPPED;
         var failed = SelfReload.Outcome.FAILED;
-        java.util.function.Supplier<Object> current = () -> manager.getPlugin(id);
+        // Waits for the manager in short tries and gives up once the server stops, so it never parks on the manager lock.
+        var engine = dev.ryvrook.dominion.util.PluginLookups.ENGINE;
+        var look = dev.ryvrook.dominion.util.PluginLookups.looker(id);
+        java.util.function.Supplier<Object> current = () -> engine.fresh(id, look, null);
         java.util.function.BooleanSupplier reload = () -> manager.reload(id);
         var log = ctx.logger();
         String retry = Binding.RELOAD;

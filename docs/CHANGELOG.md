@@ -11,6 +11,10 @@
 - During a `/plugin reload` of TrackerAPI, Coinage, Feats or Atlas, Dominion logs one INFO line saying the sibling
   brings it back by itself, instead of a warning asking for `/plugin reload Ryvrook:Dominion`. The warning stays
   for a sibling that is still gone after 30 seconds.
+- A server stop or a `/plugin reload` no longer makes a Dominion timer wait for the plugin manager. The sibling watch,
+  the VaultUnlocked lookup and the reload threads only try the manager's lock and use the last answer while it is
+  held. The IO thread gets 1 s at stop plus 0.5 s after an interrupt instead of 15 s. With all nine suite jars a stop
+  after reloading TrackerAPI and Atlas took 0.55 s.
 
 ### For mod authors
 - New bus event `MemberRankChanged(factionId, member, actor, fromRank, toRank)`, published after every promote,

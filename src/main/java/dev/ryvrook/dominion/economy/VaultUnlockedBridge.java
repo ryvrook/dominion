@@ -1,7 +1,6 @@
 package dev.ryvrook.dominion.economy;
 
 import com.hypixel.hytale.server.core.plugin.PluginBase;
-import com.hypixel.hytale.server.core.plugin.PluginManager;
 import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.api.Result;
 import dev.ryvrook.dominion.text.Messages;
@@ -125,7 +124,7 @@ final class VaultUnlockedBridge implements BalanceProvider {
             return null;
         }
         try {
-            for (PluginBase plugin : PluginManager.get().getPlugins()) {
+            for (PluginBase plugin : dev.ryvrook.dominion.util.PluginLookups.plugins()) {
                 Object eco = fromObject(plugin, types);
                 if (eco != null) {
                     return eco;
@@ -145,7 +144,7 @@ final class VaultUnlockedBridge implements BalanceProvider {
             set.add(context);
         }
         try {
-            for (PluginBase plugin : PluginManager.get().getPlugins()) {
+            for (PluginBase plugin : dev.ryvrook.dominion.util.PluginLookups.plugins()) {
                 set.add(plugin.getClass().getClassLoader());
             }
         } catch (RuntimeException ignored) {
