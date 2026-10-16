@@ -170,8 +170,8 @@ Lullaby does not touch factions.
 with its `dominion.factionChat` on, mirrors faction, ally, officer and nation lines into a Discord thread per
 faction and sends the replies back as faction chat under the Discord name. RestAPI serves factions, claims, sieges
 and relations under `/api/dominion` and, for keys with the `dominion.write` scope, disbands, sets a leader, sets
-power and releases claims. Every staff action from the API goes to the faction log and one server log line naming
-the caller.
+power and releases claims. Each staff action from the API writes one server log line naming the caller, and the
+faction log gets the same line the matching `/fa` command writes.
 
 After a `/plugin reload` of Feats, Atlas or Coinage, or when one is installed while the server runs, Dominion
 notices within 5 seconds and reloads itself 3 seconds later. TrackerAPI 1.0.3 and newer and Coinage 1.1.0 reload
