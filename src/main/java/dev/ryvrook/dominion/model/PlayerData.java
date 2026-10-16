@@ -19,6 +19,13 @@ public final class PlayerData {
     private boolean hud = true;
     private boolean alerts = true;
     private boolean tutorialSeen;
+    /** Id of the furthest tutorial step the player reached, null before the tutorial ever opened. */
+    private String tutorialStep;
+    /**
+     * True once the player finished or skipped the tutorial, false after it opened or was reset. Null for a
+     * record from an older file, which counts as finished when that file says the old tutorial was seen.
+     */
+    private Boolean tutorialFinished;
     private boolean mapHidden;
     private double balance;
     /**
@@ -63,6 +70,15 @@ public final class PlayerData {
     public synchronized void setAlerts(boolean b) { alerts = b; dirty = true; }
     public synchronized boolean tutorialSeen() { return tutorialSeen; }
     public synchronized void setTutorialSeen(boolean b) { tutorialSeen = b; dirty = true; }
+    public synchronized String tutorialStep() { return tutorialStep; }
+    public synchronized void setTutorialStep(String id) {
+        if (id != null && !id.equals(tutorialStep)) { tutorialStep = id; dirty = true; }
+    }
+    /** True once the tutorial was finished or skipped. An older record that saw the old tutorial counts as finished. */
+    public synchronized boolean tutorialFinished() { return tutorialFinished != null ? tutorialFinished : tutorialSeen; }
+    public synchronized void setTutorialFinished(boolean b) { tutorialFinished = b; tutorialSeen = tutorialSeen || b; dirty = true; }
+    /** Forgets the tutorial progress so it opens again from the first step on the next join. */
+    public synchronized void resetTutorial() { tutorialStep = null; tutorialFinished = Boolean.FALSE; tutorialSeen = false; dirty = true; }
     public synchronized boolean mapHidden() { return mapHidden; }
     public synchronized void setMapHidden(boolean b) { mapHidden = b; dirty = true; }
     public synchronized double balance() { return balance; }
@@ -90,7 +106,8 @@ public final class PlayerData {
                 .append("Channel", channel.name()).append("AutoClaim", autoClaim).append("Hud", hud)
                 .append("Alerts", alerts).append("TutorialSeen", tutorialSeen).append("MapHidden", mapHidden)
                 .append("Balance", balance).append("Kills", kills).append("Deaths", deaths)
-                .append("BalanceTouched", balanceTouched);
+                .append("BalanceTouched", balanceTouched)
+                .append("TutorialStep", tutorialStep).append("TutorialFinished", tutorialFinished);
     }
 
     public static PlayerData fromDocument(UUID uuid, Document d) {
@@ -114,6 +131,8 @@ public final class PlayerData {
         p.alerts = !Boolean.FALSE.equals(d.get("Alerts"));
         p.tutorialSeen = Boolean.TRUE.equals(d.get("TutorialSeen"));
         p.mapHidden = Boolean.TRUE.equals(d.get("MapHidden"));
+        p.tutorialStep = d.get("TutorialStep") instanceof String step && !step.isBlank() ? step : null;
+        p.tutorialFinished = d.get("TutorialFinished") instanceof Boolean done ? done : null;
         p.kills = (int) num(d, "Kills");
         p.deaths = (int) num(d, "Deaths");
         p.dirty = false;
