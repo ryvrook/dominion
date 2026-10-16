@@ -242,7 +242,7 @@ cd dominion-factions
 
 The jar lands in `build/libs/DominionFactions-0.7.2.jar`. `-Phytale_channel` and `-Phytale_version` pick
 another server artifact. Each feature is a `DominionModule` loaded by name from `Wiring.MODULES`, and
-`DominionApi` is the API for other mods, bound from `DominionApi.onEnable`. [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) has the conventions.
+`DominionApi` is the API for other mods, version 3 since 0.7.2, bound from `DominionApi.onEnable`. [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) has the conventions.
 Read it before a pull request, keep changes inside one module, and say which server version you tested on.
 
 ## Licence

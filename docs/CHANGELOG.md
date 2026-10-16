@@ -4,7 +4,7 @@
 
 ### With the other mods
 - `dominion:rank_changes` is sent now. Each promote or demote counts once for the member whose rank moved, not for
-  the member who made the change, which is what the Promoted feats in Feats 1.7.2 read. It has a TrackerAPI
+  the member who made the change, which is what the New Rank feat in Feats 1.7.3 reads. It has a TrackerAPI
   leaderboard like the other counters.
 - With Feats 1.7.0 or newer Dominion links and unlinks through the Feats enable and disable hooks, the way it does
   with TrackerAPI, Atlas and Coinage. An older Feats is still found by the watch every 5 seconds.
@@ -37,7 +37,7 @@
   reloaded two seconds later, one at a time and under the same lock TrackerAPI and Coinage use, so SocialBridge and
   RestAPI link to the new instance. A plugin someone else already reloaded is left alone.
 - Staff actions taken through the API (disband, set leader, set power, unclaim) write one server log line with the
-  caller's name, such as `RestAPI key ops force disbanded NRT through the Dominion API`.
+  caller's name, such as `RestAPI:ops force disbanded NRT through the Dominion API`.
 
 ### For mod authors
 - `DominionApi.API_VERSION` is 2. `DominionApi.onEnable(Consumer)` runs at once when Dominion is up and after every
