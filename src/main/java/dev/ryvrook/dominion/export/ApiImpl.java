@@ -3,6 +3,7 @@ package dev.ryvrook.dominion.export;
 import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.api.DominionApi;
 import dev.ryvrook.dominion.api.EventBus;
+import dev.ryvrook.dominion.api.Result;
 import dev.ryvrook.dominion.api.SiegeInfo;
 import dev.ryvrook.dominion.api.TerritoryProvider;
 import dev.ryvrook.dominion.model.Faction;
@@ -10,6 +11,7 @@ import dev.ryvrook.dominion.model.FactionAction;
 import dev.ryvrook.dominion.model.FactionType;
 import dev.ryvrook.dominion.model.Relation;
 import dev.ryvrook.dominion.model.Siege;
+import dev.ryvrook.dominion.service.ChatService;
 import dev.ryvrook.dominion.service.ClaimService;
 import dev.ryvrook.dominion.service.EventsService;
 import dev.ryvrook.dominion.service.FactionService;
@@ -18,6 +20,8 @@ import dev.ryvrook.dominion.service.ProgressService;
 import dev.ryvrook.dominion.service.RelationService;
 import dev.ryvrook.dominion.service.RulesService;
 import dev.ryvrook.dominion.service.SiegeService;
+import dev.ryvrook.dominion.text.CommonText;
+import dev.ryvrook.dominion.text.Messages;
 import dev.ryvrook.dominion.util.Keys;
 
 import java.util.ArrayList;
@@ -189,5 +193,20 @@ public final class ApiImpl implements DominionApi {
     private String tagOf(UUID factionId) {
         Faction f = factionId == null ? null : ctx.repo().faction(factionId);
         return f == null ? null : f.tag();
+    }
+
+    // ---- faction chat, API version 2 -------------------------------------------
+
+    @Override
+    public Result sendFactionChat(UUID factionId, String name, String text) {
+        ChatService chat = ctx.serviceOrNull(ChatService.class);
+        if (chat == null) {
+            return Result.fail(Messages.get(CommonText.FEATURE_OFF));
+        }
+        Faction f = factionId == null ? null : ctx.repo().faction(factionId);
+        if (f == null) {
+            return Result.fail(Messages.get(CommonText.NO_SUCH_FACTION));
+        }
+        return chat.sendExternal(f, name, text);
     }
 }

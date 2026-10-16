@@ -119,6 +119,10 @@ public final class ExportServiceImpl implements ExportService {
     }
 
     void onEvent(DominionEvent event) {
+        if (event instanceof DominionEvent.ChatLine) {
+            // Private channels never reach the snapshot, and a chat line changes nothing the map shows.
+            return;
+        }
         changes.incrementAndGet();
         feed.accept(event);
     }

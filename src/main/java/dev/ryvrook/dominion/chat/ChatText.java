@@ -24,6 +24,7 @@ public final class ChatText {
     public static final String CHANNEL_OFFICER = Messages.define("chat.channelOfficer", "officer chat");
     public static final String ANNOUNCE_NO_PERMISSION = Messages.define("chat.announceNoPermission", "You do not have permission to post announcements.");
     public static final String ANNOUNCEMENT_EMPTY = Messages.define("chat.announcementEmpty", "The announcement is empty.");
+    public static final String LINE_EMPTY = Messages.define("chat.lineEmpty", "There is nothing to send.");
     public static final String AN_OFFICER = Messages.define("chat.anOfficer", "An officer");
     public static final String AUDIT_ANNOUNCEMENT = Messages.define("chat.auditAnnouncement", "Posted an announcement");
     public static final String ANNOUNCEMENT_FROM = Messages.define("chat.announcementFrom", "{tag} announcement from {author}");

@@ -47,4 +47,12 @@ public sealed interface DominionEvent {
     record BankWithdrawn(UUID factionId, UUID player, double amount) implements DominionEvent {}
     /** A line was added to a faction audit log. who is null for the server. */
     record AuditLogged(UUID factionId, UUID who, String category, String text) implements DominionEvent {}
+    /**
+     * A line in one of a faction's private channels, published after Dominion delivered it. channel is faction, ally,
+     * officer or nation, and factionId and tag are the sender's faction. sender is null for a line another mod sent
+     * through {@code DominionApi.sendFactionChat}, and senderName is then the name it gave. millis is the epoch time
+     * of delivery. Public chat is not published here, it goes through the engine's chat event. Since API version 2.
+     */
+    record ChatLine(UUID factionId, String tag, String channel, UUID sender, String senderName, String text, long millis)
+            implements DominionEvent {}
 }

@@ -25,4 +25,10 @@ public interface ChatService {
 
     /** Alert respecting each member's alert toggle. */
     void alert(Faction faction, Message message);
+
+    /**
+     * A faction chat line from outside the game, such as a Discord relay, sent to the online members under the
+     * given name and published as a ChatLine with a null sender.
+     */
+    Result sendExternal(Faction faction, String name, String text);
 }

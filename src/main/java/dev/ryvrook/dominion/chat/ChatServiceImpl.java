@@ -5,6 +5,7 @@ import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.event.events.player.PlayerChatEvent;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import dev.ryvrook.dominion.DominionContext;
+import dev.ryvrook.dominion.api.DominionEvent;
 import dev.ryvrook.dominion.api.Result;
 import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.FactionAction;
@@ -26,6 +27,7 @@ import dev.ryvrook.dominion.util.Players;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -263,6 +265,7 @@ public final class ChatServiceImpl implements ChatService {
             target.sendMessage(msg);
         }
         log(label + " " + plainTag(faction.tag()) + sender.getUsername() + SEPARATOR + content, true);
+        publishLine(faction, channel, sender.getUuid(), sender.getUsername(), content);
     }
 
     /** Sends to every online member of every faction in the sender's nation. */
@@ -285,6 +288,51 @@ public final class ChatServiceImpl implements ChatService {
                     Msg.muted(SEPARATOR), verbatim(content, NATION_COLOR)));
         }
         log(label + plainTag(faction.tag()) + sender.getUsername() + SEPARATOR + content, true);
+        publishLine(faction, PlayerData.Channel.NATION, sender.getUuid(), sender.getUsername(), content);
+    }
+
+    /** Longest line accepted from another mod, the same cap the engine puts on a chat message. */
+    static final int EXTERNAL_MAX = 256;
+
+    @Override
+    public Result sendExternal(Faction faction, String name, String text) {
+        if (!ctx.settings().bool("chat.enabled")) {
+            return Result.fail(Messages.get(CommonText.FEATURE_OFF));
+        }
+        if (faction == null || factions().byId(faction.id()) == null) {
+            return Result.fail(Messages.get(CommonText.NO_SUCH_FACTION));
+        }
+        String clean = text == null ? "" : text.strip();
+        if (clean.isEmpty()) {
+            return Result.fail(Messages.get(ChatText.LINE_EMPTY));
+        }
+        if (clean.length() > EXTERNAL_MAX) {
+            clean = clean.substring(0, EXTERNAL_MAX);
+        }
+        String who = name == null || name.isBlank() ? "?" : name.strip();
+        String label = Messages.get(ChatText.LABEL_FACTION);
+        String color = Relation.OWN.color();
+        for (UUID id : memberIds(faction)) {
+            PlayerRef target = Players.online(id);
+            if (target != null) {
+                target.sendMessage(Message.join(Msg.colored(label + " ", color).bold(true), Msg.colored(who, color),
+                        Msg.muted(SEPARATOR), verbatim(clean, color)));
+            }
+        }
+        log(label + " " + plainTag(faction.tag()) + who + SEPARATOR + clean, true);
+        publishLine(faction, PlayerData.Channel.FACTION, null, who, clean);
+        return Result.pass();
+    }
+
+    /** Hands a delivered private line to the bus for other mods. */
+    void publishLine(Faction faction, PlayerData.Channel channel, UUID sender, String name, String text) {
+        ctx.bus().publish(line(faction, channel, sender, name, text, System.currentTimeMillis()));
+    }
+
+    static DominionEvent.ChatLine line(Faction faction, PlayerData.Channel channel, UUID sender, String name, String text,
+                                       long millis) {
+        return new DominionEvent.ChatLine(faction.id(), faction.tag(), channel.name().toLowerCase(Locale.ROOT), sender, name,
+                text, millis);
     }
 
     private List<UUID> nationAudience(Nation n) {
