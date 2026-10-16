@@ -1,5 +1,6 @@
 package dev.ryvrook.dominion.faction;
 
+import dev.ryvrook.dominion.api.DominionEvent;
 import dev.ryvrook.dominion.api.Result;
 import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.FactionAction;
@@ -43,7 +44,7 @@ final class Ranks {
         if (old == rank) {
             return Result.fail(Messages.get(FactionText.ALREADY_RANK, "name", s.nameOf(target), "rank", article(f, rank)));
         }
-        apply(f, actor, target, rank);
+        apply(f, actor, target, old, rank);
         String moved = rank.ordinal() > old.ordinal() ? FactionText.PROMOTED : FactionText.DEMOTED;
         return Result.pass(Messages.get(moved, "name", s.nameOf(target), "rank", f.rankName(rank)));
     }
@@ -83,7 +84,7 @@ final class Ranks {
         return setRank(actor, target, prev);
     }
 
-    private void apply(Faction f, UUID actor, UUID target, Rank rank) {
+    private void apply(Faction f, UUID actor, UUID target, Rank old, Rank rank) {
         synchronized (f) {
             Member m = f.member(target);
             if (m == null) {
@@ -94,6 +95,7 @@ final class Ranks {
         }
         String name = s.nameOf(target);
         s.audit(f, actor, "rank", Messages.get(FactionText.AUDIT_RANK_SET, "name", name, "rank", f.rankName(rank)));
+        s.publish(new DominionEvent.MemberRankChanged(f.id(), target, actor, old.ordinal(), rank.ordinal()));
         s.toFaction(f, Msg.info(Messages.get(FactionText.NOW_RANK, "name", name, "rank", article(f, rank))), false);
         s.changed(f);
     }

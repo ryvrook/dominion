@@ -45,6 +45,11 @@ public sealed interface DominionEvent {
     record MemberInvited(UUID factionId, UUID actor, UUID target) implements DominionEvent {}
     /** A member took money out of their faction bank into their own wallet, with /f withdraw or in Coinage's pages. */
     record BankWithdrawn(UUID factionId, UUID player, double amount) implements DominionEvent {}
+    /**
+     * A member's rank changed through promote, demote or set rank. actor is the member who made the change. The
+     * ranks are {@code Rank} ordinals, recruit lowest. Leadership transfers are not published here. Since 0.7.2.
+     */
+    record MemberRankChanged(UUID factionId, UUID member, UUID actor, int fromRank, int toRank) implements DominionEvent {}
     /** A line was added to a faction audit log. who is null for the server. */
     record AuditLogged(UUID factionId, UUID who, String category, String text) implements DominionEvent {}
     /**

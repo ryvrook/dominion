@@ -14,7 +14,7 @@ Feats and Atlas are optional.
 
 ## Install
 
-Drop `DominionFactions-0.7.0.jar` into the server's `mods` folder, or `UserData/Mods` for a singleplayer
+Drop `DominionFactions-0.7.2.jar` into the server's `mods` folder, or `UserData/Mods` for a singleplayer
 world, and start the server. Dominion writes `config.json` with every setting and logs
 `Dominion started with 23 modules`. A singleplayer world gets the singleplayer preset on first run, which turns
 off raiding, sieges, shields, events and power loss.
@@ -144,8 +144,8 @@ with `auto` (link when installed and new enough, the default), `always` or `neve
 Every counter that can grow past one has a TrackerAPI leaderboard. Siege, mission, war, alliance, upgrade, breach,
 hill and outpost credit goes to every member, online or not. A chunk released within seven days counts for neither
 claim nor unclaim, invites and foreign entries count once per player and faction, bank deposits count net per day
-and `upgrade_level_max` only ever rises, so loops do not farm them. `rank_changes` is listed but never sent,
-because the rank log line does not name the member by id. With TrackerAPI tracking blocks and items, the mine,
+and `upgrade_level_max` only ever rises, so loops do not farm them. `rank_changes` counts each promote or demote
+another member gave the player. With TrackerAPI tracking blocks and items, the mine,
 chop, farm and fish missions count from its events, and Dominion's own systems take over again within 5 seconds if
 it stops.
 
@@ -225,7 +225,7 @@ cd dominion-factions
 ./gradlew installMod     # also copies the jar to your local Mods folder, -PmodsDir=<path> for elsewhere
 ```
 
-The jar lands in `build/libs/DominionFactions-0.7.0.jar`. `-Phytale_channel` and `-Phytale_version` pick
+The jar lands in `build/libs/DominionFactions-0.7.2.jar`. `-Phytale_channel` and `-Phytale_version` pick
 another server artifact. Each feature is a `DominionModule` loaded by name from `Wiring.MODULES`, and
 `DominionApi` is the API for other mods, bound from `DominionApi.onEnable`. [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) has the conventions.
 Read it before a pull request, keep changes inside one module, and say which server version you tested on.

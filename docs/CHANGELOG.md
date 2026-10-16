@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.7.2 - 2026-10-16
+
+### With the other mods
+- `dominion:rank_changes` is sent now. Each promote or demote counts once for the member whose rank moved, not for
+  the member who made the change, which is what the Promoted feats in Feats 1.7.2 read. It has a TrackerAPI
+  leaderboard like the other counters.
+
+### For mod authors
+- New bus event `MemberRankChanged(factionId, member, actor, fromRank, toRank)`, published after every promote,
+  demote and set rank, with the ranks as `Rank` ordinals. `DominionApi.API_VERSION` is 3.
+
 ## 0.7.1 - 2026-10-16
 
 ### With the other mods

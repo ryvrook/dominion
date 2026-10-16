@@ -25,9 +25,10 @@ import java.util.function.Consumer;
 public interface DominionApi {
     /**
      * Raised whenever a method, an event or a record component is added. 1 was 0.6.2 and older. 2 added the
-     * hooks, {@link #factions()}, the sieges, faction chat and the staff actions.
+     * hooks, {@link #factions()}, the sieges, faction chat and the staff actions. 3 added the
+     * {@link DominionEvent.MemberRankChanged} event.
      */
-    int API_VERSION = 2;
+    int API_VERSION = 3;
 
     /** The running API. Throws IllegalStateException before Dominion started. */
     static DominionApi get() {

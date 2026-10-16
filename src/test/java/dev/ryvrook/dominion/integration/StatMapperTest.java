@@ -281,11 +281,16 @@ class StatMapperTest {
     }
 
     @Test
-    void rankChangesAreNotMapped() {
-        // The rank audit line names the member in text only and the event carries the actor, so there is nobody
-        // to credit without guessing. The key stays listed for Feats and is never sent.
-        assertTrue(map(new DominionEvent.AuditLogged(wolf, alice, "rank", "Alice set Carl to Officer")).isEmpty());
-        assertTrue(StatKeys.ALL.contains(StatKeys.RANK_CHANGES));
+    void rankChangeCreditsTheMemberWhoseRankMoved() {
+        assertEquals(List.of(credit(bob, StatKeys.RANK_CHANGES, 1)),
+                map(new DominionEvent.MemberRankChanged(wolf, bob, alice, 0, 1)), "a promotion");
+        assertEquals(List.of(credit(bob, StatKeys.RANK_CHANGES, 1)),
+                map(new DominionEvent.MemberRankChanged(wolf, bob, alice, 2, 1)), "a demotion counts too");
+        assertTrue(map(new DominionEvent.MemberRankChanged(wolf, alice, alice, 0, 1)).isEmpty(), "own rank");
+        assertTrue(map(new DominionEvent.MemberRankChanged(wolf, bob, null, 0, 1)).isEmpty(), "no actor");
+        assertTrue(map(new DominionEvent.AuditLogged(wolf, alice, "rank", "Alice set Bob to Officer")).isEmpty(),
+                "the audit line alone credits nobody");
+        assertTrue(StatKeys.BOARDS.contains(StatKeys.RANK_CHANGES));
     }
 
     @Test

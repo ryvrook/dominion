@@ -152,6 +152,13 @@ public final class StatMapper {
                     out.add(new Credit(l.player(), StatKeys.KICKED, 1));
                 }
             }
+            case DominionEvent.MemberRankChanged r -> {
+                // The member whose rank moved, once per change. A change the member made to themselves, or one with
+                // no actor (the server), credits nobody.
+                if (r.member() != null && r.actor() != null && !r.member().equals(r.actor()) && r.fromRank() != r.toRank()) {
+                    out.add(new Credit(r.member(), StatKeys.RANK_CHANGES, 1));
+                }
+            }
             case DominionEvent.RelationChanged r -> relation(r, facts, out);
             case DominionEvent.UpgradeBought u -> {
                 for (UUID member : facts.members(u.factionId())) {

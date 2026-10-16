@@ -62,10 +62,7 @@ public final class StatKeys {
     public static final String OUTPOSTS_HELD = PREFIX + "outposts_held";
     /** 1 once the player's power first reached their maximum. */
     public static final String POWER_MAX = PREFIX + "power_max";
-    /**
-     * Rank changes of the player. Listed for Feats but never sent, because the rank audit line names the player
-     * in text only and the event carries the actor, not the member whose rank changed.
-     */
+    /** Times another member promoted or demoted the player, from the MemberRankChanged event. Sent since 0.7.2. */
     public static final String RANK_CHANGES = PREFIX + "rank_changes";
     /** 1 once the player finished or skipped the tutorial. */
     public static final String TUTORIAL_DONE = PREFIX + "tutorial_done";

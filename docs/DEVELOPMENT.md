@@ -237,8 +237,9 @@ dependency through the plugin bridge loader, so the bridges can name the sibling
   `breached` true for the attacker, `hill_wins` reads `GameEvent` kind `koth` phase `captured`, `outposts_held` reads
   kind `outpost` phase `captured`, both for the faction the event names, and `power_max` reads `PowerChanged` at or
   above `PowerService.maxPowerOf`. `tutorial_done` has no event, `TutorialCredit.finished` sets the flag and sends
-  the credit through `StatFanout.credit`, which is why the fanout is registered as a service. `rank_changes` is listed
-  and never sent, because `AuditLogged` carries the actor and names the member in text only. Feats and TrackerAPI
+  the credit through `StatFanout.credit`, which is why the fanout is registered as a service. `rank_changes` reads
+  `MemberRankChanged`, which `Ranks.apply` publishes next to the rank audit line, and credits the member, never the
+  actor and never a change without an actor. A leadership transfer is not a rank change. Feats and TrackerAPI
   only add, so `upgrade_level_max` is sent as the difference from the highest level the player was credited, and
   that memory, the once per faction foreign entry memory (capped at 128 factions) and the power maximum flag live
   on `PlayerData` under `Counters`, since they follow the player across factions. The siege service publishes one
@@ -351,7 +352,7 @@ How Dominion uses it.
 ## The API for other mods
 
 `api.DominionApi` is the contract SocialBridge, RestAPI and any other mod compile against. Methods, events and record
-components are only ever added, and `API_VERSION` goes up with each addition (2 since 0.7.0). A method added after
+components are only ever added, and `API_VERSION` goes up with each addition (2 since 0.7.0, 3 since 0.7.2 for `MemberRankChanged`). A method added after
 0.6.2 has a default body so a stand in written against an older jar still compiles. Values handed out are Dominion's
 own model types or plain records such as `SiegeInfo` and `DominionEvent.ChatLine`, never an engine object.
 
