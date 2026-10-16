@@ -20,7 +20,7 @@ class HudMarkupTest {
         assertEquals(m.chars().filter(c -> c == '{').count(), m.chars().filter(c -> c == '}').count());
         assertEquals(m.chars().filter(c -> c == '(').count(), m.chars().filter(c -> c == ')').count());
         assertEquals(0, m.chars().filter(c -> c == '"').count() % 2);
-        for (String id : new String[] {"#DomTitle ", "#DomRank ", "#DomHintRow ", "#DomHint ", "#DomPowerRow ", "#DomPower ",
+        for (String id : new String[] {"#DomTag ", "#DomTitle ", "#DomRank ", "#DomHintRow ", "#DomHint ", "#DomPowerRow ", "#DomPower ",
                 "#DomFactionPowerRow ", "#DomFactionPower ", "#DomLandRow ", "#DomLand ", "#DomOnlineRow ", "#DomOnline ",
                 "#DomNationRow ", "#DomNation ", "#DomHereRow ", "#DomHereBar ", "#DomHere ", "#DomHereFlags ",
                 "#DomStatusRow ", "#DomStatus ", "#DomSiegeRow ", "#DomSiege ", "#DomShieldRow ", "#DomShield ",
@@ -34,6 +34,27 @@ class HudMarkupTest {
         assertEquals("short", DominionHud.fit("short", 10));
         assertEquals("abcdefg...", DominionHud.fit("abcdefghijklmnop", 10));
         assertEquals("", DominionHud.fit(null, 10));
+    }
+
+    @Test
+    void titleShowsTheBracketedTagAndTheNameInItsOwnCase() {
+        assertArrayEquals(new String[] {"[TST]", "Testers"}, DominionHud.titleParts("TST", "Testers"));
+        assertArrayEquals(new String[] {"", "Testers"}, DominionHud.titleParts(null, "Testers"));
+        String[] longOne = DominionHud.titleParts("ABCD", "A very long faction name here");
+        assertEquals("[ABCD]", longOne[0]);
+        assertTrue(longOne[0].length() + 1 + longOne[1].length() <= 18, longOne[1]);
+        String[] wide = DominionHud.titleParts("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "Name");
+        assertTrue(wide[0].length() <= 12, wide[0]);
+        assertEquals("Name", wide[1]);
+    }
+
+    @Test
+    void titleKeepsItsCaseWhileTheRankStaysUpperCase() {
+        String m = DominionHud.markup("right", 400);
+        String title = m.substring(m.indexOf("Label #DomTitle"), m.indexOf("Label #DomRank"));
+        String rank = m.substring(m.indexOf("Label #DomRank"), m.indexOf("Group #DomHintRow"));
+        assertFalse(title.contains("RenderUppercase"), title);
+        assertTrue(rank.contains("RenderUppercase: true"), rank);
     }
 
     @Test

@@ -60,9 +60,15 @@ public final class DominionHud extends CustomUIHud {
                 Background: #000000(0.5);
                 LayoutMode: Left;
 
+                Label #DomTag {
+                  Visible: false;
+                  Anchor: (Right: 5);
+                  Style: (FontSize: 12, TextColor: #7fd6ff, RenderBold: true, LetterSpacing: 1, VerticalAlignment: Center);
+                }
+
                 Label #DomTitle {
                   FlexWeight: 1;
-                  Style: (FontSize: 12, TextColor: #7fd6ff, RenderUppercase: true, RenderBold: true, LetterSpacing: 1, VerticalAlignment: Center);
+                  Style: (FontSize: 12, TextColor: #d3d6db, RenderBold: true, LetterSpacing: 1, VerticalAlignment: Center);
                 }
 
                 Label #DomRank {
@@ -279,6 +285,7 @@ public final class DominionHud extends CustomUIHud {
 
     private void fillTitle(Values c, Faction f) {
         if (f == null) {
+            c.set("#DomTag.Visible", false);
             c.set("#DomTitle.Text", Messages.get(UiText.HUD_NO_FACTION));
             c.set("#DomTitle.Style.TextColor", Msg.MUTED);
             c.set("#DomRank.Text", "");
@@ -287,8 +294,14 @@ public final class DominionHud extends CustomUIHud {
             return;
         }
         c.set("#DomHintRow.Visible", false);
-        c.set("#DomTitle.Text", fit(f.label(), TITLE_CHARS));
-        c.set("#DomTitle.Style.TextColor", DominionPage.safeColor(f.color(), "#7fd6ff"));
+        // The tag reads like a clan tag in the faction colour, then the name in the text colour.
+        boolean both = f.tagDiffers();
+        String[] title = titleParts(both ? f.tag() : null, both ? f.name() : f.label());
+        c.set("#DomTag.Visible", !title[0].isEmpty());
+        c.set("#DomTag.Text", title[0]);
+        c.set("#DomTag.Style.TextColor", DominionPage.safeColor(f.color(), "#7fd6ff"));
+        c.set("#DomTitle.Text", title[1]);
+        c.set("#DomTitle.Style.TextColor", title[0].isEmpty() ? DominionPage.safeColor(f.color(), "#7fd6ff") : Msg.TEXT);
         Rank rank = f.rankOf(getPlayerRef().getUuid());
         c.set("#DomRank.Text", rank == null ? "" : fit(f.rankName(rank), RANK_CHARS));
     }
@@ -396,6 +409,23 @@ public final class DominionHud extends CustomUIHud {
         c.set("#DomStatus.Style.TextColor", statusColor(color));
         c.set("#DomStatusRow.Visible", !text.isEmpty());
         return grace;
+    }
+
+    /**
+     * The sidebar title as a bracketed tag and a name that share the title budget. A null tag gives an
+     * empty tag piece and the whole budget to the name. A long tag keeps room for a few name characters.
+     */
+    static String[] titleParts(String tag, String name) {
+        if (tag == null || tag.isBlank()) {
+            return new String[] {"", fit(name, TITLE_CHARS)};
+        }
+        String t = tag.trim();
+        int nameRoom = 6;
+        if (t.length() + 2 > TITLE_CHARS - nameRoom) {
+            t = fit(t, TITLE_CHARS - nameRoom - 2);
+        }
+        String piece = Faction.bracketed(t);
+        return new String[] {piece, fit(name, TITLE_CHARS - piece.length() - 1)};
     }
 
     /** Shortens text to a character budget so it never runs past the sidebar edge. */
