@@ -12,7 +12,7 @@ class AnnouncementsTest {
         assertEquals("ABC", Announcements.label("ABC", "ABC"));
         assertEquals("ABC", Announcements.label("ABC", " "));
         assertEquals("ABC", Announcements.label("ABC", null));
-        assertEquals("ABC  The Alphas", Announcements.label("ABC", " The Alphas "));
+        assertEquals("[ABC] The Alphas", Announcements.label("ABC", " The Alphas "));
         assertEquals("Test", Announcements.label("test", "Test"), "a tag that repeats the name in another case shows once");
     }
 

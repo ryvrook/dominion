@@ -26,7 +26,7 @@ class LabelTest {
     @Test
     void factionLabelKeepsADifferentTag() {
         Faction f = faction("RED", "Red Legion");
-        assertEquals("RED  Red Legion", f.label());
+        assertEquals("[RED] Red Legion", f.label());
         assertTrue(f.tagDiffers());
     }
 
@@ -45,17 +45,24 @@ class LabelTest {
         Faction f = faction("abc", "abc");
         assertEquals("abc", f.label());
         f.setName("Alpha");
-        assertEquals("abc  Alpha", f.label());
+        assertEquals("[abc] Alpha", f.label());
     }
 
     @Test
     void nationLabelUsesTheSameRule() {
         assertEquals("north", nation("north", "north").label());
-        assertEquals("NO  Northern Pact", nation("NO", "Northern Pact").label());
+        assertEquals("[NO] Northern Pact", nation("NO", "Northern Pact").label());
         assertTrue(nation("NO", "Northern Pact").tagDiffers());
         Nation n = nation("NO", "No");
         assertEquals("No", n.label());
         n.setName("");
         assertEquals("NO", n.label());
+    }
+
+    @Test
+    void bracketedWrapsTheTrimmedTag() {
+        assertEquals("[TST]", Faction.bracketed(" TST "));
+        assertEquals("[TST] Testers", Faction.label("TST", "Testers"));
+        assertEquals("Testers", Faction.label("TESTERS", "Testers"));
     }
 }

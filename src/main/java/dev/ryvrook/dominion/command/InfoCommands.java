@@ -351,7 +351,7 @@ final class InfoCommands extends Section {
             kills += m.kills();
             deaths += m.deaths();
         }
-        c.send(Message.join(Msg.prefix(), Msg.colored(f.tag(), f.color()).bold(true), Msg.colored("  " + Messages.get(CommandText.STATS_TITLE), Msg.TEXT)));
+        c.send(Message.join(Msg.prefix(), Msg.colored(Faction.bracketed(f.tag()), f.color()).bold(true), Msg.colored(" " + Messages.get(CommandText.STATS_TITLE), Msg.TEXT)));
         c.send(Msg.colored(" " + Messages.get(CommandText.STATS_KILLS, "kills", kills, "deaths", deaths), Msg.TEXT));
         ProgressService progress = ctx.serviceOrNull(ProgressService.class);
         if (progress == null) {

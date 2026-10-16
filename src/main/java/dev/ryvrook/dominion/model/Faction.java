@@ -86,12 +86,20 @@ public final class Faction {
     /** True when the tag adds something next to the name, so a separate tag element is worth drawing. */
     public synchronized boolean tagDiffers() { return tagDiffers(tag, name); }
 
-    /** The shared label rule for factions and nations. */
+    /**
+     * The shared label rule for factions and nations. A tag that adds something reads like a clan tag,
+     * in brackets before the name. A tag that repeats the name is left out, and a blank name falls back to the tag.
+     */
     public static String label(String tag, String name) {
         String t = tag == null ? "" : tag.trim();
         String n = name == null ? "" : name.trim();
         if (n.isEmpty()) return t;
-        return tagDiffers(t, n) ? t + "  " + n : n;
+        return tagDiffers(t, n) ? bracketed(t) + " " + n : n;
+    }
+
+    /** The tag in clan tag brackets, the one form chat, panels, the sidebar and the map all share. */
+    public static String bracketed(String tag) {
+        return "[" + (tag == null ? "" : tag.trim()) + "]";
     }
 
     /** False when the tag is blank, the name is blank or both read the same ignoring case. */

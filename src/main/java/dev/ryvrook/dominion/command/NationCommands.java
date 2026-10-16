@@ -140,7 +140,7 @@ final class NationCommands extends Section {
     private void show(Call c, Nation n) {
         String color = n.color() != null && n.color().matches("#[0-9a-fA-F]{6}") ? n.color() : Msg.GOLD;
         c.send(n.tagDiffers()
-                ? Message.join(Msg.prefix(), Msg.colored(n.tag(), color).bold(true), Msg.colored("  " + n.name(), Msg.TEXT))
+                ? Message.join(Msg.prefix(), Msg.colored(Faction.bracketed(n.tag()), color).bold(true), Msg.colored(" " + n.name(), Msg.TEXT))
                 : Message.join(Msg.prefix(), Msg.colored(n.label(), color).bold(true)));
         Faction leader = n.leaderFaction() == null ? null : factions().byId(n.leaderFaction());
         c.send(Msg.muted(" " + Messages.get(CommandText.NATION_LED_BY, "leader", leader == null ? Messages.get(CommandText.NOBODY) : leader.tag(), "date", Time.date(n.createdAt()))));

@@ -129,12 +129,14 @@ public final class DominionPanel extends DominionPage {
         }
         PowerService power = ctx.service(PowerService.class);
         Rank rank = f.rankOf(uuid());
-        // When the tag only repeats the name, the large coloured label carries the name and the
-        // second label stays empty but keeps its flex space so the power and rank columns stay put.
+        // The tag reads like a clan tag in the faction colour, then the name in the text colour.
+        // When the tag only repeats the name it is hidden, and the name keeps its flex space so the
+        // power and rank columns stay put.
         boolean both = f.tagDiffers();
-        commands.set("#HeaderTag.Text", both ? f.tag() : f.label());
+        commands.set("#HeaderTag.Visible", both);
+        commands.set("#HeaderTag.Text", both ? Faction.bracketed(f.tag()) : "");
         commands.set("#HeaderTag.Style.TextColor", safeColor(f.color(), "#7fd6ff"));
-        commands.set("#HeaderName.Text", both ? f.name() : "");
+        commands.set("#HeaderName.Text", both ? f.name() : f.label());
         commands.set("#HeaderPower.Text", Messages.get(UiText.POWER_OF_MAX,
                 "power", Msg.number(power.factionPower(f)), "max", Msg.number(power.factionMaxPower(f))));
         commands.set("#HeaderRank.Text", f.rankName(rank == null ? Rank.MEMBER : rank));
