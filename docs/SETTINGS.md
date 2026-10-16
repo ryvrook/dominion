@@ -1,6 +1,6 @@
 # Dominion settings
 
-Every key in `config.json`, generated from `config/Defaults.java`. There are 258 keys in 21 sections. Change them with `/fa set`, `/fa config` or the settings page, or edit the file and run `/fa reload`. A test fails when this file and the defaults disagree, so after adding a key run `DOMINION_WRITE_DOCS=1 ./gradlew test` to write it again.
+Every key in `config.json`, generated from `config/Defaults.java`. There are 259 keys in 21 sections. Change them with `/fa set`, `/fa config` or the settings page, or edit the file and run `/fa reload`. A test fails when this file and the defaults disagree, so after adding a key run `DOMINION_WRITE_DOCS=1 ./gradlew test` to write it again.
 
 ## Factions
 

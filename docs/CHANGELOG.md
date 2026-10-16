@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.2 - 2026-10-16
 
 ### Changed
 - Faction and nation tags read like clan tags. Labels show `[TST] Testers` in chat, on the panel, the sidebar, the territory title and the map, and the tag is left out when it only repeats the name.

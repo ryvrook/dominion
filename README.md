@@ -14,7 +14,7 @@ Feats and Atlas are optional.
 
 ## Install
 
-Drop `DominionFactions-0.6.1.jar` into the server's `mods` folder, or `UserData/Mods` for a singleplayer
+Drop `DominionFactions-0.6.2.jar` into the server's `mods` folder, or `UserData/Mods` for a singleplayer
 world, and start the server. Dominion writes `config.json` with every setting and logs
 `Dominion started with 23 modules`. A singleplayer world gets the singleplayer preset on first run, which turns
 off raiding, sieges, shields, events and power loss.
@@ -99,7 +99,7 @@ and the Help tab of the panel bring it back, `misc.tutorial` turns the first joi
 
 ## Settings
 
-`config.json` sits in the data folder. There are 258 keys grouped into
+`config.json` sits in the data folder. There are 259 keys grouped into
 Factions, Power, Land, Raiding, Relations, Combat, Homes, Chat, Economy, Market, Sieges, Shields, Events, Progression, Storage, Map, Integrations, Commands, Interface, Colours and Permissions. Every key is listed with its default, limits and description in
 [docs/SETTINGS.md](docs/SETTINGS.md), which is generated from `config/Defaults.java`. You rarely need the file.
 `/fa settings` has a tab per group and applies changes live. `/fa set` and `/fa get` work from the console.
@@ -211,7 +211,7 @@ cd dominion-factions
 ./gradlew installMod     # also copies the jar to your local Mods folder, -PmodsDir=<path> for elsewhere
 ```
 
-The jar lands in `build/libs/DominionFactions-0.6.1.jar`. `-Phytale_channel` and `-Phytale_version` pick
+The jar lands in `build/libs/DominionFactions-0.6.2.jar`. `-Phytale_channel` and `-Phytale_version` pick
 another server artifact. Each feature is a `DominionModule` loaded by name from `Wiring.MODULES`, and
 `DominionApi.get()` is the read API for other mods. [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) has the conventions.
 Read it before a pull request, keep changes inside one module, and say which server version you tested on.
