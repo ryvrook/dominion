@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.7.1 - 2026-10-16
+
+### With the other mods
+- Fifteen more counters per player go to TrackerAPI and Feats under `dominion:`, read by the 14 feats Feats 1.7.2
+  adds: `joined`, `kicked`, `wars_declared`, `alliances`, `upgrades`, `upgrade_level_max`, `market_trades`,
+  `foreign_entries`, `sieges_defended`, `breaches`, `hill_wins`, `outposts_held`, `power_max`, `rank_changes` and
+  `tutorial_done`. War, alliance, upgrade, breach, hill and outpost credit goes to every member, online or not.
+  Foreign entries count each faction once, `upgrade_level_max` only rises, and `power_max` and `tutorial_done` are
+  sent once. `rank_changes` is listed and never sent, since the rank log line does not name the member by id.
+- A Feats older than 1.7.2 keeps only the original ten counters, so only those are sent to it.
+- TrackerAPI gets a leaderboard for every counter that can grow past one.
+
+### For admins
+- Player records keep the counter memories under `Counters` in the player file.
+
 ## 0.7.0 - 2026-10-16
 
 ### For admins

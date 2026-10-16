@@ -71,7 +71,8 @@ class BusCountersTest {
     void foundingInvitingClaimingAndReleasing() {
         UUID ann = fx.player("Ann");
         ok(fs.create(ann, "Ann", "Wolf", null));
-        assertEquals(List.of("Ann dominion:factions_founded 1"), counted);
+        assertEquals(List.of("Ann dominion:factions_founded 1", "Ann dominion:joined 1"), counted,
+                "founding publishes a join for the founder");
         counted.clear();
 
         UUID bo = fx.player("Bo");
@@ -155,5 +156,69 @@ class BusCountersTest {
         assertEquals(List.of(new StatMapper.Credit(p, StatKeys.BANK_DEPOSITED, 1)),
                 StatMapper.credits(new dev.ryvrook.dominion.api.DominionEvent.BankDeposited(a.id(), p, 151.5), facts),
                 "the net never goes below zero, so only coins past what was credited count");
+    }
+
+    @Test
+    void upgradeLevelFollowsThePlayerAcrossFactions() {
+        Faction a = fx.faction("Alpha");
+        Faction b = fx.faction("Beta");
+        UUID p = a.leader();
+        ContextFacts facts = new ContextFacts(fx.ctx);
+        assertEquals(2, facts.upgradeLevelCredit(p, 2));
+        assertEquals(0, facts.upgradeLevelCredit(p, 2), "the same level again");
+        assertEquals(1, facts.upgradeLevelCredit(p, 3));
+        assertEquals(0, facts.upgradeLevelCredit(p, 1), "a lower level of another upgrade");
+        assertEquals(0, facts.upgradeLevelCredit(b.leader(), 0));
+        assertEquals(3, fx.ctx.player(p).counter(ContextFacts.UPGRADE_LEVEL), "remembered on the player, not the faction");
+        var bought = new dev.ryvrook.dominion.api.DominionEvent.UpgradeBought(a.id(), "maxpower", 4);
+        assertEquals(List.of(new StatMapper.Credit(p, StatKeys.UPGRADES, 1), new StatMapper.Credit(p, StatKeys.UPGRADE_LEVEL_MAX, 1)),
+                StatMapper.credits(bought, facts));
+    }
+
+    @Test
+    void foreignEntriesSkipSystemFactionsAndStopAtTheCap() {
+        Faction a = fx.faction("Alpha");
+        Faction safe = fx.faction("Safe");
+        safe.setType(dev.ryvrook.dominion.model.FactionType.SAFEZONE);
+        UUID p = fx.player("Ann");
+        ContextFacts facts = new ContextFacts(fx.ctx);
+        assertTrue(facts.firstVisit(p, a.id()));
+        assertFalse(facts.firstVisit(p, a.id()), "the same faction again");
+        assertFalse(facts.firstVisit(p, safe.id()), "the safe zone is not a foreign faction");
+        assertFalse(facts.firstVisit(p, UUID.randomUUID()), "a faction that no longer exists");
+        assertFalse(facts.firstVisit(null, a.id()));
+        for (int i = 1; i < ContextFacts.FOREIGN_CAP; i++) {
+            assertTrue(facts.firstVisit(p, fx.faction("F" + i).id()), "faction " + i);
+        }
+        assertFalse(facts.firstVisit(p, fx.faction("Late").id()), "the memory is full");
+        assertEquals(ContextFacts.FOREIGN_CAP, fx.ctx.player(p).counterCount(ContextFacts.FOREIGN));
+        var enter = new dev.ryvrook.dominion.api.DominionEvent.PlayerEnteredTerritory(a.leader(), W, null, safe.id());
+        assertTrue(StatMapper.credits(enter, facts).isEmpty());
+    }
+
+    @Test
+    void powerMaxReadsTheServiceAndCreditsOnce() {
+        Faction a = fx.faction("Alpha");
+        UUID p = a.leader();
+        ContextFacts facts = new ContextFacts(fx.ctx);
+        double max = fx.ctx.service(PowerService.class).maxPowerOf(p);
+        assertEquals(max, facts.maxPower(p));
+        assertTrue(StatMapper.credits(new dev.ryvrook.dominion.api.DominionEvent.PowerChanged(p, max - 1), facts).isEmpty());
+        assertEquals(List.of(new StatMapper.Credit(p, StatKeys.POWER_MAX, 1)),
+                StatMapper.credits(new dev.ryvrook.dominion.api.DominionEvent.PowerChanged(p, max), facts));
+        assertTrue(StatMapper.credits(new dev.ryvrook.dominion.api.DominionEvent.PowerChanged(p, max), facts).isEmpty(), "once");
+        assertEquals(1, fx.ctx.player(p).counter(ContextFacts.POWER_MAX));
+    }
+
+    @Test
+    void aBreachIsOneEventPerChunkButOneCredit() {
+        Faction a = fx.faction("Alpha");
+        Faction b = fx.faction("Beta");
+        ContextFacts facts = new ContextFacts(fx.ctx);
+        var first = new dev.ryvrook.dominion.api.DominionEvent.BreachChanged(W, 1L, a.id(), b.id(), true);
+        var second = new dev.ryvrook.dominion.api.DominionEvent.BreachChanged(W, 2L, a.id(), b.id(), true);
+        assertEquals(List.of(new StatMapper.Credit(a.leader(), StatKeys.BREACHES, 1)), StatMapper.credits(first, facts));
+        assertTrue(StatMapper.credits(second, facts).isEmpty(), "the neighbour chunk of the same breach");
+        assertTrue(facts.newBreach(b.id(), a.id()), "the other direction is its own breach");
     }
 }

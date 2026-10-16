@@ -219,7 +219,8 @@ dependency through the plugin bridge loader, so the bridges can name the sibling
 - Counters. `StatFanout` is one bus listener. It maps each `DominionEvent` with `StatMapper` (pure, facts behind the
   `StatMapper.Facts` interface) and hands the credits to every linked `StatSink`, which is `Counters.add` for
   TrackerAPI and `FeatsApi.addStat` for Feats. TrackerAPI accepts keys under another plugin's own prefix, so every key
-  is `dominion:<name>`, listed in `StatKeys`, and TrackerAPI is asked for a leaderboard of all ten. Claims and unclaims read the actor and the
+  is `dominion:<name>`, listed in `StatKeys`, and TrackerAPI is asked for a leaderboard of every key but the two that
+  stop at one (`StatKeys.BOARDS`). Claims and unclaims read the actor and the
   `counts` flag that `ClaimChanged` carries (false for admin moves, decay and any chunk the faction released within
   the seven day mission window, so a chunk claimed, released and claimed again counts once each way), and kills, deposits and invites from the `PlayerDied`,
   `BankDeposited` and `MemberInvited` events. An invite counts once per invited player and faction. A deposit counts
@@ -227,6 +228,23 @@ dependency through the plugin bridge loader, so the bridges can name the sibling
   below zero, less what was already credited, so a deposit and withdraw loop counts once. `ContextFacts` keeps both
   memories in the faction stats under `counter.`, which `/f stats` leaves out. Siege and mission credit goes to every
   member, online or not, TrackerAPI and Feats queue it for offline players.
+- The 0.7.1 keys. `joined` reads `MemberJoined`, `kicked` reads `MemberLeft` with reason `kick` or `ban`,
+  `wars_declared` credits the members of the first faction of a `RelationChanged` to `ENEMY` (the relation service
+  publishes the faction that declared first), `alliances` credits both factions of an `ALLY` change, `upgrades` and
+  `upgrade_level_max` read `UpgradeBought` for every member, `market_trades` credits the buyer and the seller of a
+  `MarketTrade`, `foreign_entries` reads `PlayerEnteredTerritory` into land of another, non system faction,
+  `sieges_defended` reads `SiegePhase` `DEFENDED` for the defender, `breaches` reads `BreachChanged` with
+  `breached` true for the attacker, `hill_wins` reads `GameEvent` kind `koth` phase `captured`, `outposts_held` reads
+  kind `outpost` phase `captured`, both for the faction the event names, and `power_max` reads `PowerChanged` at or
+  above `PowerService.maxPowerOf`. `tutorial_done` has no event, `TutorialCredit.finished` sets the flag and sends
+  the credit through `StatFanout.credit`, which is why the fanout is registered as a service. `rank_changes` is listed
+  and never sent, because `AuditLogged` carries the actor and names the member in text only. Feats and TrackerAPI
+  only add, so `upgrade_level_max` is sent as the difference from the highest level the player was credited, and
+  that memory, the once per faction foreign entry memory (capped at 128 factions) and the power maximum flag live
+  on `PlayerData` under `Counters`, since they follow the player across factions. The siege service publishes one
+  `BreachChanged` per breached chunk, so `ContextFacts` counts events of the same attacker and defender within ten
+  seconds as one breach. `FeatsBridge.keeps` holds the new keys back from a Feats older than 1.7.2, which would log
+  a warning a minute for a key it does not keep.
 - Gather missions from TrackerAPI. While TrackerAPI is bound and tracks `block_broken`, `block_placed`,
   `item_picked_up` and `item_dropped`, the bridge subscribes to those four kinds (ASYNC) and hands them to
   `progress.GatherFeed`, and Dominion's own four `GatherSystems` return at once. The systems stay registered, so a

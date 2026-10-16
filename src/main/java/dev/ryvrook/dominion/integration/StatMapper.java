@@ -56,6 +56,42 @@ public final class StatMapper {
         /** Takes a withdrawal off the player's net deposits today. */
         default void withdrew(UUID factionId, UUID player, double amount) {
         }
+
+        /**
+         * How much of an upgrade level is new to the player, the level less the highest level the player was credited
+         * for in any faction, and zero when this level is not higher. Remembers the level. The default credits the
+         * whole level.
+         */
+        default long upgradeLevelCredit(UUID player, int level) {
+            return level;
+        }
+
+        /**
+         * True the first time the player enters land of this faction, false for a faction already entered, a system
+         * faction such as the safe zone, and once the memory is full. The default answers true.
+         */
+        default boolean firstVisit(UUID player, UUID factionId) {
+            return true;
+        }
+
+        /** The player's power maximum. The default is infinite, so facts without the power service credit nothing. */
+        default double maxPower(UUID player) {
+            return Double.POSITIVE_INFINITY;
+        }
+
+        /** True the first time the player's power is reported at the maximum. The default answers true. */
+        default boolean firstPowerMax(UUID player) {
+            return true;
+        }
+
+        /**
+         * True when this breach is new. The siege service publishes one BreachChanged per breached chunk, so a breach
+         * of the same attacker against the same defender within a few seconds is the same breach. The default answers
+         * true.
+         */
+        default boolean newBreach(UUID attacker, UUID defender) {
+            return true;
+        }
     }
 
     public static List<Credit> credits(DominionEvent event, Facts facts) {
@@ -104,9 +140,102 @@ public final class StatMapper {
                     out.add(new Credit(i.actor(), StatKeys.INVITES, 1));
                 }
             }
+            case DominionEvent.MemberJoined j -> {
+                if (j.player() != null) {
+                    out.add(new Credit(j.player(), StatKeys.JOINED, 1));
+                }
+            }
+            case DominionEvent.MemberLeft l -> {
+                // A kick by a member or an admin, with or without a ban. Leaving, inactivity, a disband and the
+                // roster rotation are not kicks.
+                if (l.player() != null && ("kick".equals(l.reason()) || "ban".equals(l.reason()))) {
+                    out.add(new Credit(l.player(), StatKeys.KICKED, 1));
+                }
+            }
+            case DominionEvent.RelationChanged r -> relation(r, facts, out);
+            case DominionEvent.UpgradeBought u -> {
+                for (UUID member : facts.members(u.factionId())) {
+                    out.add(new Credit(member, StatKeys.UPGRADES, 1));
+                    long raise = u.level() <= 0 ? 0 : facts.upgradeLevelCredit(member, u.level());
+                    if (raise > 0) {
+                        out.add(new Credit(member, StatKeys.UPGRADE_LEVEL_MAX, raise));
+                    }
+                }
+            }
+            case DominionEvent.MarketTrade t -> {
+                if (t.buyer() != null) {
+                    out.add(new Credit(t.buyer(), StatKeys.MARKET_TRADES, 1));
+                }
+                if (t.seller() != null && !t.seller().equals(t.buyer())) {
+                    out.add(new Credit(t.seller(), StatKeys.MARKET_TRADES, 1));
+                }
+            }
+            case DominionEvent.PlayerEnteredTerritory e -> {
+                // Land of another faction, once per faction. Wilderness and the player's own land are not entries.
+                if (e.player() != null && e.toFaction() != null && !facts.isMember(e.toFaction(), e.player())
+                        && facts.firstVisit(e.player(), e.toFaction())) {
+                    out.add(new Credit(e.player(), StatKeys.FOREIGN_ENTRIES, 1));
+                }
+            }
+            case DominionEvent.BreachChanged b -> {
+                if (b.breached() && b.attacker() != null && facts.newBreach(b.attacker(), b.defender())) {
+                    for (UUID member : facts.members(b.attacker())) {
+                        out.add(new Credit(member, StatKeys.BREACHES, 1));
+                    }
+                }
+            }
+            case DominionEvent.GameEvent g -> game(g, facts, out);
+            case DominionEvent.PowerChanged p -> {
+                if (p.player() != null && p.power() + 1e-9 >= facts.maxPower(p.player()) && facts.firstPowerMax(p.player())) {
+                    out.add(new Credit(p.player(), StatKeys.POWER_MAX, 1));
+                }
+            }
             default -> { }
         }
         return out;
+    }
+
+    /**
+     * A war credits the members of the faction that declared it, which the relation service publishes first. An
+     * alliance credits both sides, since both agreed. Truce and neutral credit nobody.
+     */
+    private static void relation(DominionEvent.RelationChanged r, Facts facts, List<Credit> out) {
+        if ("ENEMY".equals(r.relation())) {
+            for (UUID member : facts.members(r.a())) {
+                out.add(new Credit(member, StatKeys.WARS_DECLARED, 1));
+            }
+        } else if ("ALLY".equals(r.relation())) {
+            for (UUID member : facts.members(r.a())) {
+                out.add(new Credit(member, StatKeys.ALLIANCES, 1));
+            }
+            if (r.b() != null && !r.b().equals(r.a())) {
+                for (UUID member : facts.members(r.b())) {
+                    out.add(new Credit(member, StatKeys.ALLIANCES, 1));
+                }
+            }
+        }
+    }
+
+    /**
+     * The events service publishes a koth event with phase captured and the capturing faction when a hill is won,
+     * and an outpost event with phase captured and the winner when an outpost changes hands. Started, stopped,
+     * envoy, bounty and season events name no winning faction and credit nobody.
+     */
+    private static void game(DominionEvent.GameEvent g, Facts facts, List<Credit> out) {
+        if (g.faction() == null || !"captured".equals(g.phase())) {
+            return;
+        }
+        String key;
+        if ("koth".equals(g.kind())) {
+            key = StatKeys.HILL_WINS;
+        } else if ("outpost".equals(g.kind())) {
+            key = StatKeys.OUTPOSTS_HELD;
+        } else {
+            return;
+        }
+        for (UUID member : facts.members(g.faction())) {
+            out.add(new Credit(member, key, 1));
+        }
     }
 
     private static void died(DominionEvent.PlayerDied d, Facts facts, List<Credit> out) {
@@ -124,7 +253,7 @@ public final class StatMapper {
 
     /**
      * A siege that expired after a breach is won by the attackers, one the defenders held off is won by the
-     * defenders. A failed or cancelled siege credits nobody.
+     * defenders, who also get a defence. A failed or cancelled siege credits nobody.
      */
     private static void siege(DominionEvent.SiegePhase p, Facts facts, List<Credit> out) {
         UUID winner;
@@ -146,6 +275,11 @@ public final class StatMapper {
         if (loser != null) {
             for (UUID member : facts.members(loser)) {
                 out.add(new Credit(member, StatKeys.SIEGES_LOST, 1));
+            }
+        }
+        if (winner != null && winner.equals(p.defender())) {
+            for (UUID member : facts.members(winner)) {
+                out.add(new Credit(member, StatKeys.SIEGES_DEFENDED, 1));
             }
         }
     }

@@ -5,7 +5,9 @@ import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.integration.Host;
 import dev.ryvrook.dominion.integration.IntegrationText;
 import dev.ryvrook.dominion.integration.Link;
+import dev.ryvrook.dominion.integration.StatKeys;
 import dev.ryvrook.dominion.integration.StatSink;
+import dev.ryvrook.dominion.integration.VersionCompare;
 import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.service.ChatService;
 import dev.ryvrook.dominion.service.FactionService;
@@ -28,6 +30,8 @@ import java.util.function.Consumer;
  */
 public final class FeatsBridge implements Link, StatSink {
     static final String ANNOUNCE = "integrations.featsAnnounce";
+    /** The first Feats that keeps the keys added in Dominion 0.7.1. An older Feats gets the original ten only. */
+    static final String ALL_KEYS_SINCE = "1.7.2";
 
     private final Host host;
     private volatile FeatsApi api;
@@ -75,7 +79,7 @@ public final class FeatsBridge implements Link, StatSink {
     @Override
     public void add(UUID player, String key, long amount) {
         FeatsApi a = api;
-        if (stopped || a == null || player == null || amount <= 0) {
+        if (stopped || a == null || player == null || amount <= 0 || !keeps(host.foundVersion(), key)) {
             return;
         }
         try {
@@ -86,6 +90,16 @@ public final class FeatsBridge implements Link, StatSink {
                 host.warn(e, "Feats refused a Dominion counter, later failures are not logged");
             }
         }
+    }
+
+    /**
+     * True when a Feats of this version keeps the key. Feats logs a warning once a minute for a key it does not
+     * keep, so the keys added in 0.7.1 are held back from a Feats older than {@link #ALL_KEYS_SINCE}. A version
+     * the plugin manager did not report counts as new enough.
+     */
+    static boolean keeps(String featsVersion, String key) {
+        return featsVersion == null || featsVersion.isBlank() || !VersionCompare.below(featsVersion, ALL_KEYS_SINCE)
+                || StatKeys.ORIGINAL.contains(key);
     }
 
     /**

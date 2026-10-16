@@ -121,9 +121,14 @@ class ModelRoundTripTest {
         p.setMapHidden(true);
         p.addKill();
         p.addDeath();
+        p.setCounter("upgradeLevel", 3);
+        p.setCounter("foreign." + UUID.randomUUID(), 1);
         PlayerData back = roundTrip("player", p.toDocument(), d -> PlayerData.fromDocument(id, d), PlayerData::toDocument);
         assertEquals(PlayerData.Channel.OFFICER, back.channel());
         assertTrue(back.mapHidden());
+        assertEquals(3, back.counter("upgradeLevel"));
+        assertEquals(1, back.counterCount("foreign."));
+        assertEquals(0, back.counter("powerMax"));
     }
 
     @Test

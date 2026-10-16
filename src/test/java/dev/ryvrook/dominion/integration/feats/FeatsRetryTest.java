@@ -1,5 +1,6 @@
 package dev.ryvrook.dominion.integration.feats;
 
+import dev.ryvrook.dominion.integration.StatKeys;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -31,5 +32,18 @@ class FeatsRetryTest {
         assertEquals("same", linked.get());
         assertFalse(FeatsBridge.once(same, () -> null, a -> false, a -> linked.set("relinked")), "no Feats running");
         assertEquals("same", linked.get());
+    }
+
+    @Test
+    void anOlderFeatsGetsOnlyTheOriginalTenKeys() {
+        assertTrue(FeatsBridge.keeps("1.7.2", StatKeys.JOINED));
+        assertTrue(FeatsBridge.keeps("1.8.0", StatKeys.TUTORIAL_DONE));
+        assertTrue(FeatsBridge.keeps(null, StatKeys.JOINED), "an unknown version is taken as new enough");
+        assertTrue(FeatsBridge.keeps("1.7.0", StatKeys.CLAIMS));
+        assertFalse(FeatsBridge.keeps("1.7.0", StatKeys.JOINED));
+        assertFalse(FeatsBridge.keeps("1.5.1", StatKeys.POWER_MAX));
+        for (String key : StatKeys.ALL) {
+            assertEquals(StatKeys.ORIGINAL.contains(key), FeatsBridge.keeps("1.6.0", key), key);
+        }
     }
 }

@@ -136,16 +136,22 @@ Coinage are listed as optional dependencies so they load first. Each link has a 
 with `auto` (link when installed and new enough, the default), `always` or `never`, read at start.
 `/fa integrations` shows each as bound, missing or off.
 
-**TrackerAPI** 1.0.0 or newer. Dominion publishes ten counters per player, `dominion:claims`, `unclaims`,
-`enemy_kills`, `enemy_land_deaths`, `sieges_won`, `sieges_lost`, `missions`, `bank_deposited`,
-`factions_founded` and `invites`, each with a TrackerAPI leaderboard. Siege and mission credit goes to every
-member, online or not. A chunk released within seven days counts for neither claim nor unclaim, invites count once
-per player and faction, and bank deposits count net per day, so loops do not farm them. With TrackerAPI tracking
-blocks and items, the mine, chop, farm and fish missions count from its events, and Dominion's own systems take
-over again within 5 seconds if it stops.
+**TrackerAPI** 1.0.0 or newer. Dominion publishes 25 counters per player under `dominion:`. The original ten are
+`claims`, `unclaims`, `enemy_kills`, `enemy_land_deaths`, `sieges_won`, `sieges_lost`, `missions`,
+`bank_deposited`, `factions_founded` and `invites`. Since 0.7.1 there are also `joined`, `kicked`,
+`wars_declared`, `alliances`, `upgrades`, `upgrade_level_max`, `market_trades`, `foreign_entries`,
+`sieges_defended`, `breaches`, `hill_wins`, `outposts_held`, `power_max`, `rank_changes` and `tutorial_done`.
+Every counter that can grow past one has a TrackerAPI leaderboard. Siege, mission, war, alliance, upgrade, breach,
+hill and outpost credit goes to every member, online or not. A chunk released within seven days counts for neither
+claim nor unclaim, invites and foreign entries count once per player and faction, bank deposits count net per day
+and `upgrade_level_max` only ever rises, so loops do not farm them. `rank_changes` is listed but never sent,
+because the rank log line does not name the member by id. With TrackerAPI tracking blocks and items, the mine,
+chop, farm and fish missions count from its events, and Dominion's own systems take over again within 5 seconds if
+it stops.
 
-**Feats** 1.5.0 or newer. The same counters go into Feats, where 15 faction feats read them, and every feat a
-player unlocks is posted to their faction chat (`integrations.featsAnnounce`).
+**Feats** 1.5.0 or newer. The same counters go into Feats, where 29 faction feats read them, and every feat a
+player unlocks is posted to their faction chat (`integrations.featsAnnounce`). A Feats older than 1.7.2 keeps only
+the original ten counters, so Dominion sends it only those.
 
 **Atlas** 1.6.0 or newer. Atlas reads `export/snapshot.json` for territories, factions, nations, sieges and
 events whether or not it is linked. The link adds `/f map hide` on the map and a live sieges layer while

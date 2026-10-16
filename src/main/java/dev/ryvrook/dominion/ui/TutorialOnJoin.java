@@ -2,6 +2,7 @@ package dev.ryvrook.dominion.ui;
 
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import dev.ryvrook.dominion.DominionContext;
+import dev.ryvrook.dominion.integration.TutorialCredit;
 import dev.ryvrook.dominion.model.PlayerData;
 
 /**
@@ -24,7 +25,7 @@ final class TutorialOnJoin {
             return;
         }
         PlayerData data = ctx.player(player.getUuid());
-        if (!shouldOpen(data)) {
+        if (!shouldOpen(data, () -> TutorialCredit.finished(ctx, data))) {
             return;
         }
         ui.resumeTutorial(player);
@@ -32,11 +33,16 @@ final class TutorialOnJoin {
 
     /** True when the opener shows the page. Marks a returning faction member as finished instead. */
     static boolean shouldOpen(PlayerData data) {
+        return shouldOpen(data, () -> data.setTutorialFinished(true));
+    }
+
+    /** As above, with the step that marks a returning member as finished, so the opener can credit it. */
+    static boolean shouldOpen(PlayerData data, Runnable finish) {
         if (data.tutorialFinished()) {
             return false;
         }
         if (data.tutorialStep() == null && data.factionId() != null) {
-            data.setTutorialFinished(true);
+            finish.run();
             return false;
         }
         return true;

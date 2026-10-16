@@ -1,7 +1,7 @@
 {
   "Group": "Ryvrook",
   "Name": "Dominion",
-  "Version": "0.7.0",
+  "Version": "0.7.1",
   "Description": "Factions for Hytale. Claims held by power, ranks and permissions, allies and nations, sieges, a faction bank and market, and events, all from a panel opened with /f.",
   "Main": "dev.ryvrook.dominion.DominionPlugin",
   "Authors": [

@@ -12,6 +12,7 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.api.Result;
 import dev.ryvrook.dominion.config.CommandNames;
+import dev.ryvrook.dominion.integration.TutorialCredit;
 import dev.ryvrook.dominion.config.Settings;
 import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.PlayerData;
@@ -526,8 +527,7 @@ public final class TutorialPage extends DominionPage {
                 return true;
             }
             case "skip", "finish" -> {
-                PlayerData data = ctx.player(uuid());
-                data.setTutorialFinished(true);
+                TutorialCredit.finished(ctx, ctx.player(uuid()));
                 if ("skip".equals(e.action)) {
                     Msg.send(player(), Msg.muted(t(UiText.TUTORIAL_SKIPPED)));
                 }

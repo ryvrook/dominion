@@ -2,6 +2,8 @@ package dev.ryvrook.dominion.model;
 
 import org.bson.Document;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 /** Per-player state that is not tied to a faction. Synchronized like Faction. */
@@ -36,6 +38,12 @@ public final class PlayerData {
     private Boolean balanceTouched;
     private int kills;
     private int deaths;
+    /**
+     * Memory of the counters already credited to Feats and TrackerAPI, such as the highest upgrade level credited
+     * and the factions whose land the player entered once. Kept here rather than on the faction because the player
+     * carries it across factions. Saved under Counters.
+     */
+    private final Map<String, Long> counters = new HashMap<>();
     private long combatTagUntil;
     private long lastHomeTeleport;
     private volatile boolean dirty;
@@ -76,7 +84,14 @@ public final class PlayerData {
     }
     /** True once the tutorial was finished or skipped. An older record that saw the old tutorial counts as finished. */
     public synchronized boolean tutorialFinished() { return tutorialFinished != null ? tutorialFinished : tutorialSeen; }
-    public synchronized void setTutorialFinished(boolean b) { tutorialFinished = b; tutorialSeen = tutorialSeen || b; dirty = true; }
+    /** Sets the flag and answers true when it changed, so a finish is credited once. */
+    public synchronized boolean setTutorialFinished(boolean b) {
+        boolean changed = tutorialFinished() != b;
+        tutorialFinished = b;
+        tutorialSeen = tutorialSeen || b;
+        dirty = true;
+        return changed;
+    }
     /** Forgets the tutorial progress so it opens again from the first step on the next join. */
     public synchronized void resetTutorial() { tutorialStep = null; tutorialFinished = Boolean.FALSE; tutorialSeen = false; dirty = true; }
     public synchronized boolean mapHidden() { return mapHidden; }
@@ -91,6 +106,19 @@ public final class PlayerData {
     public synchronized void addKill() { kills++; dirty = true; }
     public synchronized int deaths() { return deaths; }
     public synchronized void addDeath() { deaths++; dirty = true; }
+    /** A counter memory, 0 when it was never set. */
+    public synchronized long counter(String key) { return counters.getOrDefault(key, 0L); }
+    public synchronized void setCounter(String key, long value) { counters.put(key, value); dirty = true; }
+    /** How many counter memories start with the prefix. */
+    public synchronized int counterCount(String prefix) {
+        int n = 0;
+        for (String k : counters.keySet()) {
+            if (k.startsWith(prefix)) {
+                n++;
+            }
+        }
+        return n;
+    }
     public synchronized long combatTagUntil() { return combatTagUntil; }
     public synchronized void setCombatTagUntil(long t) { combatTagUntil = t; }
     public synchronized boolean combatTagged(long now) { return now < combatTagUntil; }
@@ -107,7 +135,8 @@ public final class PlayerData {
                 .append("Alerts", alerts).append("TutorialSeen", tutorialSeen).append("MapHidden", mapHidden)
                 .append("Balance", balance).append("Kills", kills).append("Deaths", deaths)
                 .append("BalanceTouched", balanceTouched)
-                .append("TutorialStep", tutorialStep).append("TutorialFinished", tutorialFinished);
+                .append("TutorialStep", tutorialStep).append("TutorialFinished", tutorialFinished)
+                .append("Counters", counters.isEmpty() ? null : new Document(new HashMap<>(counters)));
     }
 
     public static PlayerData fromDocument(UUID uuid, Document d) {
@@ -135,6 +164,13 @@ public final class PlayerData {
         p.tutorialFinished = d.get("TutorialFinished") instanceof Boolean done ? done : null;
         p.kills = (int) num(d, "Kills");
         p.deaths = (int) num(d, "Deaths");
+        if (d.get("Counters") instanceof Document counters) {
+            for (Map.Entry<String, Object> e : counters.entrySet()) {
+                if (e.getValue() instanceof Number n) {
+                    p.counters.put(e.getKey(), n.longValue());
+                }
+            }
+        }
         p.dirty = false;
         return p;
     }

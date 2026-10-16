@@ -38,6 +38,7 @@ public final class IntegrationModule implements DominionModule {
     public void start(DominionContext ctx) {
         stats = new StatFanout(new ContextFacts(ctx));
         ctx.bus().subscribe(stats);
+        ctx.register(StatFanout.class, stats);
         // integrations.enabled off counts as never for every sibling, so /fa integrations still lists them as off.
         boolean all = ctx.settings().bool("integrations.enabled");
         for (Sibling sibling : Sibling.values()) {
