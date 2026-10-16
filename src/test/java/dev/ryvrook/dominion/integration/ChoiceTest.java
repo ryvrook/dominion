@@ -152,13 +152,27 @@ class ChoiceTest {
         Binding bound = new Binding(Choice.decide(Sibling.ATLAS, Mode.AUTO, found), s -> now.get());
         bound.attach(new FakeLink());
         now.set(MISSING);
-        assertNull(bound.poll(), "gone for one poll can be a reload in progress");
+        assertNull(bound.poll(), "gone for one poll can be a reload in progress, and Atlas 1.6.0 does not reload Dominion");
         now.set(found);
         assertNull(bound.poll(), "back as the same instance, nothing changed");
         now.set(MISSING);
-        assertNull(bound.poll());
-        assertNull(bound.poll());
-        assertTrue(bound.poll().contains("was unloaded"), "gone for three polls in a row");
+        for (int i = 1; i < Binding.ABSENT_POLLS; i++) {
+            assertNull(bound.poll());
+        }
+        assertTrue(bound.poll().contains("was unloaded"), "gone for 30 seconds");
+        assertTrue(bound.warns());
+
+        Presence.Found tracker = new Presence.Found(new Object(), "1.1.0", true);
+        AtomicReference<Presence.Found> tnow = new AtomicReference<>(tracker);
+        Binding reloading = new Binding(Choice.decide(Sibling.TRACKER, Mode.AUTO, tracker), s -> tnow.get());
+        reloading.attach(new FakeLink());
+        tnow.set(MISSING);
+        String info = reloading.poll();
+        assertTrue(info.contains("reloads Dominion by itself"), info);
+        assertFalse(reloading.warns(), "a reload in progress is an INFO line");
+        assertNull(reloading.poll(), "said once");
+        assertTrue(Binding.reloadsDependents(Sibling.FEATS, "1.7.0"));
+        assertFalse(Binding.reloadsDependents(Sibling.ATLAS, "1.7.0"));
 
         AtomicReference<Presence.Found> later = new AtomicReference<>(MISSING);
         Binding missing = new Binding(Choice.decide(Sibling.FEATS, Mode.AUTO, MISSING), s -> later.get());

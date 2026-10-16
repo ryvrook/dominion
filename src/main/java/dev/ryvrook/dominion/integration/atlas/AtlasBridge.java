@@ -40,7 +40,7 @@ import java.util.function.Consumer;
  * names. The layer is redrawn on siege events and when the export switch flips, and removed when Dominion stops.
  *
  * <p>Stop removes the Atlas enable and disable hooks through {@code AtlasApi.removeHooks}, looked up by reflection
- * because Atlas got it late in 1.6.0. On an older build the hooks stay and do nothing once the stopped flag is set.
+ * because Atlas got it in 1.7.0 and Dominion accepts 1.6.0. On an older build the hooks stay and do nothing once the stopped flag is set.
  */
 public final class AtlasBridge implements Link {
     public static final String PLUGIN_ID = "Ryvrook:Dominion";

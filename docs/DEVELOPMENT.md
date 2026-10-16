@@ -208,11 +208,11 @@ dependency through the plugin bridge loader, so the bridges can name the sibling
   gets every class it needs before it sleeps, because after a reload the old plugin loader hands out the new
   instance's classes and the JVM refuses them. A headless run on 2026-10-15 reloaded Feats, Coinage, Atlas, TrackerAPI
   and Dominion in turn and logged "Enabled plugin Ryvrook:Dominion" once for each. A
-  sibling still gone after three polls in a row, 15 seconds, logs one warning, so the gap of a reload in progress stays quiet. `Integrations` is registered as a service under its own
+  sibling that stops logs one INFO line when its version reloads Dominion by itself (TrackerAPI 1.0.3, Coinage 1.1.0, Feats 1.7.0, Atlas 1.8.0), and one warning only when it is still gone after six polls, 30 seconds. `Integrations` is registered as a service under its own
   class and feeds `/fa integrations`.
 - Bridges. `integration.tracker.TrackerBridge`, `integration.feats.FeatsBridge`, `integration.atlas.AtlasBridge` and
   `integration.coinage.CoinageLink` are the only classes that name sibling types. Every call into a sibling is guarded, and stop sets a stopped flag
-  before removing hooks. TrackerAPI and Coinage have `removeHooks`. Atlas got it late in 1.6.0, so the bridge looks it up by reflection.
+  before removing hooks. TrackerAPI and Coinage have `removeHooks`. Atlas got it in 1.7.0 and Dominion accepts 1.6.0, so the bridge looks it up by reflection.
   Feats 1.7.0 and newer have `FeatsApi.onEnable`, `onDisable` and `removeHooks`, and the Feats bridge binds through
   them, guarded by `LinkageError` so an older Feats falls back to linking on install or on a later poll. Feats 1.5.1 answers false from `addStat` on an API object left from before a Feats reload, so on false the
   bridge reads `FeatsApi.get()` again and, when that is a new object, relinks and tries the add once more.

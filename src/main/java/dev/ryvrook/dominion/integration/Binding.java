@@ -20,6 +20,7 @@ final class Binding {
     private volatile String failure;
     private volatile boolean relink;
     private int absentPolls;
+    private volatile boolean warns;
 
     Binding(Choice choice, Presence.Lookup lookup) {
         this.choice = choice;
@@ -85,12 +86,19 @@ final class Binding {
         String name = choice.sibling().pluginName();
         if (now.plugin() == null) {
             // A sibling in the middle of a /plugin reload is gone for a moment, and one that reloads its dependents
-            // brings Dominion back itself. Only a sibling still gone after three polls was really removed.
-            if (++absentPolls < ABSENT_POLLS) {
+            // brings Dominion back itself. Only a sibling still gone after 30 seconds was really removed.
+            absentPolls++;
+            if (absentPolls == 1 && choice.bind() && reloadsDependents(choice.sibling(), choice.found().version())) {
+                warns = false;
+                return name + " stopped, it reloads Dominion by itself in about two seconds once it is back";
+            }
+            if (absentPolls < ABSENT_POLLS) {
                 return null;
             }
             changed = true;
-            return choice.bind() ? name + " was unloaded, so Dominion stopped using it until " + RELOAD + " runs with it back" : null;
+            warns = true;
+            return choice.bind() ? name + " was unloaded 30 seconds ago and is not back, so Dominion stopped using it until "
+                    + RELOAD + " runs with it back" : null;
         }
         absentPolls = 0;
         if (!now.running()) {
@@ -98,19 +106,40 @@ final class Binding {
         }
         changed = true;
         if (VersionCompare.below(now.version(), choice.sibling().minimum())) {
+            warns = true;
             return name + " " + now.version() + " is older than " + choice.sibling().minimum() + " and is not linked";
         }
         if (choice.sibling() == Sibling.TRACKER && !VersionCompare.below(now.version(), TRACKER_RELOADS_DEPENDENTS)) {
             return null;
         }
         relink = true;
+        warns = false;
         return seen == null
                 ? name + " " + now.version() + " was installed after Dominion started, so Dominion reloads to link to it"
                 : name + " was reloaded, so Dominion reloads to link to the new instance";
     }
 
-    /** Polls in a row a bound sibling must be gone before it counts as removed, 15 seconds. */
-    static final int ABSENT_POLLS = 3;
+    /** Polls in a row a bound sibling must be gone before it counts as removed, 30 seconds. */
+    static final int ABSENT_POLLS = 6;
+
+    /** True when the line {@link #poll} returned last is a warning, false for an INFO line. */
+    boolean warns() {
+        return warns;
+    }
+
+    /**
+     * True when this sibling version reloads the plugins that list it after its own reload, so Dominion comes back
+     * without doing anything. TrackerAPI since 1.0.3, Coinage since 1.1.0, Feats since 1.7.0, Atlas since 1.8.0.
+     */
+    static boolean reloadsDependents(Sibling sibling, String version) {
+        String since = switch (sibling) {
+            case TRACKER -> TRACKER_RELOADS_DEPENDENTS;
+            case COINAGE -> "1.1.0";
+            case FEATS -> "1.7.0";
+            case ATLAS -> "1.8.0";
+        };
+        return version != null && !version.isBlank() && !VersionCompare.below(version, since);
+    }
 
     /** The TrackerAPI that reloads its dependents after its own reload or a late start. */
     static final String TRACKER_RELOADS_DEPENDENTS = "1.0.3";

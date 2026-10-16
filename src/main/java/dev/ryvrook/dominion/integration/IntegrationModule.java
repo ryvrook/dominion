@@ -75,7 +75,7 @@ public final class IntegrationModule implements DominionModule {
         for (Binding b : bindings) {
             String line = b.poll();
             if (line != null) {
-                ctx.logger().at(b.relink() ? Level.INFO : Level.WARNING).log("%s", line);
+                ctx.logger().at(b.warns() ? Level.WARNING : Level.INFO).log("%s", line);
             }
             relink |= b.relink();
         }
