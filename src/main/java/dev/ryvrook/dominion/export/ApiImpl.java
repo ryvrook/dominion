@@ -3,11 +3,13 @@ package dev.ryvrook.dominion.export;
 import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.api.DominionApi;
 import dev.ryvrook.dominion.api.EventBus;
+import dev.ryvrook.dominion.api.SiegeInfo;
 import dev.ryvrook.dominion.api.TerritoryProvider;
 import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.FactionAction;
 import dev.ryvrook.dominion.model.FactionType;
 import dev.ryvrook.dominion.model.Relation;
+import dev.ryvrook.dominion.model.Siege;
 import dev.ryvrook.dominion.service.ClaimService;
 import dev.ryvrook.dominion.service.EventsService;
 import dev.ryvrook.dominion.service.FactionService;
@@ -15,10 +17,12 @@ import dev.ryvrook.dominion.service.PowerService;
 import dev.ryvrook.dominion.service.ProgressService;
 import dev.ryvrook.dominion.service.RelationService;
 import dev.ryvrook.dominion.service.RulesService;
+import dev.ryvrook.dominion.service.SiegeService;
 import dev.ryvrook.dominion.util.Keys;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Locale;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -127,5 +131,63 @@ public final class ApiImpl implements DominionApi {
     @Override
     public EventBus events() {
         return ctx.bus();
+    }
+
+    // ---- factions and sieges, API version 2 ----------------------------------
+
+    @Override
+    public List<Faction> factions() {
+        List<Faction> list = new ArrayList<>(ctx.repo().factions());
+        list.sort(Comparator.comparing((Faction f) -> f.tag() == null ? "" : f.tag().toLowerCase(Locale.ROOT)));
+        return list;
+    }
+
+    @Override
+    public Optional<Faction> factionById(UUID factionId) {
+        return factionId == null ? Optional.empty() : Optional.ofNullable(ctx.repo().faction(factionId));
+    }
+
+    @Override
+    public List<SiegeInfo> sieges() {
+        SiegeService s = ctx.serviceOrNull(SiegeService.class);
+        List<SiegeInfo> out = new ArrayList<>();
+        if (s != null) {
+            for (Siege siege : s.active()) {
+                out.add(info(siege));
+            }
+            out.sort(Comparator.comparingLong(SiegeInfo::startedAt));
+        }
+        return out;
+    }
+
+    @Override
+    public List<SiegeInfo> siegeHistory(UUID factionId, int limit) {
+        SiegeService s = ctx.serviceOrNull(SiegeService.class);
+        List<SiegeInfo> out = new ArrayList<>();
+        if (s == null || limit <= 0) {
+            return out;
+        }
+        // The service matches by a Faction object, which a disbanded faction no longer has, so the id is matched here.
+        for (Siege siege : s.history(null, Integer.MAX_VALUE)) {
+            if (out.size() >= limit) {
+                break;
+            }
+            if (factionId == null || factionId.equals(siege.attacker()) || factionId.equals(siege.defender())) {
+                out.add(info(siege));
+            }
+        }
+        return out;
+    }
+
+    SiegeInfo info(Siege s) {
+        long chunk = s.chunkIndex();
+        return new SiegeInfo(s.id(), s.attacker(), tagOf(s.attacker()), s.defender(), tagOf(s.defender()), s.world(), chunk,
+                Keys.chunkX(chunk), Keys.chunkZ(chunk), s.x(), s.y(), s.z(), s.phase().name(), s.phaseEndsAt(), s.startedAt(),
+                s.startedBy(), s.active(), s.blocksBroken(), s.containersOpened(), s.attackerDeaths(), s.defenderDeaths());
+    }
+
+    private String tagOf(UUID factionId) {
+        Faction f = factionId == null ? null : ctx.repo().faction(factionId);
+        return f == null ? null : f.tag();
     }
 }
