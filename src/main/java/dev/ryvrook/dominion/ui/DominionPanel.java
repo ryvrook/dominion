@@ -666,6 +666,7 @@ public final class DominionPanel extends DominionPage {
 
     private void buildHelp(UICommandBuilder c, Body body) {
         title(c, Messages.get(UiText.TAB_HELP), Messages.get(UiText.HELP_HINT));
+        body.buttons(Btn.of(Messages.get(UiText.TUTORIAL_BUTTON), "tutorial"));
         body.section(Messages.get(UiText.LABEL_POWER));
         body.text(Messages.get(UiText.HELP_POWER));
         body.section(Messages.get(UiText.HELP_CLAIMS_TITLE));
@@ -736,7 +737,7 @@ public final class DominionPanel extends DominionPage {
                 return true;
             }
             case "tutorial" -> {
-                ui.openTutorial(player());
+                ui.resumeTutorial(player());
                 return false;
             }
             case "top" -> {
@@ -1089,7 +1090,7 @@ public final class DominionPanel extends DominionPage {
         }
     }
 
-    private static double parseAmount(String text) {
+    static double parseAmount(String text) {
         try {
             double d = Double.parseDouble(text.replace(",", "").replace("_", "").trim());
             return Double.isFinite(d) ? d : -1;

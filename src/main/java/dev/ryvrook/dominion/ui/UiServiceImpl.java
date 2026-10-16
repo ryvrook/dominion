@@ -87,7 +87,12 @@ public final class UiServiceImpl implements UiService {
 
     @Override
     public void openTutorial(PlayerRef player) {
-        open(player, new TutorialPage(player, ctx, this));
+        open(player, new TutorialPage(player, ctx, this, false));
+    }
+
+    /** Opens the tutorial at the furthest step the player reached, or at the start once it was finished. */
+    void resumeTutorial(PlayerRef player) {
+        open(player, new TutorialPage(player, ctx, this, true));
     }
 
     @Override

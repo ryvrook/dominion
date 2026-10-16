@@ -51,19 +51,115 @@ public final class UiText {
 
     // Tutorial
     public static final String TUTORIAL_TITLE = Messages.define("ui.tutorialTitle", "Tutorial");
-    public static final String TUTORIAL_STEP = Messages.define("ui.tutorialStep", "Step {step} of {total}");
-    public static final String TUTORIAL_1_TITLE = Messages.define("ui.tutorial1Title", "Welcome to Dominion");
-    public static final String TUTORIAL_1_TEXT = Messages.define("ui.tutorial1Text", "Factions are groups of players who claim land together and protect it.");
-    public static final String TUTORIAL_1_HINT = Messages.define("ui.tutorial1Hint", "Open the faction panel any time with /f. It has everything in this tutorial and more.");
-    public static final String TUTORIAL_2_TITLE = Messages.define("ui.tutorial2Title", "Found or join a faction");
-    public static final String TUTORIAL_2_TEXT = Messages.define("ui.tutorial2Text", "Type a short tag in the panel and press Create to found your own faction.");
-    public static final String TUTORIAL_2_HINT = Messages.define("ui.tutorial2Hint", "Or join an open faction from the list, or accept an invite from a friend.");
-    public static final String TUTORIAL_3_TITLE = Messages.define("ui.tutorial3Title", "Claim your land");
-    public static final String TUTORIAL_3_TEXT = Messages.define("ui.tutorial3Text", "Stand where you want to build and press Claim on the land tab.");
-    public static final String TUTORIAL_3_HINT = Messages.define("ui.tutorial3Hint", "Your power and your members' power decide how many chunks you can hold. Set a home so everyone can find base.");
-    public static final String TUTORIAL_4_TITLE = Messages.define("ui.tutorial4Title", "Allies, enemies and raids");
-    public static final String TUTORIAL_4_TEXT = Messages.define("ui.tutorial4Text", "Make allies to share access and set enemies to fight them.");
-    public static final String TUTORIAL_4_HINT = Messages.define("ui.tutorial4Hint", "A faction that holds more land than its power can defend becomes raidable. Stay active and avoid needless deaths.");
+    public static final String TUTORIAL_STEP = Messages.define("ui.tutorialStep", "{step} of {total}");
+    public static final String TUTORIAL_CLOSE = Messages.define("ui.tutorialClose", "Close");
+    public static final String TUTORIAL_TAG = Messages.define("ui.tutorialTag", "Tag");
+    public static final String TUTORIAL_NAME = Messages.define("ui.tutorialName", "Name");
+    public static final String TUTORIAL_PLAYER = Messages.define("ui.tutorialPlayer", "Player");
+    public static final String TUTORIAL_AMOUNT = Messages.define("ui.tutorialAmount", "Amount");
+    public static final String TUTORIAL_NEED_FACTION = Messages.define("ui.tutorialNeedFaction", "Found or join a faction first, then come back to this step.");
+    public static final String TUTORIAL_SKIPPED = Messages.define("ui.tutorialSkipped", "Open the tutorial again any time with /{root} tutorial.");
+    public static final String TUTORIAL_RESET_DESC = Messages.define("ui.tutorialResetDesc", "Start a player's tutorial again on their next join.");
+    public static final String TUTORIAL_RESET_DONE = Messages.define("ui.tutorialResetDone", "{name} sees the tutorial again on their next join.");
+    // Tutorial, found a faction
+    public static final String TUTORIAL_FOUND_TITLE = Messages.define("ui.tutorialFoundTitle", "Found a faction");
+    public static final String TUTORIAL_FOUND_TEXT = Messages.define("ui.tutorialFoundText", "A faction is a group of players who claim land together and keep it safe. "
+            + "Pick a short tag that players type in commands and a name that everyone sees.");
+    public static final String TUTORIAL_FOUND_LIMITS = Messages.define("ui.tutorialFoundLimits", "Tags are {tagMin} to {tagMax} characters long and names can have up to {nameMax}.");
+    public static final String TUTORIAL_FOUND_JOIN = Messages.define("ui.tutorialFoundJoin", "Rather join friends? Open factions and the ones that invited you are listed below.");
+    public static final String TUTORIAL_FOUND_DONE = Messages.define("ui.tutorialFoundDone", "You are in {faction}. Press Next to claim your first land.");
+    public static final String TUTORIAL_FOUND_ACTION = Messages.define("ui.tutorialFoundAction", "Create my faction");
+    public static final String TUTORIAL_FOUND_SECTION = Messages.define("ui.tutorialFoundSection", "Factions you can join");
+    // Tutorial, claim
+    public static final String TUTORIAL_CLAIM_TITLE = Messages.define("ui.tutorialClaimTitle", "Claim the land you stand on");
+    public static final String TUTORIAL_CLAIM_TEXT = Messages.define("ui.tutorialClaimText", "Claimed chunks are protected, so outsiders cannot build or break blocks there. "
+            + "Stand where you want to build and press Claim this chunk.");
+    public static final String TUTORIAL_CLAIM_POWER = Messages.define("ui.tutorialClaimPower", "Every member brings power, and the faction's power decides how many chunks it can hold. "
+            + "Use /{root} claim {radius} to claim a square of chunks around you at once.");
+    public static final String TUTORIAL_CLAIM_STATUS = Messages.define("ui.tutorialClaimStatus", "Your faction holds {claims} of {max} chunks.");
+    public static final String TUTORIAL_CLAIM_ACTION = Messages.define("ui.tutorialClaimAction", "Claim this chunk");
+    // Tutorial, map
+    public static final String TUTORIAL_MAP_TITLE = Messages.define("ui.tutorialMapTitle", "See your land");
+    public static final String TUTORIAL_MAP_TEXT = Messages.define("ui.tutorialMapText", "The chat map draws the chunks around you, with your land, your allies, your enemies "
+            + "and the wilderness each in their own colour.");
+    public static final String TUTORIAL_MAP_WORLD = Messages.define("ui.tutorialMapWorld", "Press M to open the world map. Claimed land shows there in the colour of the faction that owns it.");
+    public static final String TUTORIAL_MAP_SENT = Messages.define("ui.tutorialMapSent", "The map is in your chat. Close this page to read it.");
+    public static final String TUTORIAL_MAP_ACTION = Messages.define("ui.tutorialMapAction", "Show the map");
+    // Tutorial, home
+    public static final String TUTORIAL_HOME_TITLE = Messages.define("ui.tutorialHomeTitle", "Set your home");
+    public static final String TUTORIAL_HOME_TEXT = Messages.define("ui.tutorialHomeText", "A faction home is a shared spawn point in your land. Stand inside your claim and press "
+            + "Set home here, then every member can return there with /{root} home.");
+    public static final String TUTORIAL_HOME_WAIT = Messages.define("ui.tutorialHomeWait", "The teleport waits {seconds} seconds and is cancelled when you move.");
+    public static final String TUTORIAL_HOME_DONE = Messages.define("ui.tutorialHomeDone", "Your faction has a home. Use /{root} home to go there.");
+    public static final String TUTORIAL_HOME_ACTION = Messages.define("ui.tutorialHomeAction", "Set home here");
+    // Tutorial, invite
+    public static final String TUTORIAL_INVITE_TITLE = Messages.define("ui.tutorialInviteTitle", "Invite a friend");
+    public static final String TUTORIAL_INVITE_TEXT = Messages.define("ui.tutorialInviteText", "Type a player's name and press Send invite. They accept with /{root} join {tag}.");
+    public static final String TUTORIAL_INVITE_ROSTER = Messages.define("ui.tutorialInviteRoster", "The Members tab of the panel lists everyone with their rank, power and when they "
+            + "were last online. Leaders and officers promote, demote and kick from there.");
+    public static final String TUTORIAL_INVITE_DONE = Messages.define("ui.tutorialInviteDone", "Your faction has {count} members.");
+    public static final String TUTORIAL_INVITE_ACTION = Messages.define("ui.tutorialInviteAction", "Send invite");
+    // Tutorial, relations
+    public static final String TUTORIAL_RELATIONS_TITLE = Messages.define("ui.tutorialRelationsTitle", "Allies, truces and enemies");
+    public static final String TUTORIAL_RELATIONS_TEXT = Messages.define("ui.tutorialRelationsText", "Factions can be allies, have a truce, stay neutral or be enemies. "
+            + "Ally and truce need both sides to agree. Enemy and neutral take effect at once.");
+    public static final String TUTORIAL_RELATIONS_MORE = Messages.define("ui.tutorialRelationsMore", "Relations decide who can build, fight and use your home. "
+            + "The Relations tab of the panel shows every request waiting for an answer.");
+    // Tutorial, raids
+    public static final String TUTORIAL_RAIDS_TITLE = Messages.define("ui.tutorialRaidsTitle", "Raids and sieges");
+    public static final String TUTORIAL_RAIDS_POWER = Messages.define("ui.tutorialRaidsPower", "Your power grows while you are online and drops when you die. "
+            + "A faction that holds more land than its power can defend becomes raidable, and enemies can take its chunks.");
+    public static final String TUTORIAL_RAIDS_SIEGE = Messages.define("ui.tutorialRaidsSiege", "Enemies can also plant a siege banner with /{root} siege. "
+            + "If the attackers hold it until the timer ends, the chunk is breached and opens to them for a while.");
+    public static final String TUTORIAL_RAIDS_SHIELD = Messages.define("ui.tutorialRaidsShield", "Each faction picks a daily shield window of {hours} hours that blocks sieges "
+            + "on its core land. Move it with /{root} shield set followed by the starting hour.");
+    // Tutorial, bank and market
+    public static final String TUTORIAL_BANK_TITLE = Messages.define("ui.tutorialBankTitle", "The bank and the market");
+    public static final String TUTORIAL_BANK_TEXT = Messages.define("ui.tutorialBankText", "Your faction shares a bank. Put money in on the Bank tab of the panel, "
+            + "with /{root} deposit or with the field below.");
+    public static final String TUTORIAL_BANK_COINAGE = Messages.define("ui.tutorialBankCoinage", "Money on this server is your Coinage balance, and deposits come out of it.");
+    public static final String TUTORIAL_BANK_MARKET = Messages.define("ui.tutorialBankMarket", "The Market tab lets you sell items, place buy orders and bid in auctions.");
+    public static final String TUTORIAL_BANK_ACTION = Messages.define("ui.tutorialBankAction", "Deposit");
+    // Tutorial, chat
+    public static final String TUTORIAL_CHAT_TITLE = Messages.define("ui.tutorialChatTitle", "Faction chat");
+    public static final String TUTORIAL_CHAT_TEXT = Messages.define("ui.tutorialChatText", "Start a message with {faction} to send it to your faction only, "
+            + "or with {ally} to send it to your allies.");
+    public static final String TUTORIAL_CHAT_CHANNEL = Messages.define("ui.tutorialChatChannel", "/{root} chat switches the channel you talk in, "
+            + "and every message goes there until you switch back.");
+    public static final String TUTORIAL_CHAT_TAG = Messages.define("ui.tutorialChatTag", "Your faction shows next to your name in public chat, so everyone knows who you stand with.");
+    // Tutorial, every day commands
+    public static final String TUTORIAL_COMMANDS_TITLE = Messages.define("ui.tutorialCommandsTitle", "Commands you use every day");
+    public static final String TUTORIAL_COMMANDS_TEXT = Messages.define("ui.tutorialCommandsText", "Keep this list close. Most of these also work from the panel, which opens with /{root}.");
+    public static final String TUTORIAL_COMMANDS_HELP = Messages.define("ui.tutorialCommandsHelp", "Use /{root} help for every command, or press Tutorial on the Help tab of the panel to see these steps again.");
+    // Tutorial, what each command shown in a code row does
+    public static final String TUTORIAL_CMD_PANEL = Messages.define("ui.tutorialCmdPanel", "Open the faction panel");
+    public static final String TUTORIAL_CMD_CREATE = Messages.define("ui.tutorialCmdCreate", "Found a faction");
+    public static final String TUTORIAL_CMD_JOIN = Messages.define("ui.tutorialCmdJoin", "Join an open faction or one that invited you");
+    public static final String TUTORIAL_CMD_CLAIM = Messages.define("ui.tutorialCmdClaim", "Claim the chunk you stand in");
+    public static final String TUTORIAL_CMD_CLAIM_RADIUS = Messages.define("ui.tutorialCmdClaimRadius", "Claim a square of chunks around you");
+    public static final String TUTORIAL_CMD_UNCLAIM = Messages.define("ui.tutorialCmdUnclaim", "Give the chunk you stand in back");
+    public static final String TUTORIAL_CMD_MAP = Messages.define("ui.tutorialCmdMap", "Show the land around you in chat");
+    public static final String TUTORIAL_CMD_MAP_BIG = Messages.define("ui.tutorialCmdMapBig", "A larger map, sizes 1 to 3");
+    public static final String TUTORIAL_CMD_SETHOME = Messages.define("ui.tutorialCmdSethome", "Set the faction home where you stand");
+    public static final String TUTORIAL_CMD_HOME = Messages.define("ui.tutorialCmdHome", "Teleport to the faction home");
+    public static final String TUTORIAL_CMD_INVITE = Messages.define("ui.tutorialCmdInvite", "Invite a player to your faction");
+    public static final String TUTORIAL_CMD_WHO = Messages.define("ui.tutorialCmdWho", "Show a faction and its members");
+    public static final String TUTORIAL_CMD_ALLY = Messages.define("ui.tutorialCmdAlly", "Ask a faction to become allies");
+    public static final String TUTORIAL_CMD_TRUCE = Messages.define("ui.tutorialCmdTruce", "Ask a faction for a truce");
+    public static final String TUTORIAL_CMD_ENEMY = Messages.define("ui.tutorialCmdEnemy", "Declare a faction your enemy");
+    public static final String TUTORIAL_CMD_NEUTRAL = Messages.define("ui.tutorialCmdNeutral", "Go back to neutral");
+    public static final String TUTORIAL_CMD_RELATIONS = Messages.define("ui.tutorialCmdRelations", "List your allies, truces and enemies");
+    public static final String TUTORIAL_CMD_POWER = Messages.define("ui.tutorialCmdPower", "Show your power and your faction's");
+    public static final String TUTORIAL_CMD_RAIDS = Messages.define("ui.tutorialCmdRaids", "Show your raid history");
+    public static final String TUTORIAL_CMD_SIEGE = Messages.define("ui.tutorialCmdSiege", "Plant a siege banner on enemy land");
+    public static final String TUTORIAL_CMD_SHIELD = Messages.define("ui.tutorialCmdShield", "Show your shield window");
+    public static final String TUTORIAL_CMD_BANK = Messages.define("ui.tutorialCmdBank", "Show the faction bank");
+    public static final String TUTORIAL_CMD_DEPOSIT = Messages.define("ui.tutorialCmdDeposit", "Put money into the bank");
+    public static final String TUTORIAL_CMD_WITHDRAW = Messages.define("ui.tutorialCmdWithdraw", "Take money out, if your rank may");
+    public static final String TUTORIAL_CMD_MARKET = Messages.define("ui.tutorialCmdMarket", "Open the market");
+    public static final String TUTORIAL_CMD_CHAT = Messages.define("ui.tutorialCmdChat", "Switch your chat channel");
+    public static final String TUTORIAL_CMD_ANNOUNCE = Messages.define("ui.tutorialCmdAnnounce", "Post an announcement to your faction");
+    public static final String TUTORIAL_CMD_HELP = Messages.define("ui.tutorialCmdHelp", "List every command");
     public static final String FINISH = Messages.define("ui.finish", "Finish");
     public static final String NEXT = Messages.define("ui.next", "Next");
     public static final String SKIP = Messages.define("ui.skip", "Skip");
