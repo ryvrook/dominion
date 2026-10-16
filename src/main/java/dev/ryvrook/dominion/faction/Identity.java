@@ -28,7 +28,8 @@ final class Identity {
         this.s = s;
     }
 
-    Result create(UUID actor, String actorName, String tag, String name) {
+    Result create(UUID actor, String actorName, String rawTag, String name) {
+        String tag = TagRules.normaliseTag(s.settings(), rawTag);
         String tagProblem = TagRules.tag(s.settings(), tag);
         if (tagProblem != null) {
             return Result.fail(tagProblem);
@@ -37,6 +38,7 @@ final class Identity {
         if (nameProblem != null) {
             return Result.fail(nameProblem);
         }
+        String created;
         synchronized (s.lock) {
             if (s.factionOf(actor) != null) {
                 return Result.fail(Messages.get(FactionText.ALREADY_IN_FACTION));
@@ -64,11 +66,12 @@ final class Identity {
             PlayerData p = s.ctx.player(actor);
             p.setName(actorName);
             p.setFactionId(f.id());
-            s.audit(f, actor, actorName, "faction", Messages.get(FactionText.CREATED, "tag", tag));
+            created = Messages.get(FactionText.CREATED, "faction", f.label(), "tag", tag);
+            s.audit(f, actor, actorName, "faction", created);
             s.publish(new DominionEvent.FactionCreated(f.id()));
             s.publish(new DominionEvent.MemberJoined(f.id(), actor));
         }
-        return Result.pass(Messages.get(FactionText.CREATED, "tag", tag));
+        return Result.pass(created);
     }
 
     private void applyDefaultSettings(Faction f) {
@@ -115,7 +118,8 @@ final class Identity {
     }
 
     /** Validates and applies a new tag and name without a rank check. Audits under the given name. */
-    Result applyRename(Faction f, UUID who, String whoName, String newTag, String newName) {
+    Result applyRename(Faction f, UUID who, String whoName, String rawTag, String newName) {
+        String newTag = TagRules.normaliseTag(s.settings(), rawTag);
         boolean tagChange = newTag != null && !newTag.isBlank() && !newTag.equals(f.tag());
         boolean nameChange = newName != null && !newName.isBlank() && !newName.strip().equals(f.name());
         if (!tagChange && !nameChange) {

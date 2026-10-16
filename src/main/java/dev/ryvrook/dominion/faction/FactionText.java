@@ -98,7 +98,7 @@ public final class FactionText {
     public static final String TAG_TAKEN = Messages.define("faction.tagTaken", "That tag is already taken");
     public static final String CREATION_COSTS = Messages.define("faction.creationCosts", "Creating a faction costs {cost}");
     public static final String LEDGER_CREATION = Messages.define("faction.ledgerCreation", "Faction creation");
-    public static final String CREATED = Messages.define("faction.created", "Created the faction {tag}");
+    public static final String CREATED = Messages.define("faction.created", "Created {faction}");
     public static final String ZONES_NO_DISBAND = Messages.define("faction.zonesNoDisband", "Server zones cannot be disbanded this way");
     public static final String CONFIRM_DISBAND = Messages.define("faction.confirmDisband", "Please confirm that you want to disband {faction}");
     public static final String NOTHING_TO_CHANGE = Messages.define("faction.nothingToChange", "Nothing to change");

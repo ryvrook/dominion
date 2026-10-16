@@ -29,6 +29,13 @@ class TagsAndDataTest {
     }
 
     @Test
+    void theDefaultLimitCutsImportedTagsToFour() {
+        Settings s = ImportFixtures.defaults(dir);
+        assertEquals("Wolv", Tags.base("Wolves", s));
+        assertEquals("Wol2", Tags.unique("Wolves", s, t -> !t.equals("Wolv")));
+    }
+
+    @Test
     void uniqueTagsAvoidTakenAndBannedOnes() {
         Settings s = ImportFixtures.settings(dir);
         assertEquals("Wolves", Tags.unique("Wolves", s, t -> true));

@@ -25,6 +25,7 @@ class RenameEventTest {
         fx = Fixtures.create();
         fs = new FactionServiceImpl(fx.ctx);
         fx.ctx.register(FactionService.class, fs);
+        fx.set("faction.tagMax", 16);
         fx.ctx.bus().subscribe(e -> {
             if (e instanceof DominionEvent.FactionRenamed r) {
                 renames.add(r);
@@ -46,8 +47,8 @@ class RenameEventTest {
         assertEquals(1, renames.size());
         DominionEvent.FactionRenamed r = renames.get(0);
         assertEquals(f.id(), r.factionId());
-        assertEquals("Alpha", r.oldTag());
-        assertEquals("Omega", r.newTag());
+        assertEquals("ALPHA", r.oldTag());
+        assertEquals("OMEGA", r.newTag(), "a renamed tag is stored in upper case");
         assertEquals("The Alphas", r.oldName());
         assertEquals("The Omegas", r.newName());
     }
@@ -58,9 +59,9 @@ class RenameEventTest {
         assertTrue(fs.create(lead, "Lea", "Alpha", null).success());
         assertTrue(fs.rename(lead, null, "Alpha Squad").success());
         assertEquals(1, renames.size());
-        assertEquals("Alpha", renames.get(0).oldTag());
-        assertEquals("Alpha", renames.get(0).newTag());
-        assertEquals("Alpha", renames.get(0).oldName());
+        assertEquals("ALPHA", renames.get(0).oldTag());
+        assertEquals("ALPHA", renames.get(0).newTag());
+        assertEquals("ALPHA", renames.get(0).oldName());
         assertEquals("Alpha Squad", renames.get(0).newName());
     }
 
@@ -71,7 +72,7 @@ class RenameEventTest {
         Faction f = fs.byTag("Alpha");
         assertTrue(fs.forceRename(null, "Admin", f, "Brava", null).success());
         assertEquals(1, renames.size());
-        assertEquals("Brava", renames.get(0).newTag());
+        assertEquals("BRAVA", renames.get(0).newTag());
     }
 
     @Test

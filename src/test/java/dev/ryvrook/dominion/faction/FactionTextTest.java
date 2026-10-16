@@ -99,7 +99,7 @@ class FactionTextTest {
                 FactionText.TAG_TAKEN, "",
                 FactionText.CREATION_COSTS, "cost",
                 FactionText.LEDGER_CREATION, "",
-                FactionText.CREATED, "tag",
+                FactionText.CREATED, "faction",
                 FactionText.ZONES_NO_DISBAND, "",
                 FactionText.CONFIRM_DISBAND, "faction",
                 FactionText.NOTHING_TO_CHANGE, "",

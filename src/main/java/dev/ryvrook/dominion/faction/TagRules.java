@@ -40,6 +40,18 @@ final class TagRules {
         return null;
     }
 
+    /**
+     * The tag as it is stored. Trimmed, and upper case while faction.tagUppercase is on, so the sidebar,
+     * chat and map never show the same tag in two cases. Existing tags are only changed by a rename.
+     */
+    static String normaliseTag(Settings s, String tag) {
+        if (tag == null) {
+            return null;
+        }
+        String t = tag.trim();
+        return s.bool("faction.tagUppercase") ? t.toUpperCase(Locale.ROOT) : t;
+    }
+
     static String name(Settings s, String name) {
         if (name == null || name.isBlank()) {
             return null;

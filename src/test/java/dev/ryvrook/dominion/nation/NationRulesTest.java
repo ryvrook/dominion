@@ -64,13 +64,13 @@ class NationRulesTest {
     void foundingRules() {
         fails(nations.create(fx.member(a, "Off", Rank.OFFICER), "NAT", null), "Only a faction leader");
         fails(nations.create(a.leader(), "N", null), "at least 2");
-        fails(nations.create(a.leader(), "NATIONSTAGTOOLONG", null), "at most 16");
+        fails(nations.create(a.leader(), "NATIO", null), "at most 4");
         fails(nations.create(a.leader(), "N-T", null), "letters and digits");
         fails(nations.create(a.leader(), "NAT", "x".repeat(33)), "at most 32");
         Nation n = founded();
         assertEquals(a.id(), n.leaderFaction());
         assertEquals(n.id(), a.nationId());
-        fails(nations.create(a.leader(), "OTHER", null), "already in a nation");
+        fails(nations.create(a.leader(), "OTH", null), "already in a nation");
         fails(nations.create(b.leader(), "nat", null), "already exists");
         fx.set("nation.enabled", false);
         fails(nations.create(c.leader(), "CEE", null), "turned off");

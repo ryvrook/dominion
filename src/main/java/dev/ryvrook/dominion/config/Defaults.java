@@ -14,7 +14,7 @@ public final class Defaults {
     public static void register(Settings s) {
         // Factions
         s.define("faction.tagMin", "Factions", "Minimum tag length", 2);
-        s.define("faction.tagMax", "Factions", "Maximum tag length", 16);
+        s.define("faction.tagMax", "Factions", "Maximum tag length", 4);
         s.define("faction.nameMax", "Factions", "Maximum name length", 48);
         s.define("faction.maxMembers", "Factions", "Maximum members", 20);
         s.define("faction.inviteHours", "Factions", "Invite expiry in hours", 24);
@@ -196,7 +196,7 @@ public final class Defaults {
         s.define("nation.enabled", "Relations", "Nations enabled", true);
         s.define("nation.maxFactions", "Relations", "Factions per nation", 5);
         s.define("nation.tagMin", "Relations", "Nation tag minimum length", 2);
-        s.define("nation.tagMax", "Relations", "Nation tag maximum length", 16);
+        s.define("nation.tagMax", "Relations", "Nation tag maximum length", 4);
         s.define("faction.rosterRotate", "Factions", "Rotate the longest offline member out when the roster is full", false);
         s.define("missions.placedBlockMemoryMinutes", "Progression", "Minutes a placed block stays excluded from mission credit", 60);
 
@@ -231,6 +231,8 @@ public final class Defaults {
         s.define("chat.showTag", "Chat", "Show the faction tag before player names in public chat", true);
         s.define("chat.nameplateTag", "Chat", "Experimental. Show the faction tag before the name above each player's head", false);
         s.define("chat.announceRenames", "Chat", "Tell every online player when a faction changes its tag or name", true);
+        // Clan tags brief. New and renamed faction tags are stored in upper case, existing tags are left as they are.
+        s.define("faction.tagUppercase", "Factions", "Store new and renamed faction tags in upper case", true);
 
         limits(s);
     }

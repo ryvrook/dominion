@@ -92,7 +92,7 @@ Chat channels switch with `/f chat` or a prefix on one line, `!` for faction, `@
 
 ## Settings
 
-`config.json` sits in the data folder. There are 257 keys grouped into
+`config.json` sits in the data folder. There are 258 keys grouped into
 Factions, Power, Land, Raiding, Relations, Combat, Homes, Chat, Economy, Market, Sieges, Shields, Events, Progression, Storage, Map, Integrations, Commands, Interface, Colours and Permissions. Every key is listed with its default, limits and description in
 [docs/SETTINGS.md](docs/SETTINGS.md), which is generated from `config/Defaults.java`. You rarely need the file.
 `/fa settings` has a tab per group and applies changes live. `/fa set` and `/fa get` work from the console.
@@ -102,6 +102,9 @@ nodes on commands apply at the next start or `/plugin reload`.
 
 | Key | Default | What it does |
 |---|---|---|
+| `faction.tagMax` | `4` | Longest faction tag, shown in brackets as `[TAG] Name`. Raise it up to 32 |
+| `faction.tagUppercase` | `true` | New and renamed tags are stored in upper case. Existing tags stay as they are until renamed |
+| `nation.tagMax` | `4` | Longest nation tag |
 | `faction.maxMembers` | `20` | Members per faction |
 | `power.max` | `20.0` | Maximum power per player |
 | `power.lossPerDeath` | `4.0` | Power lost per death |

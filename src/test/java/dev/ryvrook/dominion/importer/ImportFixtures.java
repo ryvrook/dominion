@@ -18,7 +18,14 @@ import java.util.UUID;
 final class ImportFixtures {
     private ImportFixtures() {}
 
+    /** Settings with tagMax raised to 16, so the length rules below have room to show. */
     static Settings settings(Path dir) {
+        Settings s = defaults(dir);
+        s.set("faction.tagMax", 16);
+        return s;
+    }
+
+    static Settings defaults(Path dir) {
         return new Settings(new JsonFiles(HytaleLogger.get("DominionImportTest")), dir.resolve("config.json"));
     }
 

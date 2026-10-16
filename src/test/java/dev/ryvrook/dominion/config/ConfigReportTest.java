@@ -51,7 +51,7 @@ class ConfigReportTest {
     void lineShowsValueDefaultAndLimits() {
         Settings s = settings();
         s.set("faction.tagMax", 12);
-        assertEquals("faction.tagMax = 12   default 16, 1 to 32", ConfigReport.line(s, s.definition("faction.tagMax")));
+        assertEquals("faction.tagMax = 12   default 4, 1 to 32", ConfigReport.line(s, s.definition("faction.tagMax")));
         assertEquals("chat.tagStyle = brackets   default brackets, one of brackets, plain",
                 ConfigReport.line(s, s.definition("chat.tagStyle")));
         assertTrue(ConfigReport.line(s, s.definition("colors.enemy")).endsWith("a colour written as #rrggbb"));

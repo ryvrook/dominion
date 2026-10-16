@@ -1,13 +1,13 @@
 # Dominion settings
 
-Every key in `config.json`, generated from `config/Defaults.java`. There are 257 keys in 21 sections. Change them with `/fa set`, `/fa config` or the settings page, or edit the file and run `/fa reload`. A test fails when this file and the defaults disagree, so after adding a key run `DOMINION_WRITE_DOCS=1 ./gradlew test` to write it again.
+Every key in `config.json`, generated from `config/Defaults.java`. There are 258 keys in 21 sections. Change them with `/fa set`, `/fa config` or the settings page, or edit the file and run `/fa reload`. A test fails when this file and the defaults disagree, so after adding a key run `DOMINION_WRITE_DOCS=1 ./gradlew test` to write it again.
 
 ## Factions
 
 | Key | Default | Accepts | Description |
 | --- | --- | --- | --- |
 | `faction.tagMin` | `2` | 1 to 32 | Minimum tag length |
-| `faction.tagMax` | `16` | 1 to 32 | Maximum tag length |
+| `faction.tagMax` | `4` | 1 to 32 | Maximum tag length |
 | `faction.nameMax` | `48` | 1 to 64 | Maximum name length |
 | `faction.maxMembers` | `20` | 1 to 10000 | Maximum members |
 | `faction.inviteHours` | `24` | 1 to 8760 | Invite expiry in hours |
@@ -17,6 +17,7 @@ Every key in `config.json`, generated from `config/Defaults.java`. There are 257
 | `faction.auditLimit` | `500` | 0 to 100000 | Audit entries kept per faction |
 | `faction.tagBlacklist` | `admin,staff,server,mod` |  | Comma separated banned tags |
 | `faction.rosterRotate` | `false` | true or false | Rotate the longest offline member out when the roster is full |
+| `faction.tagUppercase` | `true` | true or false | Store new and renamed faction tags in upper case |
 
 ## Power
 
@@ -92,7 +93,7 @@ Every key in `config.json`, generated from `config/Defaults.java`. There are 257
 | `nation.enabled` | `true` | true or false | Nations enabled |
 | `nation.maxFactions` | `5` | 1 to 1000 | Factions per nation |
 | `nation.tagMin` | `2` | 1 to 32 | Nation tag minimum length |
-| `nation.tagMax` | `16` | 1 to 32 | Nation tag maximum length |
+| `nation.tagMax` | `4` | 1 to 32 | Nation tag maximum length |
 
 ## Combat
 

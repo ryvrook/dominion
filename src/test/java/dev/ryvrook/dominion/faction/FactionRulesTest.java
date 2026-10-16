@@ -26,6 +26,9 @@ class FactionRulesTest {
         fx = Fixtures.create();
         fs = new FactionServiceImpl(fx.ctx);
         fx.ctx.register(FactionService.class, fs);
+        // Most tests here use word length tags in their own case, so they run with a raised limit and
+        // without the upper case rule. tagRules and tagsAreStoredInUpperCase check the defaults.
+        fx.set("faction.tagMax", 16).set("faction.tagUppercase", false);
     }
 
     @AfterEach
@@ -61,22 +64,49 @@ class FactionRulesTest {
 
     @Test
     void tagRules() {
+        fx.set("faction.tagMax", 4).set("faction.tagUppercase", true);
         UUID p = fx.player("Pat");
         fails(fs.create(p, "Pat", "a", null), "at least 2");
-        fails(fs.create(p, "Pat", "abcdefghijklmnopq", null), "at most 16");
+        fails(fs.create(p, "Pat", "abcde", null), "at most 4");
         fails(fs.create(p, "Pat", "ab-c", null), "letters and digits");
         fails(fs.create(p, "Pat", "Ünïc", null), "letters and digits");
-        fails(fs.create(p, "Pat", "ADMIN", null), "not allowed");
+        fails(fs.create(p, "Pat", "MOD", null), "not allowed");
         fails(fs.create(p, "Pat", " ", null), "choose a tag");
         fails(fs.create(p, "Pat", "Good", "x".repeat(49)), "at most 48");
         ok(fs.create(p, "Pat", "abc", null));
-        ok(fs.create(fx.player("Max"), "Max", "abcdefghij", "Ten Chars"));
+        ok(fs.create(fx.player("Max"), "Max", "abcd", "Four Chars"));
         fails(fs.create(fx.player("Sam"), "Sam", "ABC", null), "already taken");
-        fails(fs.create(p, "Pat", "Other", null), "already in a faction");
+        fails(fs.create(p, "Pat", "Oth", null), "already in a faction");
         Faction f = fs.factionOf(p);
         assertEquals(Rank.LEADER, f.rankOf(p));
-        assertEquals("abc", f.name(), "a missing name uses the tag");
+        assertEquals("ABC", f.tag(), "new tags are stored in upper case");
+        assertEquals("ABC", f.name(), "a missing name uses the tag");
         assertFalse(f.setting("open", true));
+    }
+
+    @Test
+    void tagsAreStoredInUpperCase() {
+        fx.set("faction.tagMax", 4).set("faction.tagUppercase", true);
+        UUID lead = fx.player("Tia");
+        Result made = fs.create(lead, "Tia", " tst ", "Testers");
+        ok(made);
+        assertEquals("Created [TST] Testers", made.message());
+        Faction f = fs.factionOf(lead);
+        assertEquals("TST", f.tag());
+        assertEquals("[TST] Testers", f.label());
+        ok(fs.rename(lead, "abc", null));
+        assertEquals("ABC", f.tag(), "a renamed tag is stored in upper case");
+        fails(fs.rename(lead, "abc", null), "Nothing to change");
+
+        fx.repo().retag(f, "old");
+        assertEquals("old", f.tag(), "existing tags are left as they are");
+        ok(fs.rename(lead, "old", null));
+        assertEquals("OLD", f.tag(), "until the faction renames itself");
+
+        fx.set("faction.tagUppercase", false);
+        UUID other = fx.player("Uma");
+        ok(fs.create(other, "Uma", "Low", null));
+        assertEquals("Low", fs.factionOf(other).tag());
     }
 
     // ---- joining -------------------------------------------------------------------
