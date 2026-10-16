@@ -49,7 +49,7 @@ sieges, bank and outpost time. Events are KOTH hills, outposts that grant an xp,
 envoy chests in WarZones, bounties and a season clock with an end of the world finale and payouts.
 
 The importer reads Simple Claims, HyFactions, HyperFactions and Ultimate Factions data, always with a preview
-first.
+first. Source tags longer than `faction.tagMax` are cut to fit and numbered when they clash, so raise `faction.tagMax` before an import when the source used long tags.
 
 ## Commands
 

@@ -5,6 +5,7 @@
 ### Changed
 - Faction and nation tags read like clan tags. Labels show `[TST] Testers` in chat, on the panel, the sidebar, the territory title and the map, and the tag is left out when it only repeats the name.
 - The sidebar title shows the bracketed tag in the faction colour and the name in the text colour in its own case, instead of both in capitals.
+- The default tag length is 4, so raise `faction.tagMax` before importing from a factions mod whose tags were longer, or the importer cuts them to fit.
 - `faction.tagMax` and `nation.tagMax` default to 4 (was 16). Existing config.json files keep their own values.
 - New `faction.tagUppercase`, on by default, stores new and renamed faction tags in upper case. Existing tags are not rewritten until the faction renames itself.
 - The panel's create form has separate tag and name fields with hints that follow the live limits, and `/f create` replies with the label as it will show, for example "Created [TST] Testers".
