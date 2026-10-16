@@ -190,8 +190,8 @@ TrackerAPI, Feats, Atlas and Coinage are optional. Dominion compiles against the
 dependency through the plugin bridge loader, so the bridges can name the sibling types directly.
 
 - Jars. `-PtrackerApiJar=<path>`, `-PfeatsJar=<path>`, `-PatlasJar=<path>` and `-PcoinageJar=<path>` name them.
-  Without a property the build takes `../trackerapi/build/libs/TrackerAPI-1.0.3.jar`, `../feats/build/libs/Feats-1.5.1.jar`,
-  `../atlas/build/libs/Atlas-1.6.0.jar` and `../coinage/build/libs/Coinage-api-1.0.0.jar` (the api packages only), then the
+  Without a property the build takes `../trackerapi/build/libs/TrackerAPI-1.1.0.jar`, `../feats/build/libs/Feats-1.6.0.jar`,
+  `../atlas/build/libs/Atlas-1.7.0.jar` and `../coinage/build/libs/Coinage-api-1.2.0.jar` (the api packages only), then the
   same paths under `~/Projects`. The tests have the Coinage api, Atlas and TrackerAPI jars on their classpath. The
   Coinage link runs over a stand in Coinage API (`economy/FakeCoinage`), the Atlas bridge over a stand in `AtlasApi`
   with the jar's real static hooks, and the gather test builds TrackerAPI's event records.
