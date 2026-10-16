@@ -24,8 +24,8 @@ fun siblingJar(property: String, vararg candidates: String): String {
     val paths = candidates.flatMap { listOf("../$it", "$home/Projects/$it") }
     return paths.firstOrNull { file(it).exists() } ?: paths.first()
 }
-val trackerApiJar = siblingJar("trackerApiJar", "trackerapi/build/libs/TrackerAPI-1.1.0.jar")
-val featsJar = siblingJar("featsJar", "feats/build/libs/Feats-1.7.3.jar")
+val trackerApiJar = siblingJar("trackerApiJar", "trackerapi/build/libs/TrackerAPI-1.1.1.jar")
+val featsJar = siblingJar("featsJar", "feats/build/libs/Feats-1.7.4.jar")
 val atlasJar = siblingJar("atlasJar", "atlas/build/libs/Atlas-1.9.0.jar")
 // The Coinage api jar holds the api packages only. The tests use it too, for the bridge over a stand in Coinage API.
 val coinageJar = siblingJar("coinageJar", "coinage/build/libs/Coinage-api-1.3.0.jar")
