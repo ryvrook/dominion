@@ -231,6 +231,11 @@ public final class Defaults {
         s.define("chat.showTag", "Chat", "Show the faction tag before player names in public chat", true);
         s.define("chat.nameplateTag", "Chat", "Experimental. Show the faction tag before the name above each player's head", false);
         s.define("chat.announceRenames", "Chat", "Tell every online player when a faction changes its tag or name", true);
+        // Tutorial brief. Which steps the guided tutorial shows, so a peaceful server can drop the raids step.
+        s.define("misc.tutorialSteps", "Storage", "Comma separated tutorial steps to show, from found, claim, map, home, invite, "
+                + "relations, raids, bank, chat and commands, in that order", "found,claim,map,home,invite,relations,raids,bank,chat,commands");
+        String step = "(found|claim|map|home|invite|relations|raids|bank|chat|commands)";
+        s.pattern("misc.tutorialSteps", "\\s*" + step + "(\\s*,\\s*" + step + ")*\\s*", "a comma separated list of found, claim, map, home, invite, relations, raids, bank, chat or commands");
 
         limits(s);
     }

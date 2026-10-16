@@ -1,6 +1,6 @@
 # Dominion settings
 
-Every key in `config.json`, generated from `config/Defaults.java`. There are 257 keys in 21 sections. Change them with `/fa set`, `/fa config` or the settings page, or edit the file and run `/fa reload`. A test fails when this file and the defaults disagree, so after adding a key run `DOMINION_WRITE_DOCS=1 ./gradlew test` to write it again.
+Every key in `config.json`, generated from `config/Defaults.java`. There are 258 keys in 21 sections. Change them with `/fa set`, `/fa config` or the settings page, or edit the file and run `/fa reload`. A test fails when this file and the defaults disagree, so after adding a key run `DOMINION_WRITE_DOCS=1 ./gradlew test` to write it again.
 
 ## Factions
 
@@ -275,6 +275,7 @@ Every key in `config.json`, generated from `config/Defaults.java`. There are 257
 | `misc.preset` | `classic` | one of classic, singleplayer, hardcore, peaceful | Active preset name |
 | `misc.tutorial` | `true` | true or false | Show the tutorial on first join |
 | `misc.singleplayerAutoPreset` | `true` | true or false | Apply the singleplayer preset automatically |
+| `misc.tutorialSteps` | `found,claim,map,home,invite,relations,raids,bank,chat,commands` | a comma separated list of found, claim, map, home, invite, relations, raids, bank, chat or commands | Comma separated tutorial steps to show, from found, claim, map, home, invite, relations, raids, bank, chat and commands, in that order |
 
 ## Map
 
