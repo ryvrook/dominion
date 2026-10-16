@@ -281,7 +281,12 @@ public final class DominionPanel extends DominionPage {
         }
         title(c, Messages.get(UiText.TAB_JOIN_OR_CREATE), Messages.get(UiText.JOIN_OR_CREATE_HINT));
         body.text(Messages.get(UiText.JOIN_OR_CREATE_TEXT));
-        body.field(Messages.get(UiText.NEW_FACTION_TAG), "", Btn.of(Messages.get(UiText.CREATE), "create"));
+        // Tag and name are separate fields, and the hints follow the live limits.
+        body.form(new String[] {Messages.get(UiText.FIELD_TAG), Messages.get(UiText.FIELD_NAME)},
+                Btn.of(Messages.get(UiText.CREATE), "create"));
+        body.text(Messages.get(UiText.CREATE_TAG_HINT, "min", ctx.settings().integer("faction.tagMin"),
+                "max", ctx.settings().integer("faction.tagMax")), Msg.MUTED);
+        body.text(Messages.get(UiText.CREATE_NAME_HINT, "max", ctx.settings().integer("faction.nameMax")), Msg.MUTED);
         body.buttons(Btn.of(Messages.get(UiText.TUTORIAL_BUTTON), "tutorial"), Btn.of(Messages.get(UiText.TOP_FACTIONS), "top"));
 
         body.section(Messages.get(UiText.FACTIONS_YOU_CAN_JOIN));
@@ -754,7 +759,7 @@ public final class DominionPanel extends DominionPage {
                     Msg.send(player(), Msg.bad(Messages.get(UiText.FACTION_TAG_NEEDED)));
                     return false;
                 }
-                Result r = factions().create(uuid(), username(), text, text);
+                Result r = factions().create(uuid(), username(), text, e.text2());
                 reply(r);
                 if (r.success()) {
                     tab = OVERVIEW;

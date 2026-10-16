@@ -33,6 +33,8 @@ class UiTextTest {
                 entry(UiText.POWER_AMOUNT, Set.of("power")),
                 entry(UiText.PRICE_EACH, Set.of("price")),
                 entry(UiText.NO_FACTION_WITH_TAG, Set.of("tag")),
+                entry(UiText.CREATE_TAG_HINT, Set.of("max", "min")),
+                entry(UiText.CREATE_NAME_HINT, Set.of("max")),
                 entry(UiText.ZONE_OF, Set.of("tag", "zone")),
                 entry(UiText.RANK_NAME_FOR, Set.of("rank")),
                 entry(UiText.ZONE_HERE, Set.of("zone")),

@@ -454,7 +454,8 @@ public final class UiText {
     public static final String JOIN_OR_CREATE_TEXT = Messages.define("ui.joinOrCreateText", "A faction is a group of players who claim land together. Claimed land is protected from outsiders, "
             + "and every member adds power that keeps the land safe. Type a short tag below to found your own faction, "
             + "or join one of the factions listed underneath.");
-    public static final String NEW_FACTION_TAG = Messages.define("ui.newFactionTag", "New faction tag");
+    public static final String CREATE_TAG_HINT = Messages.define("ui.createTagHint", "Tag, {min} to {max} letters, shown in brackets before names");
+    public static final String CREATE_NAME_HINT = Messages.define("ui.createNameHint", "Name, up to {max} characters");
     public static final String TUTORIAL_BUTTON = Messages.define("ui.tutorialButton", "Tutorial");
     public static final String FACTIONS_YOU_CAN_JOIN = Messages.define("ui.factionsYouCanJoin", "Factions you can join");
     public static final String STATE_OPEN = Messages.define("ui.stateOpen", "Open");
