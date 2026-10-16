@@ -2,10 +2,12 @@ package dev.ryvrook.dominion.export;
 
 import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.api.DominionApi;
+import dev.ryvrook.dominion.admin.AdminText;
 import dev.ryvrook.dominion.api.EventBus;
 import dev.ryvrook.dominion.api.Result;
 import dev.ryvrook.dominion.api.SiegeInfo;
 import dev.ryvrook.dominion.api.TerritoryProvider;
+import dev.ryvrook.dominion.faction.FactionText;
 import dev.ryvrook.dominion.model.Faction;
 import dev.ryvrook.dominion.model.FactionAction;
 import dev.ryvrook.dominion.model.FactionType;
@@ -22,6 +24,7 @@ import dev.ryvrook.dominion.service.RulesService;
 import dev.ryvrook.dominion.service.SiegeService;
 import dev.ryvrook.dominion.text.CommonText;
 import dev.ryvrook.dominion.text.Messages;
+import dev.ryvrook.dominion.text.Msg;
 import dev.ryvrook.dominion.util.Keys;
 
 import java.util.ArrayList;
@@ -30,6 +33,7 @@ import java.util.Locale;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.logging.Level;
 
 /** Thin public API over the services, published through ApiHolder. */
 public final class ApiImpl implements DominionApi {
@@ -208,5 +212,110 @@ public final class ApiImpl implements DominionApi {
             return Result.fail(Messages.get(CommonText.NO_SUCH_FACTION));
         }
         return chat.sendExternal(f, name, text);
+    }
+
+    // ---- staff actions, API version 2 ------------------------------------------
+
+    /** The name written to the faction log and the server log for an API caller that gave none. */
+    static String by(String by) {
+        return by == null || by.isBlank() ? "another mod" : by.strip();
+    }
+
+    private Faction faction(UUID factionId) {
+        return factionId == null ? null : ctx.repo().faction(factionId);
+    }
+
+    @Override
+    public Result disband(UUID factionId, String by) {
+        FactionService fs = ctx.serviceOrNull(FactionService.class);
+        Faction f = faction(factionId);
+        if (fs == null || f == null) {
+            return Result.fail(Messages.get(CommonText.NO_SUCH_FACTION));
+        }
+        String who = by(by);
+        String tag = f.tag();
+        Result r = fs.forceDisband(null, who, f);
+        if (r.success()) {
+            ctx.logger().at(Level.INFO).log("%s force disbanded %s through the Dominion API", who, tag);
+            return Result.pass(Messages.get(AdminText.FORCE_DISBANDED, "tag", tag));
+        }
+        return r;
+    }
+
+    @Override
+    public Result setLeader(UUID factionId, UUID player, String by) {
+        FactionService fs = ctx.serviceOrNull(FactionService.class);
+        Faction f = faction(factionId);
+        if (fs == null || f == null) {
+            return Result.fail(Messages.get(CommonText.NO_SUCH_FACTION));
+        }
+        String who = by(by);
+        Result r = fs.forceLeader(null, who, f, player);
+        if (r.success()) {
+            ctx.logger().at(Level.INFO).log("%s made %s the leader of %s through the Dominion API", who, player, f.tag());
+        }
+        return r;
+    }
+
+    @Override
+    public Result setPower(UUID player, double power, String by) {
+        PowerService p = ctx.serviceOrNull(PowerService.class);
+        if (p == null) {
+            return Result.fail(Messages.get(CommonText.FEATURE_OFF));
+        }
+        if (!Double.isFinite(power)) {
+            return Result.fail(Messages.get(AdminText.POWER_NOT_NUMBER));
+        }
+        if (!ctx.repo().knows(player)) {
+            // ctx.player would make a record for any id, so an unknown one is refused instead.
+            return Result.fail(Messages.get(FactionText.PLAYER_NOT_KNOWN));
+        }
+        p.setPower(player, power);
+        double now = p.powerOf(player);
+        String name = ctx.player(player).name();
+        ctx.logger().at(Level.INFO).log("%s set the power of %s to %s through the Dominion API", by(by), player, Msg.number(now));
+        return Result.pass(Messages.get(AdminText.POWER_NOW, "player", name == null || name.isBlank() ? player.toString() : name,
+                "power", Msg.number(now)));
+    }
+
+    @Override
+    public Result unclaim(String world, int chunkX, int chunkZ, String by) {
+        ClaimService c = ctx.serviceOrNull(ClaimService.class);
+        if (c == null) {
+            return Result.fail(Messages.get(CommonText.FEATURE_OFF));
+        }
+        if (world == null || world.isBlank()) {
+            return Result.fail(Messages.get(AdminText.NOTHING_TO_RELEASE));
+        }
+        Result r = c.adminUnclaim(null, world, Keys.chunk(chunkX, chunkZ));
+        if (r.success()) {
+            ctx.logger().at(Level.INFO).log("%s released chunk %d, %d in %s through the Dominion API", by(by), chunkX, chunkZ, world);
+        }
+        return r;
+    }
+
+    @Override
+    public Result unclaimAll(UUID factionId, String by) {
+        ClaimService c = ctx.serviceOrNull(ClaimService.class);
+        Faction f = faction(factionId);
+        if (c == null) {
+            return Result.fail(Messages.get(CommonText.FEATURE_OFF));
+        }
+        if (f == null) {
+            return Result.fail(Messages.get(CommonText.NO_SUCH_FACTION));
+        }
+        int released = 0;
+        for (String world : List.copyOf(ctx.repo().claimWorlds())) {
+            for (long index : ctx.repo().claimsOf(world, f.id())) {
+                if (c.adminUnclaim(null, world, index).success()) {
+                    released++;
+                }
+            }
+        }
+        if (released == 0) {
+            return Result.fail(Messages.get(AdminText.NOTHING_TO_RELEASE));
+        }
+        ctx.logger().at(Level.INFO).log("%s released all %d chunks of %s through the Dominion API", by(by), released, f.tag());
+        return Result.pass(Messages.get(AdminText.RELEASED, "count", released));
     }
 }

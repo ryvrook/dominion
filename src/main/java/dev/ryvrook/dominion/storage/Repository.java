@@ -139,6 +139,11 @@ public final class Repository {
         return players.get(uuid);
     }
 
+    /** True when the player is loaded or has a saved record, without loading or creating one. */
+    public boolean knows(UUID uuid) {
+        return uuid != null && (players.containsKey(uuid) || java.nio.file.Files.exists(playerFile(uuid)));
+    }
+
     public Collection<PlayerData> loadedPlayers() {
         return Collections.unmodifiableCollection(players.values());
     }
