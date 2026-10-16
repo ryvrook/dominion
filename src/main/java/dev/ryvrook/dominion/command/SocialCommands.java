@@ -4,11 +4,15 @@ import com.hypixel.hytale.server.core.command.system.arguments.system.RequiredAr
 import com.hypixel.hytale.server.core.command.system.arguments.types.ArgTypes;
 import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.chat.ChatServiceImpl;
+import dev.ryvrook.dominion.config.Perms;
 import dev.ryvrook.dominion.model.PlayerData;
 import dev.ryvrook.dominion.service.NationService;
 import dev.ryvrook.dominion.text.Messages;
+import dev.ryvrook.dominion.ui.UiText;
 
 import java.util.Locale;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 /** Chat channels, announcements and personal toggles. */
 final class SocialCommands extends Section {
@@ -63,7 +67,25 @@ final class SocialCommands extends Section {
             c.good(on ? Messages.get(CommandText.THE_SIDEBAR_IS_VISIBLE) : Messages.get(CommandText.THE_SIDEBAR_IS_HIDDEN));
         });
 
-        root.sub(new PlayerCmd("tutorial", Messages.get(CommandText.DESC_OPEN_THE_FACTIONS_TUTORIAL))).handler(c -> ui().openTutorial(c.player()));
+        root.sub(tutorialCommand(c -> ui().openTutorial(c.player()), (c, name) -> {
+            Targets.Target t = target(c, name);
+            if (t != null) {
+                ctx.player(t.uuid()).resetTutorial();
+                c.good(Messages.get(UiText.TUTORIAL_RESET_DONE, "name", t.name()));
+            }
+        }));
+    }
+
+    /**
+     * /f tutorial opens the tutorial at its first step. /f tutorial reset with a player name, for admins only,
+     * forgets that player's progress so the tutorial opens again on their next join.
+     */
+    static PlayerCmd tutorialCommand(Consumer<Call> open, BiConsumer<Call, String> reset) {
+        PlayerCmd tutorial = new PlayerCmd("tutorial", Messages.get(CommandText.DESC_OPEN_THE_FACTIONS_TUTORIAL)).handler(open);
+        PlayerCmd resetCmd = tutorial.sub(new PlayerCmd("reset", Messages.get(UiText.TUTORIAL_RESET_DESC)).permission(Perms.admin()));
+        RequiredArg<String> who = resetCmd.withRequiredArg("player", Messages.get(CommandText.ARG_PLAYER_NAME), ArgTypes.STRING);
+        resetCmd.handler(c -> reset.accept(c, c.arg(who)));
+        return tutorial;
     }
 
     /** The readable channel name, which includes nation chat when the chat module reports it. */

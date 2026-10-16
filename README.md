@@ -75,6 +75,7 @@ need `dominion.admin`. `/f help <topic>` and `/fa` alone list everything.
 | `/f siege`, `/f shield set <hour>`, `/f raids` | Sieges and shields |
 | `/f nation create <tag> [name]`, `/f nation invite <tag>` | Nations |
 | `/f chat [channel]`, `/f hud`, `/f tutorial` | Chat channel, sidebar, tutorial |
+| `/f tutorial reset <player>` | Show a player the tutorial again on their next join, admins only |
 | `/balance [player]`, `/pay <player> <amount>`, `/baltop` | Personal money |
 | `/shop`, `/fshop [tag]`, `/fshop manage` | Server shop and faction shops |
 | `/fe`, `/fe bounty place <player> <amount>` | Events |
@@ -89,6 +90,12 @@ need `dominion.admin`. `/f help <topic>` and `/fa` alone list everything.
 | `/fe koth`, `/fe outpost`, `/fe envoy`, `/fe season`, `/fe payouts` | Event management |
 
 Chat channels switch with `/f chat` or a prefix on one line, `!` for faction, `@` for ally and `#` for nation.
+
+New players get a guided tutorial on their first join, one screen per step with the commands of that step and a
+button that does it for them, from founding a faction and claiming land to the map, the home, invites, relations,
+raids, the bank and chat. It opens again at the step they reached until they finish or skip it. `/f tutorial`
+and the Help tab of the panel bring it back, `misc.tutorial` turns the first join opener off and
+`misc.tutorialSteps` picks the steps a server shows.
 
 ## Settings
 
@@ -189,7 +196,7 @@ game client yet, so these are unverified until someone does.
   names and custom rank names.
 - Item currency counting, VaultUnlocked class names, envoy chest placement and console command payouts.
 - Nation chat, the importer against real data, live CombatLog tags and the SafeZone push back.
-- The tutorial on first join, the first daily backup and public chat reaching Atlas.
+- The tutorial page and its buttons, the first daily backup and public chat reaching Atlas.
 
 A faction tag in the tab list cannot be done server side.
 

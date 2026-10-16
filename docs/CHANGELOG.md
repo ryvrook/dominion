@@ -9,6 +9,14 @@
 - `faction.tagMax` and `nation.tagMax` default to 4 (was 16). Existing config.json files keep their own values.
 - New `faction.tagUppercase`, on by default, stores new and renamed faction tags in upper case. Existing tags are not rewritten until the faction renames itself.
 - The panel's create form has separate tag and name fields with hints that follow the live limits, and `/f create` replies with the label as it will show, for example "Created [TST] Testers".
+### For players
+- The tutorial is a guided page with ten steps, each with a dot row, the commands of that step in code rows and a
+  button that does the step, such as creating the faction, claiming the chunk you stand in, showing the chat map,
+  setting the home, sending an invite or depositing into the bank. A step that is already done says so in green.
+  The first join opener brings it back at the step reached until it is finished or skipped, and the Help tab of
+  the panel has a Tutorial button. `/f tutorial` opens it from the start and `/f tutorial reset <player>` lets an
+  admin show it again. The new `misc.tutorialSteps` setting trims the steps, and steps for features that are off
+  are left out on their own.
 
 ## 0.6.1 - 2026-10-16
 

@@ -1,0 +1,147 @@
+$C = "../Common.ui";
+
+$C.@PageOverlay {}
+
+$C.@Container {
+  Anchor: (Width: 900, Height: 680);
+
+  #Title {
+    Group {
+      $C.@Title #PageTitle {
+        @Text = "Tutorial";
+      }
+    }
+  }
+
+  #Content {
+    LayoutMode: Top;
+
+    Group {
+      LayoutMode: Left;
+      Anchor: (Height: 56, Bottom: 8);
+      Padding: (Horizontal: 14);
+      Background: (TexturePath: "../Common/ContainerBackgroundSecondary.png", Border: 23);
+
+      Label #Heading {
+        Style: (FontSize: 22, TextColor: #E8A93B, RenderBold: true, FontName: "Secondary", VerticalAlignment: Center);
+        FlexWeight: 1;
+      }
+
+      // One dot per step. The page colours them done, current and ahead and hides the unused ones.
+      Group #Dots {
+        LayoutMode: Left;
+        Anchor: (Width: 170);
+
+        Group #D0 {
+          Anchor: (Width: 12, Height: 12, Top: 22, Right: 5);
+          Background: (Color: #4a5260);
+          Visible: false;
+        }
+
+        Group #D1 {
+          Anchor: (Width: 12, Height: 12, Top: 22, Right: 5);
+          Background: (Color: #4a5260);
+          Visible: false;
+        }
+
+        Group #D2 {
+          Anchor: (Width: 12, Height: 12, Top: 22, Right: 5);
+          Background: (Color: #4a5260);
+          Visible: false;
+        }
+
+        Group #D3 {
+          Anchor: (Width: 12, Height: 12, Top: 22, Right: 5);
+          Background: (Color: #4a5260);
+          Visible: false;
+        }
+
+        Group #D4 {
+          Anchor: (Width: 12, Height: 12, Top: 22, Right: 5);
+          Background: (Color: #4a5260);
+          Visible: false;
+        }
+
+        Group #D5 {
+          Anchor: (Width: 12, Height: 12, Top: 22, Right: 5);
+          Background: (Color: #4a5260);
+          Visible: false;
+        }
+
+        Group #D6 {
+          Anchor: (Width: 12, Height: 12, Top: 22, Right: 5);
+          Background: (Color: #4a5260);
+          Visible: false;
+        }
+
+        Group #D7 {
+          Anchor: (Width: 12, Height: 12, Top: 22, Right: 5);
+          Background: (Color: #4a5260);
+          Visible: false;
+        }
+
+        Group #D8 {
+          Anchor: (Width: 12, Height: 12, Top: 22, Right: 5);
+          Background: (Color: #4a5260);
+          Visible: false;
+        }
+
+        Group #D9 {
+          Anchor: (Width: 12, Height: 12, Top: 22, Right: 5);
+          Background: (Color: #4a5260);
+          Visible: false;
+        }
+      }
+
+      Label #Counter {
+        Style: (FontSize: 14, TextColor: #878e9c, RenderBold: true, VerticalAlignment: Center, HorizontalAlignment: End);
+        Anchor: (Width: 70);
+      }
+    }
+
+    Group #Body {
+      FlexWeight: 1;
+      LayoutMode: TopScrolling;
+      ScrollbarStyle: $C.@DefaultScrollbarStyle;
+      Padding: (Right: 8);
+    }
+
+    Label #Reply {
+      Style: (FontSize: 14, TextColor: #5fd37a, RenderBold: true, Wrap: true, VerticalAlignment: Center);
+      Anchor: (Top: 6, Height: 24, Left: 10, Right: 10);
+      Visible: false;
+    }
+
+    Group {
+      LayoutMode: Left;
+      Anchor: (Height: 48, Top: 8);
+
+      $C.@TextButton #Action {
+        @Text = "";
+        @Anchor = (Width: 240, Right: 8);
+        Visible: false;
+      }
+
+      Group {
+        FlexWeight: 1;
+      }
+
+      $C.@SmallSecondaryTextButton #Skip {
+        @Anchor = (Width: 120, Left: 6, Top: 8);
+        Visible: false;
+      }
+
+      $C.@SmallSecondaryTextButton #Back {
+        @Anchor = (Width: 120, Left: 6, Top: 8);
+        Visible: false;
+      }
+
+      $C.@SmallSecondaryTextButton #Next {
+        @Anchor = (Width: 120, Left: 6, Top: 8);
+        Visible: false;
+      }
+    }
+  }
+}
+
+$C.@BackButton {}

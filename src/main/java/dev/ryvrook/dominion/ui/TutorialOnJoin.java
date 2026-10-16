@@ -5,9 +5,10 @@ import dev.ryvrook.dominion.DominionContext;
 import dev.ryvrook.dominion.model.PlayerData;
 
 /**
- * Opens the tutorial once for a new player when misc.tutorial is on. The page is marked as seen
- * as soon as it opens, so closing it early does not bring it back on the next join. Players who
- * already belong to a faction are treated as returning players and are only marked as seen.
+ * Opens the tutorial on join while misc.tutorial is on and the player has not finished or skipped it.
+ * It opens at the furthest step reached, so closing it early brings it back where the player left off.
+ * A player who already belongs to a faction and never opened the tutorial is a returning player and is
+ * only marked as finished.
  */
 final class TutorialOnJoin {
     private final DominionContext ctx;
@@ -23,13 +24,21 @@ final class TutorialOnJoin {
             return;
         }
         PlayerData data = ctx.player(player.getUuid());
-        if (data.tutorialSeen()) {
+        if (!shouldOpen(data)) {
             return;
         }
-        data.setTutorialSeen(true);
-        if (data.factionId() != null) {
-            return;
+        ui.resumeTutorial(player);
+    }
+
+    /** True when the opener shows the page. Marks a returning faction member as finished instead. */
+    static boolean shouldOpen(PlayerData data) {
+        if (data.tutorialFinished()) {
+            return false;
         }
-        ui.openTutorial(player);
+        if (data.tutorialStep() == null && data.factionId() != null) {
+            data.setTutorialFinished(true);
+            return false;
+        }
+        return true;
     }
 }

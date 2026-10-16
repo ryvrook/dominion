@@ -1,0 +1,23 @@
+// A command in a code style box with an optional explanation beside it.
+Group {
+  Anchor: (Height: 34, Bottom: 4);
+  LayoutMode: Left;
+
+  Group {
+    Anchor: (Width: 300);
+    Padding: (Horizontal: 10);
+    Background: (Color: #0d1117);
+    LayoutMode: Left;
+
+    Label #Command {
+      Style: (FontSize: 14, TextColor: #c9d1d9, RenderBold: true, VerticalAlignment: Center);
+      FlexWeight: 1;
+    }
+  }
+
+  Label #Desc {
+    Style: (FontSize: 13, TextColor: #96a9be, VerticalAlignment: Center, Wrap: true);
+    Anchor: (Left: 12);
+    FlexWeight: 1;
+  }
+}

@@ -233,6 +233,11 @@ public final class Defaults {
         s.define("chat.announceRenames", "Chat", "Tell every online player when a faction changes its tag or name", true);
         // Clan tags brief. New and renamed faction tags are stored in upper case, existing tags are left as they are.
         s.define("faction.tagUppercase", "Factions", "Store new and renamed faction tags in upper case", true);
+        // Tutorial brief. Which steps the guided tutorial shows, so a peaceful server can drop the raids step.
+        s.define("misc.tutorialSteps", "Storage", "Comma separated tutorial steps to show, from found, claim, map, home, invite, "
+                + "relations, raids, bank, chat and commands, in that order", "found,claim,map,home,invite,relations,raids,bank,chat,commands");
+        String step = "(found|claim|map|home|invite|relations|raids|bank|chat|commands)";
+        s.pattern("misc.tutorialSteps", "\\s*" + step + "(\\s*,\\s*" + step + ")*\\s*", "a comma separated list of found, claim, map, home, invite, relations, raids, bank, chat or commands");
 
         limits(s);
     }

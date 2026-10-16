@@ -276,6 +276,7 @@ Every key in `config.json`, generated from `config/Defaults.java`. There are 258
 | `misc.preset` | `classic` | one of classic, singleplayer, hardcore, peaceful | Active preset name |
 | `misc.tutorial` | `true` | true or false | Show the tutorial on first join |
 | `misc.singleplayerAutoPreset` | `true` | true or false | Apply the singleplayer preset automatically |
+| `misc.tutorialSteps` | `found,claim,map,home,invite,relations,raids,bank,chat,commands` | a comma separated list of found, claim, map, home, invite, relations, raids, bank, chat or commands | Comma separated tutorial steps to show, from found, claim, map, home, invite, relations, raids, bank, chat and commands, in that order |
 
 ## Map
 
