@@ -47,6 +47,7 @@ public final class DominionPlugin extends JavaPlugin {
     private final Map<String, String> moduleState = new LinkedHashMap<>();
     private final AtomicBoolean saving = new AtomicBoolean();
     private ExecutorService io;
+    private volatile boolean stopping;
 
     public DominionPlugin(JavaPluginInit init) {
         super(init);
@@ -164,6 +165,37 @@ public final class DominionPlugin extends JavaPlugin {
             }
         }, autosave, autosave, TimeUnit.SECONDS));
         adoptOnlinePlayers();
+        // Other mods bind from DominionApi.onEnable once every module is up, not while setup is still running.
+        dev.ryvrook.dominion.api.ApiHolder.enable();
+        reloadDependentsAfterReload();
+    }
+
+    /**
+     * After a /plugin reload of Dominion the plugins that list it still hold the old API classes. They are reloaded
+     * two seconds later on a thread of their own, under the lock TrackerAPI and Coinage take for the same pass. On a
+     * fresh boot none of them is enabled yet, so nothing happens.
+     */
+    private void reloadDependentsAfterReload() {
+        List<Dependents.Dependent> dependents = Dependents.enabled(getIdentifier(), getLogger());
+        if (dependents.isEmpty()) {
+            return;
+        }
+        getLogger().at(Level.INFO).log("Dominion found %d plugins linked to its previous instance and reloads them in two seconds",
+                dependents.size());
+        tasks.add(HytaleServer.SCHEDULED_EXECUTOR.schedule(() -> {
+            if (stopping) {
+                return;
+            }
+            Thread pass = new Thread(() -> {
+                try {
+                    Dependents.reload(dependents, getLogger());
+                } catch (RuntimeException | LinkageError e) {
+                    getLogger().at(Level.WARNING).withCause(e).log("Dominion could not reload the plugins linked to it");
+                }
+            }, "Dominion-dependents");
+            pass.setDaemon(true);
+            pass.start();
+        }, 2, TimeUnit.SECONDS));
     }
 
     /**
@@ -190,6 +222,9 @@ public final class DominionPlugin extends JavaPlugin {
 
     @Override
     protected void shutdown() {
+        stopping = true;
+        // The hooks of other mods run before any module stops, while the API still answers.
+        dev.ryvrook.dominion.api.ApiHolder.disable();
         AssetPackFix.release(this);
         for (ScheduledFuture<?> t : tasks) {
             t.cancel(false);
