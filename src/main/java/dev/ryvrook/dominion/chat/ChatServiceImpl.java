@@ -347,8 +347,9 @@ public final class ChatServiceImpl implements ChatService {
         return Message.raw(content == null ? "" : content).color(color);
     }
 
+    /** The chat prefix. Brackets use the same clan tag form as the faction label everywhere else. */
     private String plainTag(String tag) {
-        return bracketed() ? "[" + tag + "] " : tag + " ";
+        return bracketed() ? Faction.bracketed(tag) + " " : tag + " ";
     }
 
     private boolean bracketed() {

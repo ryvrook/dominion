@@ -340,7 +340,7 @@ public final class UiServiceImpl implements UiService {
             }
             ChatService chat = ctx.serviceOrNull(ChatService.class);
             Message tag = chat instanceof ChatServiceImpl impl ? impl.factionTag(viewer, owner)
-                    : Message.raw(owner.tag() + " ").color(rel.color());
+                    : Message.raw(Faction.bracketed(owner.tag()) + " ").color(rel.color());
             String phrase = switch (rel) {
                 case OWN -> Messages.get(UiText.BANNER_OWN);
                 case ALLY -> Messages.get(UiText.BANNER_ALLY);

@@ -179,6 +179,6 @@ final class Nameplates extends RefSystem<EntityStore> {
 
     /** Nameplate text with the bracketed tag in front. */
     static String text(String tag, String name) {
-        return "[" + tag + "] " + name;
+        return Faction.bracketed(tag) + " " + name;
     }
 }
