@@ -208,7 +208,7 @@ dependency through the plugin bridge loader, so the bridges can name the sibling
   gets every class it needs before it sleeps, because after a reload the old plugin loader hands out the new
   instance's classes and the JVM refuses them. A headless run on 2026-10-15 reloaded Feats, Coinage, Atlas, TrackerAPI
   and Dominion in turn and logged "Enabled plugin Ryvrook:Dominion" once for each. A
-  sibling that was unloaded logs one warning. `Integrations` is registered as a service under its own
+  sibling still gone after three polls in a row, 15 seconds, logs one warning, so the gap of a reload in progress stays quiet. `Integrations` is registered as a service under its own
   class and feeds `/fa integrations`.
 - Bridges. `integration.tracker.TrackerBridge`, `integration.feats.FeatsBridge`, `integration.atlas.AtlasBridge` and
   `integration.coinage.CoinageLink` are the only classes that name sibling types. Every call into a sibling is guarded, and stop sets a stopped flag

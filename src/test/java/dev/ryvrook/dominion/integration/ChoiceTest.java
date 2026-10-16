@@ -152,7 +152,13 @@ class ChoiceTest {
         Binding bound = new Binding(Choice.decide(Sibling.ATLAS, Mode.AUTO, found), s -> now.get());
         bound.attach(new FakeLink());
         now.set(MISSING);
-        assertTrue(bound.poll().contains("was unloaded"));
+        assertNull(bound.poll(), "gone for one poll can be a reload in progress");
+        now.set(found);
+        assertNull(bound.poll(), "back as the same instance, nothing changed");
+        now.set(MISSING);
+        assertNull(bound.poll());
+        assertNull(bound.poll());
+        assertTrue(bound.poll().contains("was unloaded"), "gone for three polls in a row");
 
         AtomicReference<Presence.Found> later = new AtomicReference<>(MISSING);
         Binding missing = new Binding(Choice.decide(Sibling.FEATS, Mode.AUTO, MISSING), s -> later.get());

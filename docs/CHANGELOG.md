@@ -8,6 +8,8 @@
   leaderboard like the other counters.
 - With Feats 1.7.0 or newer Dominion links and unlinks through the Feats enable and disable hooks, the way it does
   with TrackerAPI, Atlas and Coinage. An older Feats is still found by the watch every 5 seconds.
+- A sibling that is gone for one look during its own `/plugin reload` no longer logs "was unloaded" as a warning.
+  Dominion waits until it has been gone for 15 seconds, so a slow TrackerAPI reload stays quiet.
 
 ### For mod authors
 - New bus event `MemberRankChanged(factionId, member, actor, fromRank, toRank)`, published after every promote,

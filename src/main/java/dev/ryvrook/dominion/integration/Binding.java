@@ -19,6 +19,7 @@ final class Binding {
     private volatile boolean changed;
     private volatile String failure;
     private volatile boolean relink;
+    private int absentPolls;
 
     Binding(Choice choice, Presence.Lookup lookup) {
         this.choice = choice;
@@ -78,13 +79,20 @@ final class Binding {
         }
         Object seen = choice.found().plugin();
         if (now.plugin() == seen) {
+            absentPolls = 0;
             return null;
         }
         String name = choice.sibling().pluginName();
         if (now.plugin() == null) {
+            // A sibling in the middle of a /plugin reload is gone for a moment, and one that reloads its dependents
+            // brings Dominion back itself. Only a sibling still gone after three polls was really removed.
+            if (++absentPolls < ABSENT_POLLS) {
+                return null;
+            }
             changed = true;
             return choice.bind() ? name + " was unloaded, so Dominion stopped using it until " + RELOAD + " runs with it back" : null;
         }
+        absentPolls = 0;
         if (!now.running()) {
             return null;
         }
@@ -100,6 +108,9 @@ final class Binding {
                 ? name + " " + now.version() + " was installed after Dominion started, so Dominion reloads to link to it"
                 : name + " was reloaded, so Dominion reloads to link to the new instance";
     }
+
+    /** Polls in a row a bound sibling must be gone before it counts as removed, 15 seconds. */
+    static final int ABSENT_POLLS = 3;
 
     /** The TrackerAPI that reloads its dependents after its own reload or a late start. */
     static final String TRACKER_RELOADS_DEPENDENTS = "1.0.3";
