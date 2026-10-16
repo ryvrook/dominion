@@ -6,6 +6,8 @@
 - `dominion:rank_changes` is sent now. Each promote or demote counts once for the member whose rank moved, not for
   the member who made the change, which is what the Promoted feats in Feats 1.7.2 read. It has a TrackerAPI
   leaderboard like the other counters.
+- With Feats 1.7.0 or newer Dominion links and unlinks through the Feats enable and disable hooks, the way it does
+  with TrackerAPI, Atlas and Coinage. An older Feats is still found by the watch every 5 seconds.
 
 ### For mod authors
 - New bus event `MemberRankChanged(factionId, member, actor, fromRank, toRank)`, published after every promote,

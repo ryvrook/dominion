@@ -55,6 +55,11 @@ class AtlasBridgeTest {
         }
         @Override public void setHidden(UUID player, boolean hidden, String reason) { }
         @Override public boolean isHidden(UUID player) { return false; }
+        @Override public String publicUrl() { return ""; }
+        @Override public boolean publicUrlSet() { return false; }
+        @Override public dev.ryvrook.atlas.api.RenderStatus renderStatus() { return null; }
+        @Override public List<dev.ryvrook.atlas.api.WorldStatus> worlds() { return List.of(); }
+        @Override public Runnable onMarker(java.util.function.Consumer<dev.ryvrook.atlas.api.MarkerEvent> listener) { return () -> { }; }
 
         void up() { enable(this); }
         void down() { disable(this); }

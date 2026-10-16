@@ -24,9 +24,9 @@ import java.util.function.Consumer;
  * player's faction chat. The only class of Dominion that uses Feats types, loaded by name once the plugin manager
  * listed Feats.
  *
- * <p>Feats publishes its API in its own setup and has no enable hook, so the bridge links at once when the API
- * is there and otherwise tries again on every watch poll. A Feats reload drops the unlock listener on the Feats
- * side and leaves this class with the old API, which the integration watch reports.
+ * <p>Feats 1.7.0 and newer have enable and disable hooks, and the bridge links and unlinks through them. An older
+ * Feats has none, so the bridge links at once when the API is there and otherwise tries again on every watch poll.
+ * A Feats reload drops the unlock listener on the Feats side, and Feats then reloads Dominion, which links again.
  */
 public final class FeatsBridge implements Link, StatSink {
     static final String ANNOUNCE = "integrations.featsAnnounce";
@@ -38,6 +38,9 @@ public final class FeatsBridge implements Link, StatSink {
     private volatile Runnable removeListener;
     private volatile boolean stopped;
     private volatile boolean warned;
+    private final Consumer<FeatsApi> enableHook = this::bind;
+    private final Runnable disableHook = this::unbind;
+    private volatile boolean hooked;
 
     private FeatsBridge(Host host) {
         this.host = host;
@@ -47,13 +50,20 @@ public final class FeatsBridge implements Link, StatSink {
     public static Link install(Host host) {
         FeatsBridge b = new FeatsBridge(host);
         host.stats().add(b);
+        try {
+            FeatsApi.onDisable(b.disableHook);
+            FeatsApi.onEnable(b.enableHook);
+            b.hooked = true;
+        } catch (RuntimeException | LinkageError e) {
+            // A Feats older than 1.7.0 has no hooks, the watch poll links instead.
+        }
         b.poll();
         return b;
     }
 
     /** Links to the running Feats API when it is not linked yet. */
     @Override
-    public synchronized void poll() {
+    public void poll() {
         if (stopped) {
             return;
         }
@@ -63,7 +73,11 @@ public final class FeatsBridge implements Link, StatSink {
         } catch (RuntimeException | LinkageError e) {
             return;
         }
-        if (live == null || live == api) {
+        bind(live);
+    }
+
+    private synchronized void bind(FeatsApi live) {
+        if (stopped || live == null || live == api) {
             return;
         }
         dropListener();
@@ -176,10 +190,23 @@ public final class FeatsBridge implements Link, StatSink {
         return host.foundVersion();
     }
 
+    /** Feats is stopping. Its listeners go with it, so only the reference is dropped. */
+    private synchronized void unbind() {
+        removeListener = null;
+        api = null;
+    }
+
     @Override
     public synchronized void stop() {
         stopped = true;
         host.stats().remove(this);
+        if (hooked) {
+            try {
+                FeatsApi.removeHooks(enableHook, disableHook);
+            } catch (RuntimeException | LinkageError ignored) {
+                // Feats is already gone
+            }
+        }
         dropListener();
         api = null;
     }
