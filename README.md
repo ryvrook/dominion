@@ -14,7 +14,7 @@ Feats and Atlas are optional.
 
 ## Install
 
-Drop `DominionFactions-0.6.2.jar` into the server's `mods` folder, or `UserData/Mods` for a singleplayer
+Drop `DominionFactions-0.7.0.jar` into the server's `mods` folder, or `UserData/Mods` for a singleplayer
 world, and start the server. Dominion writes `config.json` with every setting and logs
 `Dominion started with 23 modules`. A singleplayer world gets the singleplayer preset on first run, which turns
 off raiding, sieges, shields, events and power loss.
@@ -166,9 +166,17 @@ TrackerAPI. Nothing to set up.
 
 Lullaby does not touch factions.
 
+**SocialBridge and RestAPI** read Dominion through `DominionApi`. SocialBridge posts faction events to Discord and,
+with its `dominion.factionChat` on, mirrors faction, ally, officer and nation lines into a Discord thread per
+faction and sends the replies back as faction chat under the Discord name. RestAPI serves factions, claims, sieges
+and relations under `/api/dominion` and, for keys with the `dominion.write` scope, disbands, sets a leader, sets
+power and releases claims. Every staff action from the API goes to the faction log and one server log line naming
+the caller.
+
 After a `/plugin reload` of Feats, Atlas or Coinage, or when one is installed while the server runs, Dominion
 notices within 5 seconds and reloads itself 3 seconds later. TrackerAPI 1.0.3 and newer and Coinage 1.1.0 reload
-Dominion themselves, and Dominion then skips its own pass.
+Dominion themselves, and Dominion then skips its own pass. After its own reload Dominion reloads SocialBridge,
+RestAPI and any other plugin that lists it, two seconds later, so they link to the new instance.
 
 ## Web map snapshot
 
@@ -186,7 +194,7 @@ market, vault, shops, progress, economy and imports folders, `nations.json`, `si
 
 ## Limits
 
-Dominion boots headless with all 23 modules next to Atlas and CombatLog and has 659 JUnit tests over money, storage,
+Dominion boots headless with all 23 modules next to Atlas and CombatLog and has 696 JUnit tests over money, storage,
 claims, power, relations, sieges, the market, the importer and the snapshot contract. I have not played it in a
 game client yet, so these are unverified until someone does.
 
@@ -211,9 +219,9 @@ cd dominion-factions
 ./gradlew installMod     # also copies the jar to your local Mods folder, -PmodsDir=<path> for elsewhere
 ```
 
-The jar lands in `build/libs/DominionFactions-0.6.2.jar`. `-Phytale_channel` and `-Phytale_version` pick
+The jar lands in `build/libs/DominionFactions-0.7.0.jar`. `-Phytale_channel` and `-Phytale_version` pick
 another server artifact. Each feature is a `DominionModule` loaded by name from `Wiring.MODULES`, and
-`DominionApi.get()` is the read API for other mods. [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) has the conventions.
+`DominionApi` is the API for other mods, bound from `DominionApi.onEnable`. [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) has the conventions.
 Read it before a pull request, keep changes inside one module, and say which server version you tested on.
 
 ## Licence

@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.7.0 - 2026-10-16
+
+### For admins
+- After a `/plugin reload` of Dominion, every enabled plugin that lists `Ryvrook:Dominion` in its manifest is
+  reloaded two seconds later, one at a time and under the same lock TrackerAPI and Coinage use, so SocialBridge and
+  RestAPI link to the new instance. A plugin someone else already reloaded is left alone.
+- Staff actions taken through the API (disband, set leader, set power, unclaim) write one server log line with the
+  caller's name, such as `RestAPI key ops force disbanded NRT through the Dominion API`.
+
+### For mod authors
+- `DominionApi.API_VERSION` is 2. `DominionApi.onEnable(Consumer)` runs at once when Dominion is up and after every
+  start, `onDisable(Runnable)` runs first thing on shutdown, `removeHooks` drops both. `DominionApi.find()` and
+  `isPresent()` answer without throwing.
+- `factions()` lists every faction with safe and war zones, sorted by tag, and `factionById(UUID)` finds one.
+- `sieges()` and `siegeHistory(factionId, limit)` return `SiegeInfo` records with both sides, their tags, the
+  phase, when it ends, the banner position and the counts.
+- A `DominionEvent.ChatLine` is published for every faction, ally, officer and nation line, with the faction id and
+  tag, the channel, the sender and name, the text and the time. `sendFactionChat(factionId, name, text)` sends a line
+  from outside the game to the faction's online members and publishes it with a null sender. Lines are cut at 256
+  characters. Private lines still never reach `export/snapshot.json`.
+- Staff actions `disband`, `setLeader`, `setPower`, `unclaim(world, chunkX, chunkZ)` and `unclaimAll` return a
+  `Result` with the reason. `setPower` refuses a player Dominion has never seen.
+- Methods added after 0.6.2 have default bodies, so a stand in API written against the older jar still compiles.
+- The build compiles against TrackerAPI 1.1.0, Coinage api 1.2.0, Feats 1.6.0 and Atlas 1.7.0.
+
 ## 0.6.2 - 2026-10-16
 
 ### Changed

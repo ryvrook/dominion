@@ -330,6 +330,31 @@ How Dominion uses it.
   a tab click and shows a button and Dominion's mailbox instead of its listing tabs while `market.useCoinage` is on.
   `shop.useCoinage` is defined but off and unused until Coinage shops can have a shared account owner.
 
+## The API for other mods
+
+`api.DominionApi` is the contract SocialBridge, RestAPI and any other mod compile against. Methods, events and record
+components are only ever added, and `API_VERSION` goes up with each addition (2 since 0.7.0). A method added after
+0.6.2 has a default body so a stand in written against an older jar still compiles. Values handed out are Dominion's
+own model types or plain records such as `SiegeInfo` and `DominionEvent.ChatLine`, never an engine object.
+
+- Lifecycle. `export.ExportModule` sets the instance in `ApiHolder` during setup, so `get()` answers while the other
+  modules start. `DominionPlugin.start` runs the `onEnable` hooks once every module started, and `shutdown` runs the
+  `onDisable` hooks before any module stops. `onEnable` runs at once when Dominion is already up.
+- Dependents. `Dependents` is the class TrackerAPI and Coinage use, renamed. At start it lists the enabled plugins
+  whose manifest names `Ryvrook:Dominion`. On a fresh boot there are none, since the dependency orders the load.
+  After a reload it reloads them two seconds later on the `Dominion-dependents` thread, under the `ReentrantLock` in
+  the system property `ryvrook.dependents.lock`, in dependency order, and leaves alone any plugin whose instance
+  changed since Dominion started.
+- Chat. `ChatServiceImpl` publishes a `ChatLine` after it delivered a faction, ally, officer or nation line.
+  `sendFactionChat` goes through `ChatService.sendExternal`, which publishes with a null sender so a relay can skip
+  its own lines. The export module ignores `ChatLine`, private channels never reach the snapshot.
+- Staff actions call the same service methods as `/fa force disband`, `/fa force leader`, `/fa power set` and
+  `/fa unclaim` with a null admin id and the caller's name, and log one INFO line each. `setPower` checks
+  `Repository.knows` first, because `ctx.player` would create a record for any id.
+- A stop path never loads a sibling class for the first time. The plugin manager holds its write lock during
+  shutdown and the bridge class loader needs the read lock, so a first load there hangs for 5 seconds. Every class
+  shutdown touches is loaded during start, and a bridge that never bound is never touched on stop.
+
 ## Hot paths
 
 - Claims overlay. `OverlayPainter.paint` works out a fill and an outline colour per palette entry and only moves
